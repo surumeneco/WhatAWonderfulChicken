@@ -65,8 +65,8 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if (riding != null) {
-            Bukkit.getOnlinePlayers().forEach(riding::restoreHud);
-        }
+        if (inventories != null) inventories.closeAll();
+        if (riding != null) riding.shutdown();
+        if (displays != null) displays.removeAll();
     }
 }
