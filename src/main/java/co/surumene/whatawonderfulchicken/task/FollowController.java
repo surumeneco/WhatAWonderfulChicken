@@ -29,7 +29,7 @@ public final class FollowController implements Runnable {
     @Override
     public void run() {
         for (Chicken chicken : chickens.loadedChickens()) {
-            if (!chicken.getPassengers().isEmpty()) {
+            if (isRidden(chicken)) {
                 chicken.setAware(false);
                 chicken.getPathfinder().stopPathfinding();
                 continue;
@@ -71,6 +71,14 @@ public final class FollowController implements Runnable {
                 waitPassively(chicken);
             }
         }
+    }
+
+    private boolean isRidden(Chicken chicken) {
+        if (!chicken.getPassengers().isEmpty()) return true;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (player.getVehicle() == chicken) return true;
+        }
+        return false;
     }
 
     private void waitPassively(Chicken chicken) {
