@@ -417,11 +417,6 @@ public final class InventoryService {
         return block.append(Component.newline()).append(line);
     }
 
-    private Component infoLine(String label, String value, NamedTextColor valueColor) {
-        return Component.text("  " + label + ": ", NamedTextColor.GRAY)
-                .append(Component.text(value, valueColor));
-    }
-
     private NamedTextColor rankColor(Rank rank) {
         return switch (rank) {
             case MISERABLE -> NamedTextColor.DARK_RED;
