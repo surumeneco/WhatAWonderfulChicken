@@ -79,6 +79,8 @@ public final class InteractionListener implements Listener {
         if (!chicken.isAdult() || store.load(chicken).carpet() == null) return;
         if (!chicken.getPassengers().isEmpty()) return;
         event.setCancelled(true);
+        chicken.getPathfinder().stopPathfinding();
+        chicken.setAware(false);
         chicken.addPassenger(player);
     }
 
