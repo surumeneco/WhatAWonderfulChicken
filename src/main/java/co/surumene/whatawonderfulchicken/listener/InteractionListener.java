@@ -56,13 +56,32 @@ public final class InteractionListener implements Listener {
         this.riding = riding;
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGH)
     public void onEntityInteract(PlayerInteractEntityEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) return;
-        if (!(event.getRightClicked() instanceof Chicken chicken) || !store.isWonderful(chicken)) return;
         Player player = event.getPlayer();
+
+        Chicken chicken;
+        boolean mountedProxy;
+        if (event.getRightClicked() instanceof Chicken direct && store.isWonderful(direct)) {
+            chicken = direct;
+            mountedProxy = false;
+        } else {
+            chicken = riding.interactionOwner(event.getRightClicked());
+            if (chicken == null) return;
+            mountedProxy = true;
+        }
+
         if (player.isSneaking()) return;
         ItemStack hand = player.getInventory().getItemInMainHand();
+
+        if (mountedProxy) {
+            if (player.getVehicle() != chicken) return;
+            event.setCancelled(true);
+            if (ItemUtil.isCarpet(hand)) equipCarpet(player, chicken, hand);
+            else inventories.open(player, chicken);
+            return;
+        }
 
         if (ItemUtil.isCarpet(hand)) {
             event.setCancelled(true);
@@ -76,7 +95,6 @@ public final class InteractionListener implements Listener {
                 chicken.setHealth(Math.min(chicken.getMaxHealth(), chicken.getHealth() + config.healPerSeed()));
                 consumeOne(player, hand);
             }
-            // At full health, leave breeding / chick growth to vanilla instead of mounting.
             return;
         }
 
