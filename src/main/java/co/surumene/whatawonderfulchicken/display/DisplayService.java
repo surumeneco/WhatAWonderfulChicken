@@ -97,6 +97,7 @@ public final class DisplayService {
                 spawned.setMarker(true);
                 spawned.setSmall(true);
                 spawned.setGravity(false);
+                spawned.setPersistent(false);
                 spawned.setInvulnerable(true);
                 spawned.setSilent(true);
                 spawned.setBasePlate(false);
