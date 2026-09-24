@@ -58,6 +58,7 @@ public final class RidingController implements Runnable {
 
     private void tickMounted(Player player, Chicken chicken) {
         WonderfulChickenData data = store.load(chicken);
+        if (chicken.hasAI()) chicken.setAI(false);
         Input input = player.getCurrentInput();
         boolean onGround = chicken.isOnGround();
         boolean inWater = chicken.isInWater();
