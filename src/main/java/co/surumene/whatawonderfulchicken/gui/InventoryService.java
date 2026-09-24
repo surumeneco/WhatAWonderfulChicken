@@ -173,6 +173,17 @@ public final class InventoryService {
         locks.remove(holder.chickenId(), event.getPlayer().getUniqueId());
     }
 
+    public void handlePlayerExit(Player player) {
+        Inventory top = player.getOpenInventory().getTopInventory();
+        if (!(top.getHolder() instanceof WonderfulChickenInventoryHolder holder)) return;
+        Entity entity = Bukkit.getEntity(holder.chickenId());
+        boolean skipCargoSync = skipCargoSyncOnClose.remove(player.getUniqueId());
+        if (!skipCargoSync && entity instanceof Chicken chicken && store.isWonderful(chicken) && top.getSize() == 36) {
+            syncCargo(chicken, top);
+        }
+        locks.remove(holder.chickenId(), player.getUniqueId());
+    }
+
     public void closeFor(Chicken chicken) {
         UUID viewerId = locks.remove(chicken.getUniqueId());
         if (viewerId == null) return;
