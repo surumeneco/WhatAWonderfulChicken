@@ -354,20 +354,21 @@ public final class CommandService {
         int index = 0;
         for (Chicken chicken : targets) {
             index++;
-            if (index > 1) sender.sendMessage(Component.empty());
-
             WonderfulChickenData data = store.load(chicken);
-            Component header = Component.text("◆ ", NamedTextColor.GOLD)
+            Component block = Component.text("◆ ", NamedTextColor.GOLD)
                     .append(Component.text(messages.text(sender, "command.info_header", index, total), NamedTextColor.YELLOW)
-                            .decorate(TextDecoration.BOLD));
-            sender.sendMessage(header);
-            sender.sendMessage(infoLine(messages.text(sender, "command.info_uuid"), chicken.getUniqueId().toString(), NamedTextColor.GRAY));
-            sender.sendMessage(infoLine(messages.text(sender, "command.info_bloodline"),
-                    chickens.displayBloodlineId(data.bloodlineId()), NamedTextColor.AQUA));
-            sender.sendMessage(infoLine(messages.text(sender, "command.info_generation"),
-                    Integer.toString(data.generation()), NamedTextColor.AQUA));
-            sender.sendMessage(infoLine(messages.text(sender, "command.info_behavior"),
-                    messages.text(sender, "behavior." + data.behaviorMode().name().toLowerCase(Locale.ROOT)), NamedTextColor.GREEN));
+                            .decorate(TextDecoration.BOLD))
+                    .append(Component.newline())
+                    .append(infoLine(messages.text(sender, "command.info_uuid"), chicken.getUniqueId().toString(), NamedTextColor.GRAY))
+                    .append(Component.newline())
+                    .append(infoLine(messages.text(sender, "command.info_bloodline"),
+                            chickens.displayBloodlineId(data.bloodlineId()), NamedTextColor.AQUA))
+                    .append(Component.newline())
+                    .append(infoLine(messages.text(sender, "command.info_generation"),
+                            Integer.toString(data.generation()), NamedTextColor.AQUA))
+                    .append(Component.newline())
+                    .append(infoLine(messages.text(sender, "command.info_behavior"),
+                            messages.text(sender, "behavior." + data.behaviorMode().name().toLowerCase(Locale.ROOT)), NamedTextColor.GREEN));
 
             for (StatType stat : StatType.values()) {
                 Rank rank = Rank.fromNormalized(data.normalized(stat));
@@ -377,12 +378,14 @@ public final class CommandService {
                                 + String.format(Locale.ROOT, "%.3f", data.normalized(stat)), NamedTextColor.DARK_GRAY))
                         .append(Component.text("  [" + messages.rank(sender, rank.key()) + "]", rankColor(rank))
                                 .decorate(TextDecoration.BOLD));
-                sender.sendMessage(line);
+                block = block.append(Component.newline()).append(line);
             }
 
-            sender.sendMessage(infoLine(messages.text(sender, "command.info_current_stamina"),
-                    String.format(Locale.ROOT, "%.2f / %.2f", data.currentStamina(), data.value(StatType.STAMINA)),
-                    NamedTextColor.GREEN));
+            block = block.append(Component.newline()).append(
+                    infoLine(messages.text(sender, "command.info_current_stamina"),
+                            String.format(Locale.ROOT, "%.2f / %.2f", data.currentStamina(), data.value(StatType.STAMINA)),
+                            NamedTextColor.GREEN));
+            sender.sendMessage(block);
         }
     }
 
