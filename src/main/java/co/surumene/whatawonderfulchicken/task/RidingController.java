@@ -1,5 +1,6 @@
 package co.surumene.whatawonderfulchicken.task;
 
+import co.surumene.whatawonderfulchicken.WhatAWonderfulChickenPlugin;
 import co.surumene.whatawonderfulchicken.config.ConfigService;
 import co.surumene.whatawonderfulchicken.data.StatType;
 import co.surumene.whatawonderfulchicken.data.WonderfulChickenData;
@@ -7,9 +8,14 @@ import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
 import org.bukkit.Bukkit;
 import org.bukkit.Input;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Chicken;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Interaction;
 import org.bukkit.entity.Player;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
@@ -23,6 +29,8 @@ public final class RidingController implements Runnable {
     private final WonderfulChickenService chickens;
     private final WonderfulChickenStore store;
     private final ConfigService config;
+    private final NamespacedKey mountedInteractionOwnerKey;
+    private final Map<UUID, UUID> mountedInteractionProxies = new HashMap<>();
     private final Map<UUID, Long> lastAirborneTick = new HashMap<>();
     private final Map<UUID, Boolean> roadCache = new HashMap<>();
     private final Map<UUID, UUID> mountedChickens = new HashMap<>();
@@ -30,10 +38,12 @@ public final class RidingController implements Runnable {
     private final Set<UUID> airFlapLockedUntilJumpRelease = new HashSet<>();
     private long tick;
 
-    public RidingController(WonderfulChickenService chickens, WonderfulChickenStore store, ConfigService config) {
+    public RidingController(WhatAWonderfulChickenPlugin plugin, WonderfulChickenService chickens, WonderfulChickenStore store, ConfigService config) {
         this.chickens = chickens;
         this.store = store;
         this.config = config;
+        this.mountedInteractionOwnerKey = new NamespacedKey(plugin, "mounted_interaction_owner");
+        cleanupInteractionProxies();
     }
 
     @Override
