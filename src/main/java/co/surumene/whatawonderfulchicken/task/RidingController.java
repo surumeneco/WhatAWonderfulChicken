@@ -198,6 +198,14 @@ public final class RidingController implements Runnable {
         return owner instanceof Chicken chicken && store.isWonderful(chicken) ? chicken : null;
     }
 
+    private void removeInteractionProxy(UUID chickenId) {
+        UUID proxyId = mountedInteractionProxies.remove(chickenId);
+        if (proxyId == null) return;
+        mountedInteractionOwners.remove(proxyId);
+        Entity proxy = Bukkit.getEntity(proxyId);
+        if (proxy != null) proxy.remove();
+    }
+
     private boolean isGrounded(Chicken chicken) {
         if (chicken.isOnGround()) return true;
         if (chicken.isInWater()) return false;
