@@ -43,7 +43,12 @@ public final class WonderfulChickenService {
         if (!store.isWonderful(chicken)) return;
         loaded.add(chicken.getUniqueId());
         synchronizeRangePolicy(chicken);
-        projectAttributes(chicken);
+        WonderfulChickenData data = store.load(chicken);
+        if (!config.persistCurrentStamina()) {
+            data.currentStamina(data.value(StatType.STAMINA));
+            store.save(chicken, data);
+        }
+        synchronizeBehaviorState(chicken, data);
     }
 
     public void unregisterLoaded(Chicken chicken) {
@@ -189,10 +194,9 @@ public final class WonderfulChickenService {
 
     private static double truncatedGaussian(double mean, double stdDev, double min, double max) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        for (int i = 0; i < 10_000; i++) {
+        while (true) {
             double value = mean + random.nextGaussian() * stdDev;
             if (value >= min && value <= max) return value;
         }
-        return Math.max(min, Math.min(max, mean));
     }
 }
