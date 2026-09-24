@@ -68,7 +68,8 @@ public final class FollowController implements Runnable {
             }
 
             if (!chicken.isAware()) chicken.setAware(true);
-            if (!chicken.getPathfinder().moveTo(target, 1.0)) {
+            var path = chicken.getPathfinder().findPath(target, (int) FOLLOW_STOP_DISTANCE);
+            if (path == null || !chicken.getPathfinder().moveTo(path, 1.0)) {
                 waitPassively(chicken);
             }
         }
