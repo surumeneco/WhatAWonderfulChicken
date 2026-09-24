@@ -2,7 +2,6 @@ package co.surumene.whatawonderfulchicken.task;
 
 import co.surumene.whatawonderfulchicken.config.ConfigService;
 import co.surumene.whatawonderfulchicken.data.BehaviorMode;
-import co.surumene.whatawonderfulchicken.data.StatType;
 import co.surumene.whatawonderfulchicken.data.WonderfulChickenData;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
@@ -13,6 +12,8 @@ import org.bukkit.entity.Chicken;
 import org.bukkit.entity.Player;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
+
+import java.util.concurrent.ThreadLocalRandom;
 
 public final class FollowController implements Runnable {
     private final WonderfulChickenService chickens;
@@ -30,40 +31,50 @@ public final class FollowController implements Runnable {
         for (Chicken chicken : chickens.loadedChickens()) {
             if (!chicken.getPassengers().isEmpty()) continue;
             WonderfulChickenData data = store.load(chicken);
+            if (!chicken.hasAI()) chicken.setAI(true);
+
             if (data.behaviorMode() == BehaviorMode.WANDER) {
-                if (!chicken.hasAI()) chicken.setAI(true);
+                if (!chicken.isAware()) chicken.setAware(true);
                 continue;
             }
-            if (chicken.hasAI()) chicken.setAI(false);
+
             if (data.behaviorMode() == BehaviorMode.WAIT || data.followTarget() == null) {
+                waitPassively(chicken);
                 continue;
             }
+
             Player target = Bukkit.getPlayer(data.followTarget());
             if (target == null || !target.isOnline() || target.getWorld() != chicken.getWorld()) {
+                waitPassively(chicken);
                 continue;
             }
+
             double distance = chicken.getLocation().distance(target.getLocation());
             if (distance >= config.followTeleportDistance()) {
                 Location safe = findSafeNear(target, chicken);
                 if (safe != null) chicken.teleport(safe);
+                waitPassively(chicken);
                 continue;
             }
+
             if (distance <= 2.5) {
+                waitPassively(chicken);
                 continue;
             }
-            Vector delta = target.getLocation().toVector().subtract(chicken.getLocation().toVector());
-            delta.setY(0);
-            if (delta.lengthSquared() == 0) continue;
-            float facingYaw = (float) Math.toDegrees(Math.atan2(-delta.getX(), delta.getZ()));
-            double speed = Math.min(data.value(StatType.GROUND_SPEED) / 20.0, 0.55);
-            Vector velocity = chicken.getVelocity();
-            Vector horizontal = delta.normalize().multiply(speed);
-            velocity.setX(horizontal.getX()).setZ(horizontal.getZ());
-            if (chicken.isOnGround() && target.getLocation().getY() - chicken.getLocation().getY() > 0.8) {
-                velocity.setY(chickens.jumpVelocityForHeight(Math.min(data.value(StatType.JUMP_STRENGTH), 2.0)));
+
+            if (!chicken.isAware()) chicken.setAware(true);
+            if (!chicken.getPathfinder().moveTo(target, 1.0)) {
+                waitPassively(chicken);
             }
-            chicken.setVelocity(velocity);
-            chicken.setRotation(facingYaw, chicken.getLocation().getPitch());
+        }
+    }
+
+    private void waitPassively(Chicken chicken) {
+        if (chicken.isAware()) chicken.setAware(false);
+        chicken.getPathfinder().stopPathfinding();
+        if (ThreadLocalRandom.current().nextDouble() < 0.08) {
+            float yaw = chicken.getYaw() + (float) ThreadLocalRandom.current().nextDouble(-60.0, 60.0);
+            chicken.setRotation(yaw, chicken.getPitch());
         }
     }
 
