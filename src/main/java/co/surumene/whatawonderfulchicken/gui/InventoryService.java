@@ -333,15 +333,15 @@ public final class InventoryService {
         ItemStack item = placeholder(Material.WRITABLE_BOOK, messages.text(viewer.locale(), "gui.pedigree"));
         ItemMeta meta = item.getItemMeta();
         List<Component> lore = new ArrayList<>();
-        lore.add(Component.text("ID: " + data.bloodlineId()));
-        lore.add(Component.text("Generation: " + data.generation()));
+        lore.add(Component.text(messages.text(viewer.locale(), "gui.pedigree_id", data.bloodlineId())));
+        lore.add(Component.text(messages.text(viewer.locale(), "gui.generation", data.generation())));
         PedigreeData p = data.pedigree();
-        addAncestor(lore, "Parent A", p.parentA());
-        addAncestor(lore, "Parent B", p.parentB());
-        addAncestor(lore, "Grandparent A-A", p.grandparentAA());
-        addAncestor(lore, "Grandparent A-B", p.grandparentAB());
-        addAncestor(lore, "Grandparent B-A", p.grandparentBA());
-        addAncestor(lore, "Grandparent B-B", p.grandparentBB());
+        addAncestor(lore, viewer, "gui.parent_a", p.parentA());
+        addAncestor(lore, viewer, "gui.parent_b", p.parentB());
+        addAncestor(lore, viewer, "gui.grandparent_aa", p.grandparentAA());
+        addAncestor(lore, viewer, "gui.grandparent_ab", p.grandparentAB());
+        addAncestor(lore, viewer, "gui.grandparent_ba", p.grandparentBA());
+        addAncestor(lore, viewer, "gui.grandparent_bb", p.grandparentBB());
         meta.lore(lore);
         item.setItemMeta(meta);
         return item;
@@ -356,12 +356,12 @@ public final class InventoryService {
             for (StatType stat : StatType.values()) player.sendMessage(stat.commandName() + "=" + formatValue(stat, data.value(stat)) + " normalized=" + String.format(Locale.ROOT, "%.4f", data.normalized(stat)));
         } else {
             PedigreeData p = data.pedigree();
-            player.sendMessage("Parent A: " + ancestorText(p.parentA()));
-            player.sendMessage("Parent B: " + ancestorText(p.parentB()));
-            player.sendMessage("Grandparent A-A: " + ancestorText(p.grandparentAA()));
-            player.sendMessage("Grandparent A-B: " + ancestorText(p.grandparentAB()));
-            player.sendMessage("Grandparent B-A: " + ancestorText(p.grandparentBA()));
-            player.sendMessage("Grandparent B-B: " + ancestorText(p.grandparentBB()));
+            player.sendMessage(messages.text(player.locale(), "gui.parent_a") + ": " + ancestorText(player, p.parentA()));
+            player.sendMessage(messages.text(player.locale(), "gui.parent_b") + ": " + ancestorText(player, p.parentB()));
+            player.sendMessage(messages.text(player.locale(), "gui.grandparent_aa") + ": " + ancestorText(player, p.grandparentAA()));
+            player.sendMessage(messages.text(player.locale(), "gui.grandparent_ab") + ": " + ancestorText(player, p.grandparentAB()));
+            player.sendMessage(messages.text(player.locale(), "gui.grandparent_ba") + ": " + ancestorText(player, p.grandparentBA()));
+            player.sendMessage(messages.text(player.locale(), "gui.grandparent_bb") + ": " + ancestorText(player, p.grandparentBB()));
         }
     }
 
@@ -457,11 +457,14 @@ public final class InventoryService {
         };
     }
 
-    private void addAncestor(List<Component> lore, String label, AncestorSnapshot snapshot) {
-        lore.add(Component.text(label + ": " + ancestorText(snapshot)));
+    private void addAncestor(List<Component> lore, Player viewer, String labelKey, AncestorSnapshot snapshot) {
+        String label = messages.text(viewer.locale(), labelKey);
+        lore.add(Component.text(label + ": " + ancestorText(viewer, snapshot)));
     }
 
-    private String ancestorText(AncestorSnapshot snapshot) {
-        return snapshot == null ? "-" : snapshot.name() + " / gen " + snapshot.generation() + " / " + snapshot.bloodlineId();
+    private String ancestorText(Player viewer, AncestorSnapshot snapshot) {
+        if (snapshot == null) return messages.text(viewer.locale(), "gui.ancestor_none");
+        return messages.text(viewer.locale(), "gui.ancestor_value",
+                snapshot.name(), snapshot.generation(), snapshot.bloodlineId());
     }
 }
