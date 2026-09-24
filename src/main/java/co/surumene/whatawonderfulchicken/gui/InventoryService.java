@@ -118,7 +118,7 @@ public final class InventoryService {
 
         if (clickedTop && rawSlot < 9) {
             event.setCancelled(true);
-            if (event.getClick() == ClickType.NUMBER_KEY || event.getClick() == ClickType.SWAP_OFFHAND || event.getClick().isKeyboardClick()) return;
+            if (event.getClick() != ClickType.LEFT && event.getClick() != ClickType.RIGHT) return;
             if (rawSlot <= SLOT_HEAD) handleEquipmentClick(event, chicken, rawSlot);
             else if (rawSlot == SLOT_BEHAVIOR) handleBehaviorClick(event, chicken);
             else if (rawSlot == SLOT_INFO || rawSlot == SLOT_PEDIGREE) {
@@ -127,7 +127,7 @@ public final class InventoryService {
             return;
         }
 
-        if (clickedTop && rawSlot >= 9 && ItemUtil.isShulkerBox(event.getCursor())) {
+        if (clickedTop && rawSlot >= 9 && incomingShulkerBox(event)) {
             event.setCancelled(true);
             return;
         }
@@ -164,6 +164,18 @@ public final class InventoryService {
         if (viewerId == null) return;
         Player viewer = Bukkit.getPlayer(viewerId);
         if (viewer != null && viewer.getOpenInventory().getTopInventory().getHolder() instanceof WonderfulChickenInventoryHolder) viewer.closeInventory();
+    }
+
+    private boolean incomingShulkerBox(InventoryClickEvent event) {
+        if (ItemUtil.isShulkerBox(event.getCursor())) return true;
+        if (event.getClick() == ClickType.NUMBER_KEY && event.getHotbarButton() >= 0
+                && event.getWhoClicked() instanceof Player player) {
+            return ItemUtil.isShulkerBox(player.getInventory().getItem(event.getHotbarButton()));
+        }
+        if (event.getClick() == ClickType.SWAP_OFFHAND && event.getWhoClicked() instanceof Player player) {
+            return ItemUtil.isShulkerBox(player.getInventory().getItemInOffHand());
+        }
+        return false;
     }
 
     private void handleEquipmentClick(InventoryClickEvent event, Chicken chicken, int slot) {
