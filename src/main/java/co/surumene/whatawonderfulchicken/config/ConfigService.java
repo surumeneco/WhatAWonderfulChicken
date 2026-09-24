@@ -53,6 +53,10 @@ public final class ConfigService {
         validateProbability(config, "breeding.direct-inheritance-rate", errors);
         double maxNormalized = config.getDouble("natural-spawn.max-normalized", -1.0);
         if (maxNormalized < 1.0 || !Double.isFinite(maxNormalized)) errors.add("natural-spawn.max-normalized must be >= 1.0");
+        double naturalMean = config.getDouble("natural-spawn.distribution.mean", Double.NaN);
+        if (!Double.isFinite(naturalMean) || naturalMean < 0.0 || naturalMean > maxNormalized) {
+            errors.add("natural-spawn.distribution.mean must be finite and between 0.0 and natural-spawn.max-normalized");
+        }
         positive(config, "natural-spawn.distribution.standard-deviation", errors);
         positive(config, "breeding.gaussian.spread-factor", errors);
         positive(config, "breeding.gaussian.minimum-standard-deviation", errors);
