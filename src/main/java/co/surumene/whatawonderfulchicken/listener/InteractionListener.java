@@ -64,10 +64,13 @@ public final class InteractionListener implements Listener {
             return;
         }
 
-        if (SEEDS.contains(hand.getType()) && chicken.getHealth() < chicken.getMaxHealth()) {
-            event.setCancelled(true);
-            chicken.setHealth(Math.min(chicken.getMaxHealth(), chicken.getHealth() + config.healPerSeed()));
-            consumeOne(player, hand);
+        if (SEEDS.contains(hand.getType())) {
+            if (chicken.getHealth() < chicken.getMaxHealth()) {
+                event.setCancelled(true);
+                chicken.setHealth(Math.min(chicken.getMaxHealth(), chicken.getHealth() + config.healPerSeed()));
+                consumeOne(player, hand);
+            }
+            // At full health, leave breeding / chick growth to vanilla instead of mounting.
             return;
         }
 
