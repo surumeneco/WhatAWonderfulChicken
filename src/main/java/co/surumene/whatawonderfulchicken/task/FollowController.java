@@ -29,7 +29,10 @@ public final class FollowController implements Runnable {
     @Override
     public void run() {
         for (Chicken chicken : chickens.loadedChickens()) {
-            if (!chicken.getPassengers().isEmpty()) continue;
+            if (!chicken.getPassengers().isEmpty()) {
+                chicken.getPathfinder().stopPathfinding();
+                continue;
+            }
             WonderfulChickenData data = store.load(chicken);
             if (!chicken.hasAI()) chicken.setAI(true);
 
