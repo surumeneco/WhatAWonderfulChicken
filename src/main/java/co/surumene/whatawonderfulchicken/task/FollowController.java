@@ -16,6 +16,7 @@ import org.bukkit.util.Vector;
 import java.util.concurrent.ThreadLocalRandom;
 
 public final class FollowController implements Runnable {
+    private static final double FOLLOW_STOP_DISTANCE = 5.0;
     private final WonderfulChickenService chickens;
     private final WonderfulChickenStore store;
     private final ConfigService config;
@@ -61,7 +62,7 @@ public final class FollowController implements Runnable {
                 continue;
             }
 
-            if (distance <= 2.5) {
+            if (distance <= FOLLOW_STOP_DISTANCE) {
                 waitPassively(chicken);
                 continue;
             }
