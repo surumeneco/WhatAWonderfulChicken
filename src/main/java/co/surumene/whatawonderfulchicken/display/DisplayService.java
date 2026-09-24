@@ -106,7 +106,7 @@ public final class DisplayService {
             AttributeInstance scale = stand.getAttribute(Attribute.SCALE);
             if (scale != null) {
                 double chickenScale = store.load(chicken).value(StatType.SIZE);
-                scale.setBaseValue(Math.max(0.2, chickenScale * (entry.getKey().role() == DisplayRole.CARPET ? 0.32 : 0.42)));
+                scale.setBaseValue(Math.max(0.2, chickenScale * (entry.getKey().role() == DisplayRole.CARPET ? 0.48 : 0.63)));
             }
         }
     }
