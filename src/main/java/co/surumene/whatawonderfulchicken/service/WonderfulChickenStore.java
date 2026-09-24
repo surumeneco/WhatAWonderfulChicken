@@ -125,7 +125,8 @@ public final class WonderfulChickenStore {
 
     public double toValue(StatType stat, double normalized) {
         double min = config.statMin(stat);
-        return min + normalized * (config.statMax(stat) - min);
+        double value = min + normalized * (config.statMax(stat) - min);
+        return stat.canonicalizeValue(value);
     }
 
     public double toNormalized(StatType stat, double value) {
