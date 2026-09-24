@@ -23,6 +23,7 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
 import java.util.Set;
@@ -130,9 +131,9 @@ public final class InteractionListener implements Listener {
     }
 
     private boolean isLookingAtMount(Player player, Chicken chicken) {
-        Vector toChicken = chicken.getBoundingBox().getCenter().subtract(player.getEyeLocation().toVector());
-        if (toChicken.lengthSquared() > 25.0 || toChicken.lengthSquared() < 0.0001) return false;
-        double dot = player.getEyeLocation().getDirection().normalize().dot(toChicken.normalize());
-        return dot > 0.55;
+        Vector start = player.getEyeLocation().toVector();
+        Vector direction = player.getEyeLocation().getDirection().normalize();
+        BoundingBox target = chicken.getBoundingBox().clone().expand(0.35, 0.25, 0.35);
+        return target.rayTrace(start, direction, 6.0) != null;
     }
 }

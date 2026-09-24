@@ -10,6 +10,7 @@ import org.bukkit.Input;
 import org.bukkit.Material;
 import org.bukkit.entity.Chicken;
 import org.bukkit.entity.Player;
+import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
 import java.util.HashMap;
@@ -86,7 +87,7 @@ public final class RidingController implements Runnable {
 
     private void tickUnmounted(Chicken chicken) {
         UUID chickenId = chicken.getUniqueId();
-        if (chicken.isInWater() || !chicken.isOnGround()) {
+        if (chicken.isInWater() || !isGrounded(chicken)) {
             lastAirborneTick.put(chickenId, tick);
             return;
         }
@@ -104,11 +105,11 @@ public final class RidingController implements Runnable {
     private void tickMounted(Player player, Chicken chicken) {
         WonderfulChickenData data = store.load(chicken);
         Input input = player.getCurrentInput();
-        boolean onGround = chicken.isOnGround();
+        boolean onGround = isGrounded(chicken);
         boolean inWater = chicken.isInWater();
         if (!chicken.hasAI()) chicken.setAI(true);
+        chicken.getPathfinder().stopPathfinding();
         chicken.setAware(inWater);
-        if (!inWater) chicken.getPathfinder().stopPathfinding();
         chicken.setRotation(player.getLocation().getYaw(), chicken.getLocation().getPitch());
 
         Vector velocity = chicken.getVelocity();
@@ -147,6 +148,13 @@ public final class RidingController implements Runnable {
         float progress = (float) Math.max(0.0, Math.min(1.0, data.currentStamina() / Math.max(0.0001, data.value(StatType.STAMINA))));
         player.sendExperienceChange(progress, player.getLevel());
         store.save(chicken, data);
+    }
+
+    private boolean isGrounded(Chicken chicken) {
+        if (chicken.isOnGround()) return true;
+        if (chicken.isInWater()) return false;
+        BoundingBox probe = chicken.getBoundingBox().clone().shift(0.0, -0.08, 0.0);
+        return chicken.getWorld().hasCollisionsIn(probe);
     }
 
     private Vector horizontalInput(Player player, Input input) {
