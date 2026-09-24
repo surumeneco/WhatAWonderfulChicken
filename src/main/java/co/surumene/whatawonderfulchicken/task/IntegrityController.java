@@ -22,6 +22,7 @@ public final class IntegrityController implements Runnable {
             for (Chicken chicken : chickens.loadedChickens()) {
                 chickens.captureHeadEquipment(chicken);
                 chickens.projectAttributes(chicken);
+                displays.rebuild(chicken);
             }
         }
     }
