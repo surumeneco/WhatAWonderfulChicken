@@ -106,11 +106,9 @@ public final class RidingController implements Runnable {
         Input input = player.getCurrentInput();
         boolean onGround = chicken.isOnGround();
         boolean inWater = chicken.isInWater();
-        if (inWater) {
-            if (!chicken.hasAI()) chicken.setAI(true);
-        } else if (chicken.hasAI()) {
-            chicken.setAI(false);
-        }
+        if (!chicken.hasAI()) chicken.setAI(true);
+        chicken.setAware(inWater);
+        if (!inWater) chicken.getPathfinder().stopPathfinding();
         chicken.setRotation(player.getLocation().getYaw(), chicken.getLocation().getPitch());
 
         Vector velocity = chicken.getVelocity();
