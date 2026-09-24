@@ -14,6 +14,8 @@ import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
 import co.surumene.whatawonderfulchicken.util.ItemUtil;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.ShulkerBox;
@@ -359,20 +361,71 @@ public final class InventoryService {
 
     private void sendDetailedInfo(Player player, Chicken chicken, boolean pedigreeOnly) {
         WonderfulChickenData data = store.load(chicken);
-        player.sendMessage(messages.text(player, "command.header"));
-        player.sendMessage("UUID: " + chicken.getUniqueId());
-        player.sendMessage("Bloodline: " + chickens.displayBloodlineId(data.bloodlineId()) + " / Generation: " + data.generation());
+        Component block = Component.text("◆ ", NamedTextColor.GOLD)
+                .append(Component.text(
+                        messages.text(player.locale(), pedigreeOnly ? "gui.pedigree" : "gui.info"),
+                        NamedTextColor.YELLOW).decorate(TextDecoration.BOLD))
+                .append(Component.newline())
+                .append(infoLine(messages.text(player.locale(), "command.info_uuid"),
+                        chicken.getUniqueId().toString(), NamedTextColor.GRAY))
+                .append(Component.newline())
+                .append(infoLine(messages.text(player.locale(), "command.info_bloodline"),
+                        chickens.displayBloodlineId(data.bloodlineId()), NamedTextColor.AQUA))
+                .append(Component.newline())
+                .append(infoLine(messages.text(player.locale(), "command.info_generation"),
+                        Integer.toString(data.generation()), NamedTextColor.AQUA));
+
         if (!pedigreeOnly) {
-            for (StatType stat : StatType.values()) player.sendMessage(stat.commandName() + "=" + formatValue(stat, data.value(stat)) + " normalized=" + String.format(Locale.ROOT, "%.4f", data.normalized(stat)));
+            for (StatType stat : StatType.values()) {
+                Rank rank = Rank.fromNormalized(data.normalized(stat));
+                Component line = Component.text("  " + messages.text(player.locale(), "stat." + stat.key()) + ": ",
+                                NamedTextColor.GRAY)
+                        .append(Component.text(formatValue(stat, data.value(stat)), NamedTextColor.WHITE))
+                        .append(Component.text("  " + messages.text(player.locale(), "command.info_normalized") + "="
+                                + String.format(Locale.ROOT, "%.3f", data.normalized(stat)), NamedTextColor.DARK_GRAY))
+                        .append(Component.text("  [" + messages.rank(player.locale(), rank.key()) + "]",
+                                        rankColor(rank))
+                                .decorate(TextDecoration.BOLD));
+                block = block.append(Component.newline()).append(line);
+            }
         } else {
-            PedigreeData p = data.pedigree();
-            player.sendMessage(messages.text(player.locale(), "gui.parent_a") + ": " + ancestorText(player, p.parentA()));
-            player.sendMessage(messages.text(player.locale(), "gui.parent_b") + ": " + ancestorText(player, p.parentB()));
-            player.sendMessage(messages.text(player.locale(), "gui.grandparent_aa") + ": " + ancestorText(player, p.grandparentAA()));
-            player.sendMessage(messages.text(player.locale(), "gui.grandparent_ab") + ": " + ancestorText(player, p.grandparentAB()));
-            player.sendMessage(messages.text(player.locale(), "gui.grandparent_ba") + ": " + ancestorText(player, p.grandparentBA()));
-            player.sendMessage(messages.text(player.locale(), "gui.grandparent_bb") + ": " + ancestorText(player, p.grandparentBB()));
+            PedigreeData pedigree = data.pedigree();
+            block = appendAncestorLine(block, player, "gui.parent_a", pedigree.parentA());
+            block = appendAncestorLine(block, player, "gui.parent_b", pedigree.parentB());
+            block = appendAncestorLine(block, player, "gui.grandparent_aa", pedigree.grandparentAA());
+            block = appendAncestorLine(block, player, "gui.grandparent_ab", pedigree.grandparentAB());
+            block = appendAncestorLine(block, player, "gui.grandparent_ba", pedigree.grandparentBA());
+            block = appendAncestorLine(block, player, "gui.grandparent_bb", pedigree.grandparentBB());
         }
+
+        player.sendMessage(block);
+    }
+
+    private Component appendAncestorLine(Component block, Player player, String labelKey, AncestorSnapshot snapshot) {
+        Component line = Component.text("  " + messages.text(player.locale(), labelKey) + ": ", NamedTextColor.GRAY)
+                .append(Component.text(ancestorText(player, snapshot), NamedTextColor.WHITE));
+        return block.append(Component.newline()).append(line);
+    }
+
+    private Component infoLine(String label, String value, NamedTextColor valueColor) {
+        return Component.text("  " + label + ": ", NamedTextColor.GRAY)
+                .append(Component.text(value, valueColor));
+    }
+
+    private NamedTextColor rankColor(Rank rank) {
+        return switch (rank) {
+            case MISERABLE -> NamedTextColor.DARK_RED;
+            case VERY_LOW -> NamedTextColor.RED;
+            case LOW -> NamedTextColor.GOLD;
+            case SLIGHTLY_LOW -> NamedTextColor.YELLOW;
+            case COMMON -> NamedTextColor.WHITE;
+            case SLIGHTLY_HIGH -> NamedTextColor.GREEN;
+            case HIGH -> NamedTextColor.AQUA;
+            case VERY_HIGH -> NamedTextColor.BLUE;
+            case LEGENDARY -> NamedTextColor.LIGHT_PURPLE;
+            case MYTHICAL -> NamedTextColor.DARK_PURPLE;
+            case IMPOSSIBLE -> NamedTextColor.GOLD;
+        };
     }
 
     private void loadCargo(Inventory inventory, ItemStack shulker) {
