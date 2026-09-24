@@ -247,36 +247,35 @@ public final class InventoryService {
         store.save(chicken, data);
         chickens.projectAttributes(chicken);
         displays.rebuild(chicken);
-        completeDirectEquipmentSwap(player, chicken, cursor, cursorEmpty, current);
+        ItemStack nextCursor = completeDirectEquipmentSwap(player, chicken, cursor, cursorEmpty, current);
         if (slot == SLOT_CARPET && replacement == null) chicken.eject();
         if (slot == SLOT_SHULKER) {
+            player.setItemOnCursor(ItemStack.empty());
             skipCargoSyncOnClose.add(player.getUniqueId());
             player.closeInventory();
-            Bukkit.getScheduler().runTask(plugin, () -> open(player, chicken));
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                open(player, chicken);
+                player.setItemOnCursor(nextCursor);
+            });
         } else {
+            player.setItemOnCursor(nextCursor);
             populateMeta(player, event.getView().getTopInventory(), data);
         }
     }
 
 
-    private void completeDirectEquipmentSwap(Player player, Chicken chicken, ItemStack cursor, boolean cursorEmpty, ItemStack previous) {
-        if (cursorEmpty) {
-            player.setItemOnCursor(previous == null ? ItemStack.empty() : previous);
-            return;
-        }
-
-        if (cursor.getAmount() == 1) {
-            player.setItemOnCursor(previous == null ? ItemStack.empty() : previous);
-            return;
+    private ItemStack completeDirectEquipmentSwap(Player player, Chicken chicken, ItemStack cursor, boolean cursorEmpty, ItemStack previous) {
+        if (cursorEmpty || cursor.getAmount() == 1) {
+            return previous == null ? ItemStack.empty() : previous;
         }
 
         ItemStack remainder = cursor.clone();
         remainder.setAmount(cursor.getAmount() - 1);
-        player.setItemOnCursor(remainder);
         if (previous != null && !previous.isEmpty()) {
             Map<Integer, ItemStack> leftovers = player.getInventory().addItem(previous);
             leftovers.values().forEach(item -> chicken.getWorld().dropItemNaturally(chicken.getLocation(), item));
         }
+        return remainder;
     }
 
     private void handleBehaviorClick(InventoryClickEvent event, Chicken chicken) {
@@ -344,7 +343,7 @@ public final class InventoryService {
         ItemStack item = placeholder(Material.WRITABLE_BOOK, messages.text(viewer.locale(), "gui.pedigree"));
         ItemMeta meta = item.getItemMeta();
         List<Component> lore = new ArrayList<>();
-        lore.add(Component.text(messages.text(viewer.locale(), "gui.pedigree_id", data.bloodlineId())));
+        lore.add(Component.text(messages.text(viewer.locale(), "gui.pedigree_id", chickens.displayBloodlineId(data.bloodlineId()))));
         lore.add(Component.text(messages.text(viewer.locale(), "gui.generation", data.generation())));
         PedigreeData p = data.pedigree();
         addAncestor(lore, viewer, "gui.parent_a", p.parentA());
@@ -362,7 +361,7 @@ public final class InventoryService {
         WonderfulChickenData data = store.load(chicken);
         player.sendMessage(messages.text(player, "command.header"));
         player.sendMessage("UUID: " + chicken.getUniqueId());
-        player.sendMessage("Bloodline: " + data.bloodlineId() + " / Generation: " + data.generation());
+        player.sendMessage("Bloodline: " + chickens.displayBloodlineId(data.bloodlineId()) + " / Generation: " + data.generation());
         if (!pedigreeOnly) {
             for (StatType stat : StatType.values()) player.sendMessage(stat.commandName() + "=" + formatValue(stat, data.value(stat)) + " normalized=" + String.format(Locale.ROOT, "%.4f", data.normalized(stat)));
         } else {
@@ -460,6 +459,7 @@ public final class InventoryService {
 
     private String formatValue(StatType stat, double value) {
         return switch (stat) {
+            case MAX_HEALTH -> String.format(Locale.ROOT, "%.0f HP", value);
             case SIZE -> String.format(Locale.ROOT, "%.2f m", value * 0.7);
             case GROUND_SPEED, AIR_SPEED, ASCENT_SPEED -> String.format(Locale.ROOT, "%.2f blocks/s", value);
             case JUMP_STRENGTH, STEP_HEIGHT -> String.format(Locale.ROOT, "%.2f blocks", value);
@@ -480,6 +480,6 @@ public final class InventoryService {
             name = messages.text(viewer.locale(), "gui.ancestor_unnamed");
         }
         return messages.text(viewer.locale(), "gui.ancestor_value",
-                name, snapshot.generation(), snapshot.bloodlineId());
+                name, snapshot.generation(), chickens.displayBloodlineId(snapshot.bloodlineId()));
     }
 }
