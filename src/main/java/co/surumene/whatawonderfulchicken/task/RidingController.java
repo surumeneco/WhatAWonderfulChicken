@@ -93,8 +93,12 @@ public final class RidingController implements Runnable {
         Vector horizontal = horizontalInput(player, input);
         double speed = (onGround ? data.value(StatType.GROUND_SPEED) : data.value(StatType.AIR_SPEED)) / 20.0;
         if (onGround && isRoad(chicken)) speed *= config.roadMultiplier();
-        if (horizontal.lengthSquared() > 0.0) horizontal.normalize().multiply(speed);
-        velocity.setX(horizontal.getX()).setZ(horizontal.getZ());
+        if (horizontal.lengthSquared() > 0.0) {
+            horizontal.normalize().multiply(speed);
+            velocity.setX(horizontal.getX()).setZ(horizontal.getZ());
+        } else if (!inWater) {
+            velocity.setX(0.0).setZ(0.0);
+        }
 
         if (inWater) {
             lastAirborneTick.put(chicken.getUniqueId(), tick);
