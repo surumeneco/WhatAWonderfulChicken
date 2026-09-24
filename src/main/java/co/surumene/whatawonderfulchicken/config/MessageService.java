@@ -6,6 +6,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
 import java.io.File;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 public final class MessageService {
@@ -21,8 +23,8 @@ public final class MessageService {
     public void reload() {
         saveIfMissing("lang/ja_jp.yml");
         saveIfMissing("lang/en_us.yml");
-        ja = YamlConfiguration.loadConfiguration(new File(plugin.getDataFolder(), "lang/ja_jp.yml"));
-        en = YamlConfiguration.loadConfiguration(new File(plugin.getDataFolder(), "lang/en_us.yml"));
+        ja = loadWithBundledDefaults("lang/ja_jp.yml");
+        en = loadWithBundledDefaults("lang/en_us.yml");
     }
 
     public String text(CommandSender sender, String key, Object... args) {
@@ -48,6 +50,20 @@ public final class MessageService {
     private String format(String source, Object... args) {
         String result = source;
         for (int i = 0; i < args.length; i++) result = result.replace("{" + i + "}", String.valueOf(args[i]));
+        return result;
+    }
+
+    private YamlConfiguration loadWithBundledDefaults(String path) {
+        YamlConfiguration result = YamlConfiguration.loadConfiguration(new File(plugin.getDataFolder(), path));
+        try (var stream = plugin.getResource(path)) {
+            if (stream != null) {
+                YamlConfiguration bundled = YamlConfiguration.loadConfiguration(
+                        new InputStreamReader(stream, StandardCharsets.UTF_8));
+                result.setDefaults(bundled);
+            }
+        } catch (Exception ex) {
+            plugin.getLogger().warning("Failed to load bundled language defaults for " + path + ": " + ex.getMessage());
+        }
         return result;
     }
 
