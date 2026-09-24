@@ -51,6 +51,7 @@ public final class WorldListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onChunkLoad(ChunkLoadEvent event) {
+        displays.reconcileChunk(event.getChunk());
         for (Entity entity : event.getChunk().getEntities()) {
             if (!(entity instanceof Chicken chicken)) continue;
             if (store.isWonderful(chicken)) {
