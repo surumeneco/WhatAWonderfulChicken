@@ -82,11 +82,13 @@ public final class RidingController implements Runnable {
         mountedChickens.clear();
         exhaustionAtMount.clear();
         airFlapLockedUntilJumpRelease.clear();
+        removeAllInteractionProxies();
     }
 
     private void finishMount(UUID playerId, UUID chickenId) {
         roadCache.remove(chickenId);
         airFlapLockedUntilJumpRelease.remove(chickenId);
+        removeInteractionProxy(chickenId);
         Player player = Bukkit.getPlayer(playerId);
         Float exhaustion = exhaustionAtMount.remove(playerId);
         if (player != null) {
@@ -116,6 +118,7 @@ public final class RidingController implements Runnable {
     }
 
     private void tickMounted(Player player, Chicken chicken) {
+        ensureInteractionProxy(chicken);
         WonderfulChickenData data = store.load(chicken);
         Input input = player.getCurrentInput();
         UUID chickenId = chicken.getUniqueId();
