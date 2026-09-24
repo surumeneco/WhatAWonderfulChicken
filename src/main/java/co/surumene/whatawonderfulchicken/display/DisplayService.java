@@ -177,6 +177,7 @@ public final class DisplayService {
                 }
                 ArmorStand prior = first.putIfAbsent(key, stand);
                 if (prior != null) stand.remove();
+                else stand.setPersistent(false);
             } catch (IllegalArgumentException ex) {
                 stand.remove();
             }
