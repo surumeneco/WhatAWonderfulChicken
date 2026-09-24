@@ -34,9 +34,11 @@ import org.bukkit.inventory.meta.ItemMeta;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class InventoryService {
@@ -54,6 +56,7 @@ public final class InventoryService {
     private final MessageService messages;
     private final DisplayService displays;
     private final Map<UUID, UUID> locks = new HashMap<>();
+    private final Set<UUID> skipCargoSyncOnClose = new HashSet<>();
 
     public InventoryService(
             WhatAWonderfulChickenPlugin plugin,
@@ -155,7 +158,10 @@ public final class InventoryService {
         Inventory top = event.getView().getTopInventory();
         if (!(top.getHolder() instanceof WonderfulChickenInventoryHolder holder)) return;
         Entity entity = Bukkit.getEntity(holder.chickenId());
-        if (entity instanceof Chicken chicken && store.isWonderful(chicken) && top.getSize() == 36) syncCargo(chicken, top);
+        boolean skipCargoSync = skipCargoSyncOnClose.remove(event.getPlayer().getUniqueId());
+        if (!skipCargoSync && entity instanceof Chicken chicken && store.isWonderful(chicken) && top.getSize() == 36) {
+            syncCargo(chicken, top);
+        }
         locks.remove(holder.chickenId(), event.getPlayer().getUniqueId());
     }
 
@@ -174,6 +180,7 @@ public final class InventoryService {
             }
         }
         locks.clear();
+        skipCargoSyncOnClose.clear();
     }
 
     private boolean incomingShulkerBox(InventoryClickEvent event) {
@@ -191,6 +198,10 @@ public final class InventoryService {
     private void handleEquipmentClick(InventoryClickEvent event, Chicken chicken, int slot) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         WonderfulChickenData data = store.load(chicken);
+        if (slot == SLOT_SHULKER && event.getView().getTopInventory().getSize() == 36) {
+            syncCargo(chicken, event.getView().getTopInventory());
+            data = store.load(chicken);
+        }
         ItemStack cursor = player.getItemOnCursor();
         ItemStack current = switch (slot) {
             case SLOT_CARPET -> data.carpet();
@@ -207,7 +218,6 @@ public final class InventoryService {
             player.sendMessage(messages.text(player, "error.adult_only"));
             return;
         }
-        if (slot == SLOT_SHULKER && event.getView().getTopInventory().getSize() == 36) syncCargo(chicken, event.getView().getTopInventory());
         ItemStack replacement = cursorEmpty ? null : cursor.asOne();
         switch (slot) {
             case SLOT_CARPET -> data.carpet(replacement);
@@ -221,6 +231,7 @@ public final class InventoryService {
         completeDirectEquipmentSwap(player, chicken, cursor, cursorEmpty, current);
         if (slot == SLOT_CARPET && replacement == null) chicken.eject();
         if (slot == SLOT_SHULKER) {
+            skipCargoSyncOnClose.add(player.getUniqueId());
             player.closeInventory();
             Bukkit.getScheduler().runTask(plugin, () -> open(player, chicken));
         } else {
