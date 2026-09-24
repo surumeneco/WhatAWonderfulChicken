@@ -19,7 +19,10 @@ public final class IntegrityController implements Runnable {
         tick++;
         displays.tick();
         if (tick % 20 == 0) {
-            for (Chicken chicken : chickens.loadedChickens()) chickens.projectAttributes(chicken);
+            for (Chicken chicken : chickens.loadedChickens()) {
+                chickens.captureHeadEquipment(chicken);
+                chickens.projectAttributes(chicken);
+            }
         }
     }
 }
