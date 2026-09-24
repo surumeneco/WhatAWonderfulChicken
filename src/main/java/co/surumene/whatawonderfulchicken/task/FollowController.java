@@ -35,12 +35,10 @@ public final class FollowController implements Runnable {
             }
             if (chicken.hasAI()) chicken.setAI(false);
             if (data.behaviorMode() == BehaviorMode.WAIT || data.followTarget() == null) {
-                stopHorizontal(chicken);
                 continue;
             }
             Player target = Bukkit.getPlayer(data.followTarget());
             if (target == null || !target.isOnline() || target.getWorld() != chicken.getWorld()) {
-                stopHorizontal(chicken);
                 continue;
             }
             double distance = chicken.getLocation().distance(target.getLocation());
@@ -50,12 +48,12 @@ public final class FollowController implements Runnable {
                 continue;
             }
             if (distance <= 2.5) {
-                stopHorizontal(chicken);
                 continue;
             }
             Vector delta = target.getLocation().toVector().subtract(chicken.getLocation().toVector());
             delta.setY(0);
             if (delta.lengthSquared() == 0) continue;
+            float facingYaw = (float) Math.toDegrees(Math.atan2(-delta.getX(), delta.getZ()));
             double speed = Math.min(data.value(StatType.GROUND_SPEED) / 20.0, 0.55);
             Vector velocity = chicken.getVelocity();
             Vector horizontal = delta.normalize().multiply(speed);
@@ -64,14 +62,8 @@ public final class FollowController implements Runnable {
                 velocity.setY(chickens.jumpVelocityForHeight(Math.min(data.value(StatType.JUMP_STRENGTH), 2.0)));
             }
             chicken.setVelocity(velocity);
-            chicken.setRotation(target.getLocation().getYaw(), chicken.getLocation().getPitch());
+            chicken.setRotation(facingYaw, chicken.getLocation().getPitch());
         }
-    }
-
-    private void stopHorizontal(Chicken chicken) {
-        Vector velocity = chicken.getVelocity();
-        velocity.setX(0).setZ(0);
-        chicken.setVelocity(velocity);
     }
 
     private Location findSafeNear(Player player) {
