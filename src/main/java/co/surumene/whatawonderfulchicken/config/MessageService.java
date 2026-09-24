@@ -39,6 +39,10 @@ public final class MessageService {
         return bundle(locale).getString("rank." + rankKey, rankKey);
     }
 
+    public String rank(CommandSender sender, String rankKey) {
+        return bundle(sender).getString("rank." + rankKey, rankKey);
+    }
+
     private YamlConfiguration bundle(CommandSender sender) {
         return sender instanceof Player player ? bundle(player.locale()) : ja;
     }
