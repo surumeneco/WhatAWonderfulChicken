@@ -26,7 +26,7 @@ import java.util.UUID;
 public final class DisplayService {
     private static final double CARPET_SCALE_FACTOR = 0.72;
     private static final double SHULKER_SCALE_FACTOR = 0.63;
-    private static final double CARPET_TARGET_Y_FACTOR = 0.825;
+    private static final double CARPET_TARGET_Y_FACTOR = 0.85;
     private static final double SHULKER_TARGET_Y_FACTOR = 0.65;
 
     private final WhatAWonderfulChickenPlugin plugin;
