@@ -74,7 +74,7 @@ public final class WonderfulChickenStore {
         }
         double maxStamina = data.value(StatType.STAMINA);
         Double storedStamina = pdc.get(currentStaminaKey, PersistentDataType.DOUBLE);
-        data.currentStamina(config.persistCurrentStamina() && storedStamina != null
+        data.currentStamina(storedStamina != null
                 ? Math.max(0.0, Math.min(maxStamina, storedStamina))
                 : maxStamina);
         data.carpet(readItem(pdc, carpetKey));
