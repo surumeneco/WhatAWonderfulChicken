@@ -148,7 +148,7 @@ public final class DisplayService {
         Vector backward = new Vector(Math.sin(yaw), 0, -Math.cos(yaw));
         if (role == DisplayRole.SHULKER_BOX) base.add(backward.multiply(0.22 * scale));
 
-        double standScale = Math.max(0.2, scale * (role == DisplayRole.CARPET ? 0.32 : 0.42));
+        double standScale = Math.max(0.2, scale * (role == DisplayRole.CARPET ? 0.48 : 0.63));
         // Small armor stands place helmet items substantially lower than the previous
         // full-size stand estimate. Tune the visual anchor from the JE test capture
         // while preserving proportional scaling between individual chickens.
