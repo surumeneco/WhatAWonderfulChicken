@@ -364,31 +364,41 @@ public final class InventoryService {
         Component block = Component.text("◆ ", NamedTextColor.GOLD)
                 .append(Component.text(
                         messages.text(player.locale(), pedigreeOnly ? "gui.pedigree" : "gui.info"),
-                        NamedTextColor.YELLOW).decorate(TextDecoration.BOLD))
-                .append(Component.newline())
-                .append(infoLine(messages.text(player.locale(), "command.info_uuid"),
-                        chicken.getUniqueId().toString(), NamedTextColor.GRAY))
-                .append(Component.newline())
-                .append(infoLine(messages.text(player.locale(), "command.info_bloodline"),
-                        chickens.displayBloodlineId(data.bloodlineId()), NamedTextColor.AQUA))
-                .append(Component.newline())
-                .append(infoLine(messages.text(player.locale(), "command.info_generation"),
-                        Integer.toString(data.generation()), NamedTextColor.AQUA));
+                        NamedTextColor.YELLOW).decorate(TextDecoration.BOLD));
 
         if (!pedigreeOnly) {
             for (StatType stat : StatType.values()) {
+                String display = config.statDisplay(stat);
+                if (display.equals("none")) continue;
+
+                String label = messages.text(player.locale(), "stat." + stat.key());
+                String value = formatValue(stat, data.value(stat));
                 Rank rank = Rank.fromNormalized(data.normalized(stat));
-                Component line = Component.text("  " + messages.text(player.locale(), "stat." + stat.key()) + ": ",
-                                NamedTextColor.GRAY)
-                        .append(Component.text(formatValue(stat, data.value(stat)), NamedTextColor.WHITE))
-                        .append(Component.text("  " + messages.text(player.locale(), "command.info_normalized") + "="
-                                + String.format(Locale.ROOT, "%.3f", data.normalized(stat)), NamedTextColor.DARK_GRAY))
-                        .append(Component.text("  [" + messages.rank(player.locale(), rank.key()) + "]",
-                                        rankColor(rank))
-                                .decorate(TextDecoration.BOLD));
+                String rankText = messages.rank(player.locale(), rank.key());
+
+                Component line = Component.text("  " + label + ": ", NamedTextColor.GRAY);
+                switch (display) {
+                    case "value" -> line = line.append(Component.text(value, NamedTextColor.WHITE));
+                    case "rank" -> line = line.append(
+                            Component.text(rankText, rankColor(rank)).decorate(TextDecoration.BOLD));
+                    case "both" -> line = line
+                            .append(Component.text(value, NamedTextColor.WHITE))
+                            .append(Component.text(" (" + rankText + ")", rankColor(rank))
+                                    .decorate(TextDecoration.BOLD));
+                    default -> {
+                        continue;
+                    }
+                }
                 block = block.append(Component.newline()).append(line);
             }
         } else {
+            block = block.append(Component.newline())
+                    .append(Component.text(messages.text(player.locale(), "gui.pedigree_id",
+                            chickens.displayBloodlineId(data.bloodlineId())), NamedTextColor.AQUA))
+                    .append(Component.newline())
+                    .append(Component.text(messages.text(player.locale(), "gui.generation",
+                            data.generation()), NamedTextColor.AQUA));
+
             PedigreeData pedigree = data.pedigree();
             block = appendAncestorLine(block, player, "gui.parent_a", pedigree.parentA());
             block = appendAncestorLine(block, player, "gui.parent_b", pedigree.parentB());
@@ -405,11 +415,6 @@ public final class InventoryService {
         Component line = Component.text("  " + messages.text(player.locale(), labelKey) + ": ", NamedTextColor.GRAY)
                 .append(Component.text(ancestorText(player, snapshot), NamedTextColor.WHITE));
         return block.append(Component.newline()).append(line);
-    }
-
-    private Component infoLine(String label, String value, NamedTextColor valueColor) {
-        return Component.text("  " + label + ": ", NamedTextColor.GRAY)
-                .append(Component.text(value, valueColor));
     }
 
     private NamedTextColor rankColor(Rank rank) {
