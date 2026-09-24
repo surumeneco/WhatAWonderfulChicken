@@ -13,6 +13,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -37,18 +38,25 @@ public final class RidingController implements Runnable {
     public void run() {
         tick++;
         Map<UUID, UUID> nowMounted = new HashMap<>();
+        Set<UUID> mountedChickenIds = new HashSet<>();
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!(player.getVehicle() instanceof Chicken chicken) || !store.isWonderful(chicken)) continue;
             UUID playerId = player.getUniqueId();
-            nowMounted.put(playerId, chicken.getUniqueId());
+            UUID chickenId = chicken.getUniqueId();
+            nowMounted.put(playerId, chickenId);
+            mountedChickenIds.add(chickenId);
             exhaustionAtMount.putIfAbsent(playerId, player.getExhaustion());
             tickMounted(player, chicken);
+        }
+        for (Chicken chicken : chickens.loadedChickens()) {
+            if (!mountedChickenIds.contains(chicken.getUniqueId())) tickUnmounted(chicken);
         }
         for (Map.Entry<UUID, UUID> entry : new HashMap<>(mountedChickens).entrySet()) {
             if (!nowMounted.containsKey(entry.getKey())) finishMount(entry.getKey(), entry.getValue());
         }
         mountedChickens.clear();
         mountedChickens.putAll(nowMounted);
+        lastAirborneTick.keySet().removeIf(uuid -> Bukkit.getEntity(uuid) == null);
     }
 
     public void restoreHud(Player player) {
@@ -64,7 +72,6 @@ public final class RidingController implements Runnable {
     }
 
     private void finishMount(UUID playerId, UUID chickenId) {
-        lastAirborneTick.remove(chickenId);
         roadCache.remove(chickenId);
         Player player = Bukkit.getPlayer(playerId);
         Float exhaustion = exhaustionAtMount.remove(playerId);
@@ -75,6 +82,23 @@ public final class RidingController implements Runnable {
         if (Bukkit.getEntity(chickenId) instanceof Chicken chicken && store.isWonderful(chicken)) {
             chickens.synchronizeBehaviorState(chicken, store.load(chicken));
         }
+    }
+
+    private void tickUnmounted(Chicken chicken) {
+        UUID chickenId = chicken.getUniqueId();
+        if (chicken.isInWater() || !chicken.isOnGround()) {
+            lastAirborneTick.put(chickenId, tick);
+            return;
+        }
+        WonderfulChickenData data = store.load(chicken);
+        double maximum = data.value(StatType.STAMINA);
+        if (data.currentStamina() >= maximum) return;
+        long delay = Math.round(config.recoveryDelaySeconds() * 20.0);
+        long lastAir = lastAirborneTick.getOrDefault(chickenId, Long.MIN_VALUE / 4);
+        if (tick - lastAir < delay) return;
+        data.currentStamina(Math.min(maximum,
+                data.currentStamina() + data.value(StatType.STAMINA_RECOVERY) / 20.0));
+        store.save(chicken, data);
     }
 
     private void tickMounted(Player player, Chicken chicken) {
