@@ -20,6 +20,13 @@ command:
   modified: "{0} 羽のデカ鳥を変更しました。"
   summoned: "デカ鳥を召喚しました: {0}"
   header: "--- デカ鳥情報 ---"
+  info_header: "デカ鳥 {0}/{1}"
+  info_uuid: "UUID"
+  info_bloodline: "血統ID"
+  info_generation: "世代"
+  info_behavior: "行動モード"
+  info_normalized: "正規化"
+  info_current_stamina: "現在スタミナ"
 gui:
   title: "デカ鳥"
   slot_carpet: "騎乗用カーペット"
