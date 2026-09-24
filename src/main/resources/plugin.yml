@@ -1,0 +1,31 @@
+name: WhatAWonderfulChicken
+version: '${version}'
+main: co.surumene.whatawonderfulchicken.WhatAWonderfulChickenPlugin
+api-version: '26.2'
+author: surumeneco
+description: Breedable, rideable wonderful chickens for Paper 26.2.
+website: https://github.com/surumeneco/WhatAWonderfulChicken
+permissions:
+  wwc.command.summon:
+    default: op
+  wwc.command.info:
+    default: op
+  wwc.command.modify:
+    default: op
+  wwc.command.config:
+    default: op
+    children:
+      wwc.command.config.get: true
+      wwc.command.config.list: true
+      wwc.command.config.set: true
+      wwc.command.config.reset: true
+  wwc.command.config.get:
+    default: op
+  wwc.command.config.list:
+    default: op
+  wwc.command.config.set:
+    default: op
+  wwc.command.config.reset:
+    default: op
+  wwc.command.reload:
+    default: op
