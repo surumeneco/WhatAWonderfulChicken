@@ -11,6 +11,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Chicken;
 import org.bukkit.entity.Player;
+import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
 public final class FollowController implements Runnable {
@@ -43,7 +44,7 @@ public final class FollowController implements Runnable {
             }
             double distance = chicken.getLocation().distance(target.getLocation());
             if (distance >= config.followTeleportDistance()) {
-                Location safe = findSafeNear(target);
+                Location safe = findSafeNear(target, chicken);
                 if (safe != null) chicken.teleport(safe);
                 continue;
             }
@@ -66,17 +67,20 @@ public final class FollowController implements Runnable {
         }
     }
 
-    private Location findSafeNear(Player player) {
+    private Location findSafeNear(Player player, Chicken chicken) {
         Location base = player.getLocation();
+        Location current = chicken.getLocation();
+        BoundingBox currentBox = chicken.getBoundingBox();
         int[][] offsets = {{2,0},{-2,0},{0,2},{0,-2},{2,2},{-2,2},{2,-2},{-2,-2},{3,0},{0,3}};
         for (int[] offset : offsets) {
             Location candidate = base.clone().add(offset[0], 0, offset[1]);
             for (int dy = 2; dy >= -2; dy--) {
-                Location test = candidate.clone().add(0, dy, 0);
-                Material feet = test.getBlock().getType();
-                Material head = test.clone().add(0, 1, 0).getBlock().getType();
-                Material ground = test.clone().subtract(0, 1, 0).getBlock().getType();
-                if (feet.isAir() && head.isAir() && ground.isSolid()) return test.add(0.5, 0, 0.5);
+                Location destination = candidate.clone().add(0.5, dy, 0.5);
+                Material ground = destination.clone().subtract(0, 1, 0).getBlock().getType();
+                if (!ground.isSolid()) continue;
+                Vector shift = destination.toVector().subtract(current.toVector());
+                BoundingBox destinationBox = currentBox.clone().shift(shift);
+                if (!destination.getWorld().hasCollisionsIn(destinationBox)) return destination;
             }
         }
         return null;
