@@ -28,6 +28,10 @@ public enum StatType {
     public String commandName() { return commandName; }
     public String configName() { return configName; }
 
+    public double canonicalizeValue(double value) {
+        return this == MAX_HEALTH ? Math.round(value) : value;
+    }
+
     public static Optional<StatType> fromCommandName(String name) {
         return Arrays.stream(values()).filter(stat -> stat.commandName.equalsIgnoreCase(name)).findFirst();
     }

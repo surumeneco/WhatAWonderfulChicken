@@ -56,6 +56,7 @@ public final class InteractionListener implements Listener {
         if (event.getHand() != EquipmentSlot.HAND) return;
         if (!(event.getRightClicked() instanceof Chicken chicken) || !store.isWonderful(chicken)) return;
         Player player = event.getPlayer();
+        if (player.isSneaking()) return;
         ItemStack hand = player.getInventory().getItemInMainHand();
 
         if (ItemUtil.isCarpet(hand)) {
@@ -85,6 +86,7 @@ public final class InteractionListener implements Listener {
         if (event.getHand() != EquipmentSlot.HAND) return;
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         Player player = event.getPlayer();
+        if (player.isSneaking()) return;
         Entity vehicle = player.getVehicle();
         if (!(vehicle instanceof Chicken chicken) || !store.isWonderful(chicken)) return;
         if (!isLookingAtMount(player, chicken)) return;

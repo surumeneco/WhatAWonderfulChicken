@@ -78,8 +78,9 @@ public final class WonderfulChickenService {
         WonderfulChickenData data = new WonderfulChickenData();
         for (StatType stat : StatType.values()) {
             double normalized = truncatedGaussian(config.naturalMean(), config.naturalStdDev(), 0.0, config.naturalMaxNormalized());
-            data.normalized(stat, normalized);
-            data.value(stat, store.toValue(stat, normalized));
+            double value = store.toValue(stat, normalized);
+            data.value(stat, value);
+            data.normalized(stat, stat == StatType.MAX_HEALTH ? store.toNormalized(stat, value) : normalized);
         }
         data.currentStamina(data.value(StatType.STAMINA));
         data.bloodlineId(UUID.randomUUID().toString());
@@ -103,8 +104,9 @@ public final class WonderfulChickenService {
                 double sigma = Math.max(config.breedingMinStdDev(), Math.abs(av - bv) * config.breedingSpreadFactor());
                 normalized = truncatedGaussian(mean, sigma, 0.0, 1.0);
             }
-            child.normalized(stat, normalized);
-            child.value(stat, store.toValue(stat, normalized));
+            double value = store.toValue(stat, normalized);
+            child.value(stat, value);
+            child.normalized(stat, stat == StatType.MAX_HEALTH ? store.toNormalized(stat, value) : normalized);
         }
         child.currentStamina(child.value(StatType.STAMINA));
         child.bloodlineId(UUID.randomUUID().toString());
@@ -130,7 +132,11 @@ public final class WonderfulChickenService {
         if (config.rangeChangePolicy().equals("preserve-normalized")) {
             for (StatType stat : StatType.values()) data.value(stat, store.toValue(stat, data.normalized(stat)));
         } else {
-            for (StatType stat : StatType.values()) data.normalized(stat, store.toNormalized(stat, data.value(stat)));
+            for (StatType stat : StatType.values()) {
+                double value = stat.canonicalizeValue(data.value(stat));
+                data.value(stat, value);
+                data.normalized(stat, store.toNormalized(stat, value));
+            }
         }
         data.currentStamina(Math.min(data.currentStamina(), data.value(StatType.STAMINA)));
         store.save(chicken, data);
@@ -166,7 +172,16 @@ public final class WonderfulChickenService {
     }
 
     public void synchronizeBehaviorState(Chicken chicken, WonderfulChickenData data) {
-        chicken.setAI(data.behaviorMode() == co.surumene.whatawonderfulchicken.data.BehaviorMode.WANDER);
+        chicken.setAI(true);
+        boolean wander = data.behaviorMode() == co.surumene.whatawonderfulchicken.data.BehaviorMode.WANDER;
+        chicken.setAware(wander);
+        if (!wander) chicken.getPathfinder().stopPathfinding();
+    }
+
+    public String displayBloodlineId(String bloodlineId) {
+        if (bloodlineId == null || bloodlineId.isBlank()) return "-";
+        String compact = bloodlineId.replace("-", "");
+        return compact.substring(0, Math.min(8, compact.length()));
     }
 
     public double jumpVelocityForHeight(double height) {

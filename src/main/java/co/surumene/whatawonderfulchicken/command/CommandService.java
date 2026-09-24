@@ -21,6 +21,9 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
 import io.papermc.paper.command.brigadier.argument.resolvers.selector.EntitySelectorArgumentResolver;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -251,6 +254,7 @@ public final class CommandService {
         } else {
             StatType stat = StatType.fromCommandName(field).orElseThrow(() -> new IllegalArgumentException("Unknown field: " + field));
             double next = operation.equals("add") ? data.value(stat) + operand : operand;
+            next = stat.canonicalizeValue(next);
             if (stat == StatType.MAX_HEALTH || stat == StatType.SIZE || stat == StatType.STAMINA) {
                 if (next <= 0) throw new IllegalArgumentException(field + " must be > 0");
             } else if (next < 0) throw new IllegalArgumentException(field + " must be >= 0");
@@ -346,18 +350,72 @@ public final class CommandService {
     }
 
     private void sendInfo(CommandSender sender, Collection<Chicken> targets) {
+        int total = targets.size();
+        int index = 0;
         for (Chicken chicken : targets) {
+            index++;
+            if (index > 1) sender.sendMessage(Component.empty());
+
             WonderfulChickenData data = store.load(chicken);
-            sender.sendMessage(messages.text(sender, "command.header"));
-            sender.sendMessage("UUID: " + chicken.getUniqueId());
-            sender.sendMessage("bloodline_id=" + data.bloodlineId() + " generation=" + data.generation() + " mode=" + data.behaviorMode().name().toLowerCase(Locale.ROOT));
+            Component header = Component.text("◆ ", NamedTextColor.GOLD)
+                    .append(Component.text(messages.text(sender, "command.info_header", index, total), NamedTextColor.YELLOW)
+                            .decorate(TextDecoration.BOLD));
+            sender.sendMessage(header);
+            sender.sendMessage(infoLine(messages.text(sender, "command.info_uuid"), chicken.getUniqueId().toString(), NamedTextColor.GRAY));
+            sender.sendMessage(infoLine(messages.text(sender, "command.info_bloodline"),
+                    chickens.displayBloodlineId(data.bloodlineId()), NamedTextColor.AQUA));
+            sender.sendMessage(infoLine(messages.text(sender, "command.info_generation"),
+                    Integer.toString(data.generation()), NamedTextColor.AQUA));
+            sender.sendMessage(infoLine(messages.text(sender, "command.info_behavior"),
+                    messages.text(sender, "behavior." + data.behaviorMode().name().toLowerCase(Locale.ROOT)), NamedTextColor.GREEN));
+
             for (StatType stat : StatType.values()) {
                 Rank rank = Rank.fromNormalized(data.normalized(stat));
-                sender.sendMessage(stat.commandName() + "=" + String.format(Locale.ROOT, "%.4f", data.value(stat))
-                        + " normalized=" + String.format(Locale.ROOT, "%.4f", data.normalized(stat)) + " rank=" + rank.key());
+                Component line = Component.text("  " + messages.text(sender, "stat." + stat.key()) + ": ", NamedTextColor.GRAY)
+                        .append(Component.text(formatInfoValue(stat, data.value(stat)), NamedTextColor.WHITE))
+                        .append(Component.text("  " + messages.text(sender, "command.info_normalized") + "="
+                                + String.format(Locale.ROOT, "%.3f", data.normalized(stat)), NamedTextColor.DARK_GRAY))
+                        .append(Component.text("  [" + messages.rank(sender, rank.key()) + "]", rankColor(rank))
+                                .decorate(TextDecoration.BOLD));
+                sender.sendMessage(line);
             }
-            sender.sendMessage("current-stamina=" + String.format(Locale.ROOT, "%.4f", data.currentStamina()));
+
+            sender.sendMessage(infoLine(messages.text(sender, "command.info_current_stamina"),
+                    String.format(Locale.ROOT, "%.2f / %.2f", data.currentStamina(), data.value(StatType.STAMINA)),
+                    NamedTextColor.GREEN));
         }
+    }
+
+    private Component infoLine(String label, String value, NamedTextColor valueColor) {
+        return Component.text("  " + label + ": ", NamedTextColor.GRAY)
+                .append(Component.text(value, valueColor));
+    }
+
+    private String formatInfoValue(StatType stat, double value) {
+        return switch (stat) {
+            case MAX_HEALTH -> String.format(Locale.ROOT, "%.0f HP", value);
+            case SIZE -> String.format(Locale.ROOT, "%.2f m", value * 0.7);
+            case GROUND_SPEED, AIR_SPEED, ASCENT_SPEED -> String.format(Locale.ROOT, "%.2f blocks/s", value);
+            case JUMP_STRENGTH, STEP_HEIGHT -> String.format(Locale.ROOT, "%.2f blocks", value);
+            case STAMINA_RECOVERY -> String.format(Locale.ROOT, "%.2f/s", value);
+            default -> String.format(Locale.ROOT, "%.2f", value);
+        };
+    }
+
+    private NamedTextColor rankColor(Rank rank) {
+        return switch (rank) {
+            case MISERABLE -> NamedTextColor.DARK_RED;
+            case VERY_LOW -> NamedTextColor.RED;
+            case LOW -> NamedTextColor.GOLD;
+            case SLIGHTLY_LOW -> NamedTextColor.YELLOW;
+            case COMMON -> NamedTextColor.WHITE;
+            case SLIGHTLY_HIGH -> NamedTextColor.GREEN;
+            case HIGH -> NamedTextColor.AQUA;
+            case VERY_HIGH -> NamedTextColor.BLUE;
+            case LEGENDARY -> NamedTextColor.LIGHT_PURPLE;
+            case MYTHICAL -> NamedTextColor.DARK_PURPLE;
+            case IMPOSSIBLE -> NamedTextColor.GOLD;
+        };
     }
 
     private ParsedSummon parseSummon(CommandSourceStack source, String raw) {
@@ -418,7 +476,7 @@ public final class CommandService {
             for (Map.Entry<?, ?> entry : stats.entrySet()) {
                 String key = String.valueOf(entry.getKey());
                 StatType stat = StatType.fromDataKey(key).orElseThrow(() -> new IllegalArgumentException("Unknown stat: " + key));
-                double value = number(entry.getValue());
+                double value = stat.canonicalizeValue(number(entry.getValue()));
                 data.value(stat, value);
                 data.normalized(stat, store.toNormalized(stat, value));
             }

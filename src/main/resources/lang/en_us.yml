@@ -20,6 +20,13 @@ command:
   modified: "Modified {0} wonderful chicken(s)."
   summoned: "Summoned wonderful chicken: {0}"
   header: "--- Wonderful Chicken ---"
+  info_header: "Wonderful Chicken {0}/{1}"
+  info_uuid: "UUID"
+  info_bloodline: "Bloodline ID"
+  info_generation: "Generation"
+  info_behavior: "Behavior"
+  info_normalized: "Normalized"
+  info_current_stamina: "Current Stamina"
 gui:
   title: "Wonderful Chicken"
   slot_carpet: "Riding Carpet"
