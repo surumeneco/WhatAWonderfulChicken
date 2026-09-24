@@ -123,7 +123,7 @@ public final class RidingController implements Runnable {
         if (!input.isJump()) airFlapLockedUntilJumpRelease.remove(chickenId);
         if (!chicken.hasAI()) chicken.setAI(true);
         chicken.getPathfinder().stopPathfinding();
-        chicken.setAware(inWater);
+        chicken.setAware(inWater && data.behaviorMode() != co.surumene.whatawonderfulchicken.data.BehaviorMode.FOLLOW);
         chicken.setRotation(player.getLocation().getYaw(), chicken.getLocation().getPitch());
 
         Vector velocity = chicken.getVelocity();
