@@ -475,7 +475,11 @@ public final class InventoryService {
 
     private String ancestorText(Player viewer, AncestorSnapshot snapshot) {
         if (snapshot == null) return messages.text(viewer.locale(), "gui.ancestor_none");
+        String name = snapshot.name();
+        if (name == null || name.isBlank() || name.equals("無名の鶏")) {
+            name = messages.text(viewer.locale(), "gui.ancestor_unnamed");
+        }
         return messages.text(viewer.locale(), "gui.ancestor_value",
-                snapshot.name(), snapshot.generation(), snapshot.bloodlineId());
+                name, snapshot.generation(), snapshot.bloodlineId());
     }
 }
