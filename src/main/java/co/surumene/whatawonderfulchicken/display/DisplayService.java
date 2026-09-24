@@ -24,6 +24,11 @@ import java.util.Map;
 import java.util.UUID;
 
 public final class DisplayService {
+    private static final double CARPET_SCALE_FACTOR = 0.72;
+    private static final double SHULKER_SCALE_FACTOR = 0.63;
+    private static final double CARPET_TARGET_Y_FACTOR = 0.78;
+    private static final double SHULKER_TARGET_Y_FACTOR = 0.80;
+
     private final WhatAWonderfulChickenPlugin plugin;
     private final WonderfulChickenService chickens;
     private final WonderfulChickenStore store;
@@ -106,7 +111,7 @@ public final class DisplayService {
             AttributeInstance scale = stand.getAttribute(Attribute.SCALE);
             if (scale != null) {
                 double chickenScale = store.load(chicken).value(StatType.SIZE);
-                scale.setBaseValue(Math.max(0.2, chickenScale * (entry.getKey().role() == DisplayRole.CARPET ? 0.48 : 0.63)));
+                scale.setBaseValue(Math.max(0.2, chickenScale * displayScaleFactor(entry.getKey().role())));
             }
         }
     }
@@ -148,16 +153,19 @@ public final class DisplayService {
         Vector backward = new Vector(Math.sin(yaw), 0, -Math.cos(yaw));
         if (role == DisplayRole.SHULKER_BOX) base.add(backward.multiply(0.22 * scale));
 
-        double standScale = Math.max(0.2, scale * (role == DisplayRole.CARPET ? 0.48 : 0.63));
-        // Small armor stands place helmet items substantially lower than the previous
-        // full-size stand estimate. Tune the visual anchor from the JE test capture
-        // while preserving proportional scaling between individual chickens.
+        double standScale = Math.max(0.2, scale * displayScaleFactor(role));
         double helmetAnchorHeight = 0.90 * standScale;
-        double desiredY = role == DisplayRole.CARPET ? 0.87 * scale : 0.94 * scale;
+        double desiredY = scale * (role == DisplayRole.CARPET
+                ? CARPET_TARGET_Y_FACTOR
+                : SHULKER_TARGET_Y_FACTOR);
         base.add(0, desiredY - helmetAnchorHeight, 0);
         base.setYaw(bodyYaw);
         base.setPitch(0.0f);
         return base;
+    }
+
+    private double displayScaleFactor(DisplayRole role) {
+        return role == DisplayRole.CARPET ? CARPET_SCALE_FACTOR : SHULKER_SCALE_FACTOR;
     }
 
     private void remove(UUID owner, DisplayRole role) {
