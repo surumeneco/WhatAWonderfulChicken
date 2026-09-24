@@ -6,6 +6,7 @@ import co.surumene.whatawonderfulchicken.data.WonderfulChickenData;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
@@ -41,6 +42,33 @@ public final class DisplayService {
     public void rebuildAllLoaded() {
         cleanupAndIndexExisting();
         for (Chicken chicken : chickens.loadedChickens()) rebuild(chicken);
+    }
+
+    public void reconcileChunk(Chunk chunk) {
+        for (Entity entity : chunk.getEntities()) {
+            if (!(entity instanceof ArmorStand stand)) continue;
+            String ownerRaw = stand.getPersistentDataContainer().get(ownerKey, PersistentDataType.STRING);
+            String roleRaw = stand.getPersistentDataContainer().get(roleKey, PersistentDataType.STRING);
+            if (ownerRaw == null || roleRaw == null) continue;
+            try {
+                DisplayKey key = new DisplayKey(UUID.fromString(ownerRaw), DisplayRole.valueOf(roleRaw));
+                Entity owner = Bukkit.getEntity(key.owner());
+                if (!(owner instanceof Chicken chicken) || !store.isWonderful(chicken)) {
+                    stand.remove();
+                    continue;
+                }
+                UUID current = displays.get(key);
+                Entity currentEntity = current == null ? null : Bukkit.getEntity(current);
+                if (currentEntity == null || !currentEntity.isValid()) {
+                    stand.setPersistent(false);
+                    displays.put(key, stand.getUniqueId());
+                } else if (!current.equals(stand.getUniqueId())) {
+                    stand.remove();
+                }
+            } catch (IllegalArgumentException ex) {
+                stand.remove();
+            }
+        }
     }
 
     public void rebuild(Chicken chicken) {
