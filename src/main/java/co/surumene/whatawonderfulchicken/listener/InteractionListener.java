@@ -96,7 +96,10 @@ public final class InteractionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onFoodChange(FoodLevelChangeEvent event) {
-        if (event.getEntity() instanceof Player player && player.getVehicle() instanceof Chicken chicken && store.isWonderful(chicken)) {
+        if (event.getEntity() instanceof Player player
+                && player.getVehicle() instanceof Chicken chicken
+                && store.isWonderful(chicken)
+                && event.getFoodLevel() < player.getFoodLevel()) {
             event.setCancelled(true);
         }
     }
