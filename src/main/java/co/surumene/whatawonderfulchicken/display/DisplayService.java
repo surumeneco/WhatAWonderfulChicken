@@ -153,7 +153,7 @@ public final class DisplayService {
         // full-size stand estimate. Tune the visual anchor from the JE test capture
         // while preserving proportional scaling between individual chickens.
         double helmetAnchorHeight = 0.90 * standScale;
-        double desiredY = role == DisplayRole.CARPET ? 0.47 * scale : 0.40 * scale;
+        double desiredY = role == DisplayRole.CARPET ? 0.87 * scale : 0.94 * scale;
         base.add(0, desiredY - helmetAnchorHeight, 0);
         base.setYaw(bodyYaw);
         base.setPitch(0.0f);
