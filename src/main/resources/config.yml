@@ -3,39 +3,39 @@ stats:
   max-health:
     min: 10.0
     max: 30.0
-    display: both
+    display: rank
   size:
     min: 1.5
     max: 3.0
-    display: both
+    display: rank
   ground-speed:
     min: 3.0
     max: 24.0
-    display: both
+    display: rank
   air-speed:
     min: 3.0
     max: 24.0
-    display: both
+    display: rank
   ascent-speed:
     min: 1.0
     max: 5.0
-    display: both
+    display: rank
   jump-strength:
     min: 1.0
     max: 5.0
-    display: both
+    display: rank
   step-height:
     min: 0.5
     max: 1.5
-    display: both
+    display: rank
   stamina:
     min: 2.0
     max: 20.0
-    display: both
+    display: rank
   stamina-recovery:
     min: 0.5
     max: 3.0
-    display: both
+    display: rank
 natural-spawn:
   chance: 0.05
   max-normalized: 1.5

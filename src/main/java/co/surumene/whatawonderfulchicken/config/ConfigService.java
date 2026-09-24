@@ -127,7 +127,7 @@ public final class ConfigService {
 
     public double statMin(StatType stat) { return config().getDouble("stats." + stat.configName() + ".min"); }
     public double statMax(StatType stat) { return config().getDouble("stats." + stat.configName() + ".max"); }
-    public String statDisplay(StatType stat) { return config().getString("stats." + stat.configName() + ".display", "both").toLowerCase(Locale.ROOT); }
+    public String statDisplay(StatType stat) { return config().getString("stats." + stat.configName() + ".display", "rank").toLowerCase(Locale.ROOT); }
     public String rangeChangePolicy() { return config().getString("stats.range-change-policy", "preserve-value"); }
     public double naturalChance() { return config().getDouble("natural-spawn.chance", 0.05); }
     public double naturalMaxNormalized() { return config().getDouble("natural-spawn.max-normalized", 1.5); }
