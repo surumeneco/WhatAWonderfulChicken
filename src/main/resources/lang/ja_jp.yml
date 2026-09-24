@@ -39,6 +39,7 @@ gui:
   grandparent_ba: "祖父母B-A"
   grandparent_bb: "祖父母B-B"
   ancestor_none: "なし"
+  ancestor_unnamed: "無名の鶏"
   ancestor_value: "{0} / 第{1}世代 / {2}"
 behavior:
   wander: "放浪"
