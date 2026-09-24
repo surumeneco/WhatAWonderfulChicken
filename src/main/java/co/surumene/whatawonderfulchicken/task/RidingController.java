@@ -139,7 +139,7 @@ public final class RidingController implements Runnable {
         if (inWater) {
             lastAirborneTick.put(chicken.getUniqueId(), tick);
         } else if (onGround) {
-            if (input.isJump()) {
+            if (input.isJump() && !airFlapLockedUntilJumpRelease.contains(chickenId)) {
                 velocity.setY(chickens.jumpVelocityForHeight(data.value(StatType.JUMP_STRENGTH)));
                 airFlapLockedUntilJumpRelease.add(chickenId);
             }
