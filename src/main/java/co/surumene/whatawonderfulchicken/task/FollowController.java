@@ -30,6 +30,7 @@ public final class FollowController implements Runnable {
     public void run() {
         for (Chicken chicken : chickens.loadedChickens()) {
             if (!chicken.getPassengers().isEmpty()) {
+                chicken.setAware(false);
                 chicken.getPathfinder().stopPathfinding();
                 continue;
             }
