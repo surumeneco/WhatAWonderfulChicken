@@ -145,7 +145,18 @@ public final class WonderfulChickenService {
         setAttribute(chicken, Attribute.MOVEMENT_SPEED, Math.max(0.001, data.value(StatType.GROUND_SPEED) / MOVEMENT_ATTRIBUTE_BLOCKS_PER_SECOND));
         if (chicken.getHealth() > data.value(StatType.MAX_HEALTH)) chicken.setHealth(data.value(StatType.MAX_HEALTH));
         ItemStack head = data.headItem();
-        if (chicken.getEquipment() != null) chicken.getEquipment().setHelmet(head);
+        if (chicken.getEquipment() != null) {
+            chicken.getEquipment().setHelmet(head);
+            chicken.getEquipment().setHelmetDropChance(0.0f);
+        }
+    }
+
+    public void captureHeadEquipment(Chicken chicken) {
+        if (!store.isWonderful(chicken) || chicken.getEquipment() == null) return;
+        WonderfulChickenData data = store.load(chicken);
+        ItemStack actual = chicken.getEquipment().getHelmet();
+        data.headItem(actual == null || actual.isEmpty() ? null : actual.clone());
+        store.save(chicken, data);
     }
 
     public void synchronizeBehaviorState(Chicken chicken, WonderfulChickenData data) {
