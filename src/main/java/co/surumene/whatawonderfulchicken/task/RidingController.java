@@ -206,6 +206,12 @@ public final class RidingController implements Runnable {
         if (proxy != null) proxy.remove();
     }
 
+    private void removeAllInteractionProxies() {
+        UUID[] ids = mountedInteractionProxies.keySet().toArray(UUID[]::new);
+        for (UUID chickenId : ids) removeInteractionProxy(chickenId);
+        mountedInteractionOwners.clear();
+    }
+
     private boolean isGrounded(Chicken chicken) {
         if (chicken.isOnGround()) return true;
         if (chicken.isInWater()) return false;
