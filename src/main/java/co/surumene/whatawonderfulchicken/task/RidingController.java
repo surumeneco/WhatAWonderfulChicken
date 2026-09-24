@@ -64,6 +64,8 @@ public final class RidingController implements Runnable {
     }
 
     private void finishMount(UUID playerId, UUID chickenId) {
+        lastAirborneTick.remove(chickenId);
+        roadCache.remove(chickenId);
         Player player = Bukkit.getPlayer(playerId);
         Float exhaustion = exhaustionAtMount.remove(playerId);
         if (player != null) {
