@@ -15,7 +15,6 @@ import org.bukkit.util.Vector;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.HashSet;
 import java.util.UUID;
 
 public final class RidingController implements Runnable {
@@ -24,7 +23,8 @@ public final class RidingController implements Runnable {
     private final ConfigService config;
     private final Map<UUID, Long> lastAirborneTick = new HashMap<>();
     private final Map<UUID, Boolean> roadCache = new HashMap<>();
-    private final Set<UUID> mountedPlayers = new HashSet<>();
+    private final Map<UUID, UUID> mountedChickens = new HashMap<>();
+    private final Map<UUID, Float> exhaustionAtMount = new HashMap<>();
     private long tick;
 
     public RidingController(WonderfulChickenService chickens, WonderfulChickenStore store, ConfigService config) {
@@ -36,32 +36,55 @@ public final class RidingController implements Runnable {
     @Override
     public void run() {
         tick++;
-        Set<UUID> nowMounted = new HashSet<>();
+        Map<UUID, UUID> nowMounted = new HashMap<>();
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!(player.getVehicle() instanceof Chicken chicken) || !store.isWonderful(chicken)) continue;
-            nowMounted.add(player.getUniqueId());
+            UUID playerId = player.getUniqueId();
+            nowMounted.put(playerId, chicken.getUniqueId());
+            exhaustionAtMount.putIfAbsent(playerId, player.getExhaustion());
             tickMounted(player, chicken);
         }
-        for (UUID uuid : new HashSet<>(mountedPlayers)) {
-            if (!nowMounted.contains(uuid)) {
-                Player player = Bukkit.getPlayer(uuid);
-                if (player != null) restoreHud(player);
-            }
+        for (Map.Entry<UUID, UUID> entry : new HashMap<>(mountedChickens).entrySet()) {
+            if (!nowMounted.containsKey(entry.getKey())) finishMount(entry.getKey(), entry.getValue());
         }
-        mountedPlayers.clear();
-        mountedPlayers.addAll(nowMounted);
+        mountedChickens.clear();
+        mountedChickens.putAll(nowMounted);
     }
 
     public void restoreHud(Player player) {
         player.sendExperienceChange(player.getExp(), player.getLevel());
     }
 
+    public void shutdown() {
+        for (Map.Entry<UUID, UUID> entry : new HashMap<>(mountedChickens).entrySet()) {
+            finishMount(entry.getKey(), entry.getValue());
+        }
+        mountedChickens.clear();
+        exhaustionAtMount.clear();
+    }
+
+    private void finishMount(UUID playerId, UUID chickenId) {
+        Player player = Bukkit.getPlayer(playerId);
+        Float exhaustion = exhaustionAtMount.remove(playerId);
+        if (player != null) {
+            if (exhaustion != null) player.setExhaustion(exhaustion);
+            restoreHud(player);
+        }
+        if (Bukkit.getEntity(chickenId) instanceof Chicken chicken && store.isWonderful(chicken)) {
+            chickens.synchronizeBehaviorState(chicken, store.load(chicken));
+        }
+    }
+
     private void tickMounted(Player player, Chicken chicken) {
         WonderfulChickenData data = store.load(chicken);
-        if (chicken.hasAI()) chicken.setAI(false);
         Input input = player.getCurrentInput();
         boolean onGround = chicken.isOnGround();
         boolean inWater = chicken.isInWater();
+        if (inWater) {
+            if (!chicken.hasAI()) chicken.setAI(true);
+        } else if (chicken.hasAI()) {
+            chicken.setAI(false);
+        }
         chicken.setRotation(player.getLocation().getYaw(), chicken.getLocation().getPitch());
 
         Vector velocity = chicken.getVelocity();
@@ -91,7 +114,8 @@ public final class RidingController implements Runnable {
         }
 
         chicken.setVelocity(velocity);
-        player.setExhaustion(0.0f);
+        Float baselineExhaustion = exhaustionAtMount.get(player.getUniqueId());
+        if (baselineExhaustion != null) player.setExhaustion(baselineExhaustion);
         float progress = (float) Math.max(0.0, Math.min(1.0, data.currentStamina() / Math.max(0.0001, data.value(StatType.STAMINA))));
         player.sendExperienceChange(progress, player.getLevel());
         store.save(chicken, data);
