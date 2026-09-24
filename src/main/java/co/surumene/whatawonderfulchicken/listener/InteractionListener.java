@@ -75,7 +75,7 @@ public final class InteractionListener implements Listener {
         if (player.isSneaking()) return;
         ItemStack hand = player.getInventory().getItemInMainHand();
 
-        if (mountedProxy) {
+        if (mountedProxy || player.getVehicle() == chicken) {
             if (player.getVehicle() != chicken) return;
             event.setCancelled(true);
             if (ItemUtil.isCarpet(hand)) equipCarpet(player, chicken, hand);
