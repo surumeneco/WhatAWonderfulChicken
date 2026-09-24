@@ -156,9 +156,10 @@ public final class CommandService {
                 if (DANGEROUS_UUID_NBT.matcher(parsed.nbt()).find()) throw new IllegalArgumentException("UUID cannot be overridden");
                 boolean ok = Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "minecraft:data merge entity " + chicken.getUniqueId() + " " + parsed.nbt());
                 if (!ok) throw new IllegalArgumentException("Vanilla NBT merge command failed");
-                chickens.projectAttributes(chicken);
             }
             store.save(chicken, data);
+            chickens.projectAttributes(chicken);
+            chickens.synchronizeBehaviorState(chicken, data);
             displays.rebuild(chicken);
             sender.sendMessage(messages.text(sender, "command.summoned", chicken.getUniqueId()));
             return Command.SINGLE_SUCCESS;
