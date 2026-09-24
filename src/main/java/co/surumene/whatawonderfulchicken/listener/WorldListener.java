@@ -81,8 +81,13 @@ public final class WorldListener implements Listener {
         var data = store.load(chicken);
         if (data.carpet() != null) event.getDrops().add(data.carpet());
         if (data.shulkerBox() != null) event.getDrops().add(data.shulkerBox());
-        if (data.headItem() != null) event.getDrops().add(data.headItem());
-        if (chicken.getEquipment() != null) chicken.getEquipment().setHelmet(null);
+        if (chicken.getEquipment() != null) {
+            var actualHead = chicken.getEquipment().getHelmet();
+            if (actualHead != null && !actualHead.isEmpty()) event.getDrops().add(actualHead.clone());
+            chicken.getEquipment().setHelmet(null);
+        } else if (data.headItem() != null) {
+            event.getDrops().add(data.headItem());
+        }
         displays.removeFor(chicken);
         chickens.unregisterLoaded(chicken);
     }
