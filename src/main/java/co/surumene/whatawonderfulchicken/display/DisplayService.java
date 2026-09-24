@@ -54,6 +54,14 @@ public final class DisplayService {
         for (DisplayRole role : DisplayRole.values()) remove(chicken.getUniqueId(), role);
     }
 
+    public void removeAll() {
+        for (UUID displayId : displays.values()) {
+            Entity entity = Bukkit.getEntity(displayId);
+            if (entity != null) entity.remove();
+        }
+        displays.clear();
+    }
+
     public void tick() {
         Iterator<Map.Entry<DisplayKey, UUID>> iterator = displays.entrySet().iterator();
         while (iterator.hasNext()) {
