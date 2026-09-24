@@ -8,6 +8,7 @@ import co.surumene.whatawonderfulchicken.display.DisplayService;
 import co.surumene.whatawonderfulchicken.gui.InventoryService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
+import co.surumene.whatawonderfulchicken.task.RidingController;
 import co.surumene.whatawonderfulchicken.util.ItemUtil;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
@@ -40,9 +41,11 @@ public final class InteractionListener implements Listener {
     private final MessageService messages;
     private final InventoryService inventories;
     private final DisplayService displays;
+    private final RidingController riding;
 
     public InteractionListener(WhatAWonderfulChickenPlugin plugin, WonderfulChickenService chickens, WonderfulChickenStore store,
-                               ConfigService config, MessageService messages, InventoryService inventories, DisplayService displays) {
+                               ConfigService config, MessageService messages, InventoryService inventories, DisplayService displays,
+                               RidingController riding) {
         this.plugin = plugin;
         this.chickens = chickens;
         this.store = store;
@@ -50,15 +53,35 @@ public final class InteractionListener implements Listener {
         this.messages = messages;
         this.inventories = inventories;
         this.displays = displays;
+        this.riding = riding;
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGH)
     public void onEntityInteract(PlayerInteractEntityEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) return;
-        if (!(event.getRightClicked() instanceof Chicken chicken) || !store.isWonderful(chicken)) return;
         Player player = event.getPlayer();
+
+        Chicken chicken;
+        boolean mountedProxy;
+        if (event.getRightClicked() instanceof Chicken direct && store.isWonderful(direct)) {
+            chicken = direct;
+            mountedProxy = false;
+        } else {
+            chicken = riding.interactionOwner(event.getRightClicked());
+            if (chicken == null) return;
+            mountedProxy = true;
+        }
+
         if (player.isSneaking()) return;
         ItemStack hand = player.getInventory().getItemInMainHand();
+
+        if (mountedProxy || player.getVehicle() == chicken) {
+            if (player.getVehicle() != chicken) return;
+            event.setCancelled(true);
+            if (ItemUtil.isCarpet(hand)) equipCarpet(player, chicken, hand);
+            else inventories.open(player, chicken);
+            return;
+        }
 
         if (ItemUtil.isCarpet(hand)) {
             event.setCancelled(true);
@@ -72,17 +95,18 @@ public final class InteractionListener implements Listener {
                 chicken.setHealth(Math.min(chicken.getMaxHealth(), chicken.getHealth() + config.healPerSeed()));
                 consumeOne(player, hand);
             }
-            // At full health, leave breeding / chick growth to vanilla instead of mounting.
             return;
         }
 
         if (!chicken.isAdult() || store.load(chicken).carpet() == null) return;
         if (!chicken.getPassengers().isEmpty()) return;
         event.setCancelled(true);
+        chicken.getPathfinder().stopPathfinding();
+        chicken.setAware(false);
         chicken.addPassenger(player);
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGH)
     public void onMountedInteract(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) return;
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;

@@ -50,7 +50,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
                 event.registrar().register(commands.build(), "What a Wonderful Chicken administration", List.of("whatawonderfulchicken")));
 
         getServer().getPluginManager().registerEvents(new WorldListener(chickens, store, displays, inventories), this);
-        getServer().getPluginManager().registerEvents(new InteractionListener(this, chickens, store, configService, messageService, inventories, displays), this);
+        getServer().getPluginManager().registerEvents(new InteractionListener(this, chickens, store, configService, messageService, inventories, displays, riding), this);
         getServer().getPluginManager().registerEvents(new InventoryListener(inventories), this);
 
         chickens.scanLoadedWorlds();

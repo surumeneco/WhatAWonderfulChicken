@@ -106,7 +106,7 @@ public final class DisplayService {
             AttributeInstance scale = stand.getAttribute(Attribute.SCALE);
             if (scale != null) {
                 double chickenScale = store.load(chicken).value(StatType.SIZE);
-                scale.setBaseValue(Math.max(0.2, chickenScale * (entry.getKey().role() == DisplayRole.CARPET ? 0.32 : 0.42)));
+                scale.setBaseValue(Math.max(0.2, chickenScale * (entry.getKey().role() == DisplayRole.CARPET ? 0.48 : 0.63)));
             }
         }
     }
@@ -148,12 +148,12 @@ public final class DisplayService {
         Vector backward = new Vector(Math.sin(yaw), 0, -Math.cos(yaw));
         if (role == DisplayRole.SHULKER_BOX) base.add(backward.multiply(0.22 * scale));
 
-        double standScale = Math.max(0.2, scale * (role == DisplayRole.CARPET ? 0.32 : 0.42));
+        double standScale = Math.max(0.2, scale * (role == DisplayRole.CARPET ? 0.48 : 0.63));
         // Small armor stands place helmet items substantially lower than the previous
         // full-size stand estimate. Tune the visual anchor from the JE test capture
         // while preserving proportional scaling between individual chickens.
         double helmetAnchorHeight = 0.90 * standScale;
-        double desiredY = role == DisplayRole.CARPET ? 0.47 * scale : 0.40 * scale;
+        double desiredY = role == DisplayRole.CARPET ? 0.87 * scale : 0.94 * scale;
         base.add(0, desiredY - helmetAnchorHeight, 0);
         base.setYaw(bodyYaw);
         base.setPitch(0.0f);

@@ -7,8 +7,12 @@ import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
 import org.bukkit.Bukkit;
 import org.bukkit.Input;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Chicken;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Interaction;
 import org.bukkit.entity.Player;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
@@ -23,10 +27,13 @@ public final class RidingController implements Runnable {
     private final WonderfulChickenService chickens;
     private final WonderfulChickenStore store;
     private final ConfigService config;
+    private final Map<UUID, UUID> mountedInteractionProxies = new HashMap<>();
+    private final Map<UUID, UUID> mountedInteractionOwners = new HashMap<>();
     private final Map<UUID, Long> lastAirborneTick = new HashMap<>();
     private final Map<UUID, Boolean> roadCache = new HashMap<>();
     private final Map<UUID, UUID> mountedChickens = new HashMap<>();
     private final Map<UUID, Float> exhaustionAtMount = new HashMap<>();
+    private final Set<UUID> airFlapLockedUntilJumpRelease = new HashSet<>();
     private long tick;
 
     public RidingController(WonderfulChickenService chickens, WonderfulChickenStore store, ConfigService config) {
@@ -70,10 +77,14 @@ public final class RidingController implements Runnable {
         }
         mountedChickens.clear();
         exhaustionAtMount.clear();
+        airFlapLockedUntilJumpRelease.clear();
+        removeAllInteractionProxies();
     }
 
     private void finishMount(UUID playerId, UUID chickenId) {
         roadCache.remove(chickenId);
+        airFlapLockedUntilJumpRelease.remove(chickenId);
+        removeInteractionProxy(chickenId);
         Player player = Bukkit.getPlayer(playerId);
         Float exhaustion = exhaustionAtMount.remove(playerId);
         if (player != null) {
@@ -103,13 +114,16 @@ public final class RidingController implements Runnable {
     }
 
     private void tickMounted(Player player, Chicken chicken) {
+        ensureInteractionProxy(chicken);
         WonderfulChickenData data = store.load(chicken);
         Input input = player.getCurrentInput();
+        UUID chickenId = chicken.getUniqueId();
         boolean onGround = isGrounded(chicken);
         boolean inWater = chicken.isInWater();
+        if (!input.isJump()) airFlapLockedUntilJumpRelease.remove(chickenId);
         if (!chicken.hasAI()) chicken.setAI(true);
         chicken.getPathfinder().stopPathfinding();
-        chicken.setAware(inWater);
+        chicken.setAware(inWater && data.behaviorMode() != co.surumene.whatawonderfulchicken.data.BehaviorMode.FOLLOW);
         chicken.setRotation(player.getLocation().getYaw(), chicken.getLocation().getPitch());
 
         Vector velocity = chicken.getVelocity();
@@ -126,7 +140,10 @@ public final class RidingController implements Runnable {
         if (inWater) {
             lastAirborneTick.put(chicken.getUniqueId(), tick);
         } else if (onGround) {
-            if (input.isJump()) velocity.setY(chickens.jumpVelocityForHeight(data.value(StatType.JUMP_STRENGTH)));
+            if (input.isJump() && !airFlapLockedUntilJumpRelease.contains(chickenId)) {
+                velocity.setY(chickens.jumpVelocityForHeight(data.value(StatType.JUMP_STRENGTH)));
+                airFlapLockedUntilJumpRelease.add(chickenId);
+            }
             long delay = Math.round(config.recoveryDelaySeconds() * 20.0);
             long lastAir = lastAirborneTick.getOrDefault(chicken.getUniqueId(), Long.MIN_VALUE / 4);
             if (tick - lastAir >= delay) {
@@ -134,7 +151,7 @@ public final class RidingController implements Runnable {
             }
         } else {
             lastAirborneTick.put(chicken.getUniqueId(), tick);
-            if (input.isJump() && data.currentStamina() > 0.0) {
+            if (input.isJump() && !airFlapLockedUntilJumpRelease.contains(chickenId) && data.currentStamina() > 0.0) {
                 velocity.setY(data.value(StatType.ASCENT_SPEED) / 20.0);
                 data.currentStamina(Math.max(0.0, data.currentStamina() - config.staminaConsumptionPerSecond() / 20.0));
             } else if (velocity.getY() < -0.12) {
@@ -148,6 +165,51 @@ public final class RidingController implements Runnable {
         float progress = (float) Math.max(0.0, Math.min(1.0, data.currentStamina() / Math.max(0.0001, data.value(StatType.STAMINA))));
         player.sendExperienceChange(progress, player.getLevel());
         store.save(chicken, data);
+    }
+
+    private void ensureInteractionProxy(Chicken chicken) {
+        UUID chickenId = chicken.getUniqueId();
+        Interaction proxy = null;
+        UUID proxyId = mountedInteractionProxies.get(chickenId);
+        if (proxyId != null && Bukkit.getEntity(proxyId) instanceof Interaction existing && existing.isValid()) {
+            proxy = existing;
+        }
+        if (proxy == null) {
+            proxy = (Interaction) chicken.getWorld().spawnEntity(interactionLocation(chicken), EntityType.INTERACTION);
+            proxy.setPersistent(false);
+            mountedInteractionProxies.put(chickenId, proxy.getUniqueId());
+            mountedInteractionOwners.put(proxy.getUniqueId(), chickenId);
+        }
+        BoundingBox box = chicken.getBoundingBox();
+        proxy.teleport(interactionLocation(chicken));
+        proxy.setInteractionWidth((float) Math.max(0.5, Math.max(box.getWidthX(), box.getWidthZ()) * 1.15));
+        proxy.setInteractionHeight((float) Math.max(0.5, box.getHeight() * 1.10));
+    }
+
+    private Location interactionLocation(Chicken chicken) {
+        BoundingBox box = chicken.getBoundingBox();
+        return new Location(chicken.getWorld(), box.getCenterX(), box.getMinY(), box.getCenterZ(), chicken.getBodyYaw(), 0.0f);
+    }
+
+    public Chicken interactionOwner(Entity entity) {
+        UUID chickenId = mountedInteractionOwners.get(entity.getUniqueId());
+        if (chickenId == null) return null;
+        Entity owner = Bukkit.getEntity(chickenId);
+        return owner instanceof Chicken chicken && store.isWonderful(chicken) ? chicken : null;
+    }
+
+    private void removeInteractionProxy(UUID chickenId) {
+        UUID proxyId = mountedInteractionProxies.remove(chickenId);
+        if (proxyId == null) return;
+        mountedInteractionOwners.remove(proxyId);
+        Entity proxy = Bukkit.getEntity(proxyId);
+        if (proxy != null) proxy.remove();
+    }
+
+    private void removeAllInteractionProxies() {
+        UUID[] ids = mountedInteractionProxies.keySet().toArray(UUID[]::new);
+        for (UUID chickenId : ids) removeInteractionProxy(chickenId);
+        mountedInteractionOwners.clear();
     }
 
     private boolean isGrounded(Chicken chicken) {
