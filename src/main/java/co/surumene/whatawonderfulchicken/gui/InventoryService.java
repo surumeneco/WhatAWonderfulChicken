@@ -166,6 +166,16 @@ public final class InventoryService {
         if (viewer != null && viewer.getOpenInventory().getTopInventory().getHolder() instanceof WonderfulChickenInventoryHolder) viewer.closeInventory();
     }
 
+    public void closeAll() {
+        for (UUID viewerId : List.copyOf(locks.values())) {
+            Player viewer = Bukkit.getPlayer(viewerId);
+            if (viewer != null && viewer.getOpenInventory().getTopInventory().getHolder() instanceof WonderfulChickenInventoryHolder) {
+                viewer.closeInventory();
+            }
+        }
+        locks.clear();
+    }
+
     private boolean incomingShulkerBox(InventoryClickEvent event) {
         if (ItemUtil.isShulkerBox(event.getCursor())) return true;
         if (event.getClick() == ClickType.NUMBER_KEY && event.getHotbarButton() >= 0
