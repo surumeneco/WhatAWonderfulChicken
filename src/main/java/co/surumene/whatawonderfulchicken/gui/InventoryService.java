@@ -22,6 +22,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
@@ -105,17 +106,24 @@ public final class InventoryService {
         boolean clickedTop = rawSlot >= 0 && rawSlot < topSize;
 
         if (event.isShiftClick()) {
-            if (!clickedTop && topSize == 36) {
-                ItemStack moving = event.getCurrentItem();
-                if (moving != null && !moving.isEmpty()) {
-                    event.setCancelled(true);
-                    if (!ItemUtil.isShulkerBox(moving)) moveToCargo(top, moving, event);
-                    scheduleCargoSync(chicken, top);
+            if (!clickedTop) {
+                event.setCancelled(true);
+                if (topSize == 36) {
+                    ItemStack moving = event.getCurrentItem();
+                    if (moving != null && !moving.isEmpty() && !ItemUtil.isShulkerBox(moving)) {
+                        moveToCargo(top, moving, event);
+                        scheduleCargoSync(chicken, top);
+                    }
                 }
                 return;
             }
-            if (clickedTop && rawSlot < 9) event.setCancelled(true);
-            else if (clickedTop) scheduleCargoSync(chicken, top);
+            if (rawSlot < 9) event.setCancelled(true);
+            else scheduleCargoSync(chicken, top);
+            return;
+        }
+
+        if (event.getAction() == InventoryAction.COLLECT_TO_CURSOR) {
+            event.setCancelled(true);
             return;
         }
 
