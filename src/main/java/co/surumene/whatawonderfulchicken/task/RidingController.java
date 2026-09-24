@@ -27,6 +27,7 @@ public final class RidingController implements Runnable {
     private final Map<UUID, Boolean> roadCache = new HashMap<>();
     private final Map<UUID, UUID> mountedChickens = new HashMap<>();
     private final Map<UUID, Float> exhaustionAtMount = new HashMap<>();
+    private final Set<UUID> airFlapLockedUntilJumpRelease = new HashSet<>();
     private long tick;
 
     public RidingController(WonderfulChickenService chickens, WonderfulChickenStore store, ConfigService config) {
@@ -70,10 +71,12 @@ public final class RidingController implements Runnable {
         }
         mountedChickens.clear();
         exhaustionAtMount.clear();
+        airFlapLockedUntilJumpRelease.clear();
     }
 
     private void finishMount(UUID playerId, UUID chickenId) {
         roadCache.remove(chickenId);
+        airFlapLockedUntilJumpRelease.remove(chickenId);
         Player player = Bukkit.getPlayer(playerId);
         Float exhaustion = exhaustionAtMount.remove(playerId);
         if (player != null) {
@@ -105,8 +108,10 @@ public final class RidingController implements Runnable {
     private void tickMounted(Player player, Chicken chicken) {
         WonderfulChickenData data = store.load(chicken);
         Input input = player.getCurrentInput();
+        UUID chickenId = chicken.getUniqueId();
         boolean onGround = isGrounded(chicken);
         boolean inWater = chicken.isInWater();
+        if (!input.isJump()) airFlapLockedUntilJumpRelease.remove(chickenId);
         if (!chicken.hasAI()) chicken.setAI(true);
         chicken.getPathfinder().stopPathfinding();
         chicken.setAware(inWater);
@@ -126,7 +131,10 @@ public final class RidingController implements Runnable {
         if (inWater) {
             lastAirborneTick.put(chicken.getUniqueId(), tick);
         } else if (onGround) {
-            if (input.isJump()) velocity.setY(chickens.jumpVelocityForHeight(data.value(StatType.JUMP_STRENGTH)));
+            if (input.isJump()) {
+                velocity.setY(chickens.jumpVelocityForHeight(data.value(StatType.JUMP_STRENGTH)));
+                airFlapLockedUntilJumpRelease.add(chickenId);
+            }
             long delay = Math.round(config.recoveryDelaySeconds() * 20.0);
             long lastAir = lastAirborneTick.getOrDefault(chicken.getUniqueId(), Long.MIN_VALUE / 4);
             if (tick - lastAir >= delay) {
@@ -134,7 +142,7 @@ public final class RidingController implements Runnable {
             }
         } else {
             lastAirborneTick.put(chicken.getUniqueId(), tick);
-            if (input.isJump() && data.currentStamina() > 0.0) {
+            if (input.isJump() && !airFlapLockedUntilJumpRelease.contains(chickenId) && data.currentStamina() > 0.0) {
                 velocity.setY(data.value(StatType.ASCENT_SPEED) / 20.0);
                 data.currentStamina(Math.max(0.0, data.currentStamina() - config.staminaConsumptionPerSecond() / 20.0));
             } else if (velocity.getY() < -0.12) {
