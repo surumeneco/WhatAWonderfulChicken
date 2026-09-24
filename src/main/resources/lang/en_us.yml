@@ -39,6 +39,7 @@ gui:
   grandparent_ba: "Grandparent B-A"
   grandparent_bb: "Grandparent B-B"
   ancestor_none: "None"
+  ancestor_unnamed: "Unnamed Chicken"
   ancestor_value: "{0} / generation {1} / {2}"
 behavior:
   wander: "Wander"
