@@ -166,6 +166,13 @@ public final class RidingController implements Runnable {
         store.save(chicken, data);
     }
 
+    public Chicken interactionOwner(Entity entity) {
+        UUID chickenId = mountedInteractionOwners.get(entity.getUniqueId());
+        if (chickenId == null) return null;
+        Entity owner = Bukkit.getEntity(chickenId);
+        return owner instanceof Chicken chicken && store.isWonderful(chicken) ? chicken : null;
+    }
+
     private boolean isGrounded(Chicken chicken) {
         if (chicken.isOnGround()) return true;
         if (chicken.isInWater()) return false;
