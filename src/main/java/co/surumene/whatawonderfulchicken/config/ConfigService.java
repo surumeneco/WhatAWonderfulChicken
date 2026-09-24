@@ -76,6 +76,7 @@ public final class ConfigService {
     public ValidationResult reloadFromDisk() {
         File file = new File(plugin.getDataFolder(), "config.yml");
         YamlConfiguration candidate = YamlConfiguration.loadConfiguration(file);
+        candidate.setDefaults(defaults);
         ValidationResult validation = validate(candidate);
         if (!validation.valid()) return validation;
         plugin.reloadConfig();
