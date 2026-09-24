@@ -11,6 +11,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Chicken;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Interaction;
 import org.bukkit.entity.Player;
 import org.bukkit.util.BoundingBox;
@@ -164,6 +165,30 @@ public final class RidingController implements Runnable {
         float progress = (float) Math.max(0.0, Math.min(1.0, data.currentStamina() / Math.max(0.0001, data.value(StatType.STAMINA))));
         player.sendExperienceChange(progress, player.getLevel());
         store.save(chicken, data);
+    }
+
+    private void ensureInteractionProxy(Chicken chicken) {
+        UUID chickenId = chicken.getUniqueId();
+        Interaction proxy = null;
+        UUID proxyId = mountedInteractionProxies.get(chickenId);
+        if (proxyId != null && Bukkit.getEntity(proxyId) instanceof Interaction existing && existing.isValid()) {
+            proxy = existing;
+        }
+        if (proxy == null) {
+            proxy = (Interaction) chicken.getWorld().spawnEntity(interactionLocation(chicken), EntityType.INTERACTION);
+            proxy.setPersistent(false);
+            mountedInteractionProxies.put(chickenId, proxy.getUniqueId());
+            mountedInteractionOwners.put(proxy.getUniqueId(), chickenId);
+        }
+        BoundingBox box = chicken.getBoundingBox();
+        proxy.teleport(interactionLocation(chicken));
+        proxy.setInteractionWidth((float) Math.max(0.5, Math.max(box.getWidthX(), box.getWidthZ()) * 1.15));
+        proxy.setInteractionHeight((float) Math.max(0.5, box.getHeight() * 1.10));
+    }
+
+    private Location interactionLocation(Chicken chicken) {
+        BoundingBox box = chicken.getBoundingBox();
+        return new Location(chicken.getWorld(), box.getCenterX(), box.getMinY(), box.getCenterZ(), chicken.getBodyYaw(), 0.0f);
     }
 
     public Chicken interactionOwner(Entity entity) {
