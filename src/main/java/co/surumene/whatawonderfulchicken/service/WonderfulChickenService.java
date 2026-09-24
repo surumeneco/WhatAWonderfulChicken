@@ -173,9 +173,9 @@ public final class WonderfulChickenService {
 
     public void synchronizeBehaviorState(Chicken chicken, WonderfulChickenData data) {
         chicken.setAI(true);
+        chicken.getPathfinder().stopPathfinding();
         boolean wander = data.behaviorMode() == co.surumene.whatawonderfulchicken.data.BehaviorMode.WANDER;
         chicken.setAware(wander);
-        if (!wander) chicken.getPathfinder().stopPathfinding();
     }
 
     public String displayBloodlineId(String bloodlineId) {
