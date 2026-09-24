@@ -174,7 +174,7 @@ public final class WonderfulChickenService {
     }
 
     public AncestorSnapshot selfSnapshot(Chicken chicken, WonderfulChickenData data) {
-        String name = "無名の鶏";
+        String name = "";
         if (chicken.customName() != null) name = PlainTextComponentSerializer.plainText().serialize(chicken.customName());
         return new AncestorSnapshot(name, data.generation(), data.bloodlineId());
     }
