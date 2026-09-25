@@ -18,15 +18,14 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class GeyserBedrockCompatibility implements BedrockCompatibility, EventRegistrar {
     private static final float VANILLA_CHICKEN_MOUNT_HEIGHT = 0.35f;
 
-    private final WhatAWonderfulChickenPlugin plugin;
     private final GeyserApi api;
     private final Map<UUID, Boolean> javaOnlyDisplays = new ConcurrentHashMap<>();
     private final Map<UUID, Float> bedrockDisplayScales = new ConcurrentHashMap<>();
     private final Map<UUID, SeatState> seatStates = new ConcurrentHashMap<>();
 
     private GeyserBedrockCompatibility(WhatAWonderfulChickenPlugin plugin, GeyserApi api) {
-        this.plugin = plugin;
         this.api = api;
+        api.eventBus().register(this, this);
         api.eventBus().subscribe(this, ServerSpawnEntityEvent.class, this::onServerSpawnEntity);
     }
 
