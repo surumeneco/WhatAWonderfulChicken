@@ -19,6 +19,7 @@ public final class IntegrityController implements Runnable {
         tick++;
         displays.tick();
         if (tick % 20 == 0) {
+            displays.refreshVisibility();
             for (Chicken chicken : chickens.loadedChickens()) {
                 chickens.captureHeadEquipment(chicken);
                 chickens.projectAttributes(chicken);
