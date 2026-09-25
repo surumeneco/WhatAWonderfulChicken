@@ -6,6 +6,8 @@ import org.bukkit.entity.Player;
 import java.util.UUID;
 
 public interface BedrockCompatibility {
+    boolean enabled();
+
     boolean isBedrockPlayer(UUID playerId);
 
     void registerJavaOnlyDisplay(UUID entityId);
@@ -32,6 +34,11 @@ public interface BedrockCompatibility {
         private static final Disabled INSTANCE = new Disabled();
 
         private Disabled() {
+        }
+
+        @Override
+        public boolean enabled() {
+            return false;
         }
 
         @Override
