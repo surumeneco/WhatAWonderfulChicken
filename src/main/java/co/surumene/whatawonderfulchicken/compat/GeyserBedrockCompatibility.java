@@ -50,6 +50,11 @@ public final class GeyserBedrockCompatibility implements BedrockCompatibility, E
     }
 
     @Override
+    public boolean enabled() {
+        return true;
+    }
+
+    @Override
     public boolean isBedrockPlayer(UUID playerId) {
         return api.connectionByUuid(playerId) != null;
     }
