@@ -1,5 +1,6 @@
 package co.surumene.whatawonderfulchicken.task;
 
+import co.surumene.whatawonderfulchicken.compat.BedrockCompatibility;
 import co.surumene.whatawonderfulchicken.config.ConfigService;
 import co.surumene.whatawonderfulchicken.data.StatType;
 import co.surumene.whatawonderfulchicken.data.WonderfulChickenData;
@@ -27,6 +28,7 @@ public final class RidingController implements Runnable {
     private final WonderfulChickenService chickens;
     private final WonderfulChickenStore store;
     private final ConfigService config;
+    private final BedrockCompatibility bedrock;
     private final Map<UUID, UUID> mountedInteractionProxies = new HashMap<>();
     private final Map<UUID, UUID> mountedInteractionOwners = new HashMap<>();
     private final Map<UUID, Long> lastAirborneTick = new HashMap<>();
@@ -36,10 +38,16 @@ public final class RidingController implements Runnable {
     private final Set<UUID> airFlapLockedUntilJumpRelease = new HashSet<>();
     private long tick;
 
-    public RidingController(WonderfulChickenService chickens, WonderfulChickenStore store, ConfigService config) {
+    public RidingController(
+            WonderfulChickenService chickens,
+            WonderfulChickenStore store,
+            ConfigService config,
+            BedrockCompatibility bedrock
+    ) {
         this.chickens = chickens;
         this.store = store;
         this.config = config;
+        this.bedrock = bedrock;
     }
 
     @Override
@@ -91,6 +99,7 @@ public final class RidingController implements Runnable {
             if (exhaustion != null) player.setExhaustion(exhaustion);
             restoreHud(player);
         }
+        bedrock.clearSeatOffset(playerId);
         if (Bukkit.getEntity(chickenId) instanceof Chicken chicken && store.isWonderful(chicken)) {
             chickens.synchronizeBehaviorState(chicken, store.load(chicken));
         }
@@ -164,6 +173,7 @@ public final class RidingController implements Runnable {
         if (baselineExhaustion != null) player.setExhaustion(baselineExhaustion);
         float progress = (float) Math.max(0.0, Math.min(1.0, data.currentStamina() / Math.max(0.0001, data.value(StatType.STAMINA))));
         player.sendExperienceChange(progress, player.getLevel());
+        bedrock.applySeatOffset(player, chicken, data.value(StatType.SIZE));
         store.save(chicken, data);
     }
 
