@@ -14,6 +14,7 @@ import org.bukkit.event.entity.EntityBreedEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 
 public final class WorldListener implements Listener {
     private final WonderfulChickenService chickens;
@@ -73,6 +74,11 @@ public final class WorldListener implements Listener {
                 chickens.unregisterLoaded(chicken);
             }
         }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        displays.refreshVisibility();
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
