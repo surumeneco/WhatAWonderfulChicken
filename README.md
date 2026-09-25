@@ -26,7 +26,7 @@ Linux / macOS:
 生成物:
 
 ```text
-build/libs/WhatAWonderfulChicken-0.1.0-SNAPSHOT.jar
+build/libs/WhatAWonderfulChicken-0.2.0-SNAPSHOT.jar
 ```
 
 生成されたjarをPaperサーバーの `plugins/` に配置して起動してください。初回起動時に `plugins/WhatAWonderfulChicken/` 以下へconfigと言語ファイルを自動生成します。
@@ -78,4 +78,4 @@ WWCデータとバニラNBTを両方指定した場合、能力Attribute等の�
 
 ## 現時点の実機確認対象
 
-Carpet / Shulker Boxの外観は、Geyser互換性を優先して不可視ArmorStandの頭装備として追従表示する初期実装です。位置・倍率、Chicken騎乗時のJE/BE入力差、乗騎ハート表示などは実サーバーで確認して調整する前提です。
+0.2.0-SNAPSHOTではJava版の不可視ArmorStand表示を維持しつつ、Geyser 2.11系では統合版にCarpet / Shulker BoxをFallingBlockとして表示します。統合版の騎乗位置はGeyserのSEAT_OFFSETをChicken Scaleに合わせて補正します。BE側の表示位置・倍率は実サーバーで追加調整する前提です。

@@ -1,6 +1,8 @@
 package co.surumene.whatawonderfulchicken;
 
 import co.surumene.whatawonderfulchicken.command.CommandService;
+import co.surumene.whatawonderfulchicken.compat.BedrockCompatibility;
+import co.surumene.whatawonderfulchicken.compat.GeyserBedrockCompatibility;
 import co.surumene.whatawonderfulchicken.config.ConfigService;
 import co.surumene.whatawonderfulchicken.config.MessageService;
 import co.surumene.whatawonderfulchicken.display.DisplayService;
@@ -27,6 +29,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
     private DisplayService displays;
     private InventoryService inventories;
     private RidingController riding;
+    private BedrockCompatibility bedrock;
 
     @Override
     public void onEnable() {
@@ -41,9 +44,10 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         messageService = new MessageService(this);
         store = new WonderfulChickenStore(this, configService);
         chickens = new WonderfulChickenService(this, configService, store);
-        displays = new DisplayService(this, chickens, store);
+        bedrock = createBedrockCompatibility();
+        displays = new DisplayService(this, chickens, store, bedrock);
         inventories = new InventoryService(this, chickens, store, configService, messageService, displays);
-        riding = new RidingController(chickens, store, configService);
+        riding = new RidingController(chickens, store, configService, bedrock);
 
         CommandService commands = new CommandService(this, chickens, store, configService, messageService, displays);
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
@@ -68,5 +72,18 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         if (inventories != null) inventories.closeAll();
         if (riding != null) riding.shutdown();
         if (displays != null) displays.removeAll();
+        if (bedrock != null) bedrock.shutdown();
+    }
+
+    private BedrockCompatibility createBedrockCompatibility() {
+        if (getServer().getPluginManager().getPlugin("Geyser-Spigot") == null) {
+            return BedrockCompatibility.disabled();
+        }
+        try {
+            return GeyserBedrockCompatibility.create(this);
+        } catch (LinkageError ex) {
+            getLogger().warning("Installed Geyser is too old for WWC Bedrock compatibility: " + ex.getMessage());
+            return BedrockCompatibility.disabled();
+        }
     }
 }
