@@ -116,7 +116,8 @@ public final class GeyserBedrockCompatibility implements BedrockCompatibility, E
             seatStates.put(player.getUniqueId(), state);
         }
 
-        float extraY = VANILLA_CHICKEN_MOUNT_HEIGHT * (float) Math.max(0.0, chickenScale - 1.0);
+        // Geyser uses unscaled Chicken height for its seat calculation; the WWC Chicken grows with its Paper bounding box.
+        float extraY = (float) Math.max(0.0, chicken.getBoundingBox().getHeight() - VANILLA_CHICKEN_MOUNT_HEIGHT);
         Vector3f base = state.baseOffset();
         rider.override(GeyserEntityDataTypes.SEAT_OFFSET,
                 Vector3f.from(base.getX(), base.getY() + extraY, base.getZ()));
