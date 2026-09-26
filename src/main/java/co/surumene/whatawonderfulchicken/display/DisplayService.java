@@ -8,9 +8,7 @@ import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
-import org.bukkit.DyeColor;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
@@ -19,7 +17,6 @@ import org.bukkit.entity.Chicken;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Shulker;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.Vector;
@@ -34,6 +31,11 @@ public final class DisplayService {
     private static final double SHULKER_SCALE_FACTOR = 0.63;
     private static final double CARPET_TARGET_Y_FACTOR = 0.85;
     private static final double SHULKER_TARGET_Y_FACTOR = 0.65;
+    private static final double BEDROCK_CARPET_TARGET_Y_FACTOR = 1.05;
+    private static final double BEDROCK_SHULKER_TARGET_Y_FACTOR = 0.65;
+    private static final double BEDROCK_SHULKER_SCALE_FACTOR = 0.45;
+    private static final double BEDROCK_HAND_ANCHOR_FACTOR = 0.55;
+    private static final byte BEDROCK_CLIENT_MARKER = 1;
 
     private final WhatAWonderfulChickenPlugin plugin;
     private final WonderfulChickenService chickens;
@@ -41,6 +43,7 @@ public final class DisplayService {
     private final BedrockCompatibility bedrock;
     private final NamespacedKey ownerKey;
     private final NamespacedKey roleKey;
+    private final NamespacedKey clientKey;
     private final Map<DisplayKey, UUID> javaDisplays = new HashMap<>();
     private final Map<DisplayKey, UUID> bedrockDisplays = new HashMap<>();
 
@@ -56,6 +59,7 @@ public final class DisplayService {
         this.bedrock = bedrock;
         this.ownerKey = new NamespacedKey(plugin, "display_owner");
         this.roleKey = new NamespacedKey(plugin, "display_role");
+        this.clientKey = new NamespacedKey(plugin, "display_client");
     }
 
     public void rebuildAllLoaded() {
@@ -67,7 +71,7 @@ public final class DisplayService {
     public void reconcileChunk(Chunk chunk) {
         for (Entity entity : chunk.getEntities()) {
             if (!(entity instanceof ArmorStand) && !(entity instanceof FallingBlock)
-                    && !(entity instanceof Shulker)) continue;
+                    && !(entity instanceof org.bukkit.entity.Shulker)) continue;
             DisplayKey key = displayKey(entity);
             if (key == null) continue;
 
@@ -77,7 +81,28 @@ public final class DisplayService {
                 continue;
             }
 
-            if (entity instanceof ArmorStand stand) {
+            if (!(entity instanceof ArmorStand stand)) {
+                // Remove the two older Bedrock display types when loaded.
+                unregisterAndRemove(entity);
+                continue;
+            }
+
+            if (isBedrockStand(stand)) {
+                if (!bedrock.enabled()) {
+                    unregisterAndRemove(stand);
+                    continue;
+                }
+                UUID current = bedrockDisplays.get(key);
+                Entity currentEntity = current == null ? null : Bukkit.getEntity(current);
+                if (currentEntity == null || !currentEntity.isValid()) {
+                    configureBedrockDisplay(stand);
+                    bedrockDisplays.put(key, stand.getUniqueId());
+                    bedrock.registerBedrockDisplay(stand.getUniqueId(), bedrockScale(chicken, key.role()));
+                    syncBedrockVisibility(stand);
+                } else if (!current.equals(stand.getUniqueId())) {
+                    unregisterAndRemove(stand);
+                }
+            } else {
                 UUID current = javaDisplays.get(key);
                 Entity currentEntity = current == null ? null : Bukkit.getEntity(current);
                 if (currentEntity == null || !currentEntity.isValid()) {
@@ -86,22 +111,6 @@ public final class DisplayService {
                     bedrock.registerJavaOnlyDisplay(stand.getUniqueId());
                 } else if (!current.equals(stand.getUniqueId())) {
                     unregisterAndRemove(stand);
-                }
-            } else {
-                // Also remove Shulker Box FallingBlocks left by the older Bedrock implementation.
-                if (!bedrock.enabled() || !isCorrectBedrockDisplay(entity, key.role())) {
-                    unregisterAndRemove(entity);
-                    continue;
-                }
-                UUID current = bedrockDisplays.get(key);
-                Entity currentEntity = current == null ? null : Bukkit.getEntity(current);
-                if (currentEntity == null || !currentEntity.isValid()) {
-                    configureBedrockDisplay(entity);
-                    bedrockDisplays.put(key, entity.getUniqueId());
-                    bedrock.registerBedrockDisplay(entity.getUniqueId(), bedrockScale(chicken, key.role()));
-                    syncBedrockVisibility(entity);
-                } else if (!current.equals(entity.getUniqueId())) {
-                    unregisterAndRemove(entity);
                 }
             }
         }
@@ -173,7 +182,7 @@ public final class DisplayService {
             stand.setBodyYaw(chicken.getBodyYaw());
             AttributeInstance scale = stand.getAttribute(Attribute.SCALE);
             if (scale != null) {
-                scale.setBaseValue(bedrockScale(chicken, entry.getKey().role()));
+                scale.setBaseValue(javaDisplayScale(chicken, entry.getKey().role()));
             }
         }
     }
@@ -196,20 +205,16 @@ public final class DisplayService {
             Entity owner = Bukkit.getEntity(entry.getKey().owner());
             Entity display = Bukkit.getEntity(entry.getValue());
             if (!(owner instanceof Chicken chicken) || !store.isWonderful(chicken)
-                    || display == null || !display.isValid()
-                    || !isCorrectBedrockDisplay(display, entry.getKey().role())) {
+                    || !(display instanceof ArmorStand stand) || !stand.isValid() || !isBedrockStand(stand)) {
                 if (display != null) display.remove();
                 bedrock.unregisterBedrockDisplay(entry.getValue());
                 iterator.remove();
                 continue;
             }
 
-            display.teleport(bedrockTargetLocation(chicken, entry.getKey().role()));
-            if (display instanceof FallingBlock block) {
-                block.setVelocity(new Vector());
-                block.setTicksLived(1);
-            }
-            bedrock.updateBedrockDisplayScale(display.getUniqueId(), bedrockScale(chicken, entry.getKey().role()));
+            stand.teleport(bedrockTargetLocation(chicken, entry.getKey().role()));
+            stand.setBodyYaw(chicken.getBodyYaw());
+            bedrock.updateBedrockDisplayScale(stand.getUniqueId(), bedrockScale(chicken, entry.getKey().role()));
         }
     }
 
@@ -255,75 +260,50 @@ public final class DisplayService {
 
     private void syncBedrockRole(Chicken chicken, DisplayRole role, ItemStack item) {
         DisplayKey key = new DisplayKey(chicken.getUniqueId(), role);
-        Entity display = null;
+        ArmorStand stand = null;
         UUID existing = bedrockDisplays.get(key);
         if (existing != null) {
             Entity candidate = Bukkit.getEntity(existing);
-            if (role == DisplayRole.CARPET && candidate instanceof FallingBlock block && block.isValid()
-                    && block.getBlockData().getMaterial() == item.getType()) {
-                display = block;
-            } else if (role == DisplayRole.SHULKER_BOX && candidate instanceof Shulker shulker
-                    && shulker.isValid()) {
-                shulker.setColor(shulkerColor(item.getType()));
-                display = shulker;
+            if (candidate instanceof ArmorStand found && found.isValid() && isBedrockStand(found)) {
+                stand = found;
             } else {
                 removeBedrock(chicken.getUniqueId(), role);
             }
         }
 
-        if (display == null) {
-            if (role == DisplayRole.CARPET) {
-                FallingBlock block = chicken.getWorld().spawnFallingBlock(
-                        bedrockTargetLocation(chicken, role),
-                        item.getType().createBlockData());
-                configureBedrockDisplay(block);
-                tag(block, chicken, role);
-                display = block;
-            } else {
-                Shulker shulker = chicken.getWorld().spawn(
-                        bedrockTargetLocation(chicken, role), Shulker.class, spawned -> {
-                            configureBedrockDisplay(spawned);
-                            spawned.setColor(shulkerColor(item.getType()));
-                            tag(spawned, chicken, role);
-                        });
-                display = shulker;
-            }
-            bedrockDisplays.put(key, display.getUniqueId());
-            bedrock.registerBedrockDisplay(display.getUniqueId(), bedrockScale(chicken, role));
+        if (stand == null) {
+            stand = chicken.getWorld().spawn(bedrockTargetLocation(chicken, role), ArmorStand.class, spawned -> {
+                configureBedrockDisplay(spawned);
+                tag(spawned, chicken, role);
+                spawned.getPersistentDataContainer().set(clientKey, PersistentDataType.BYTE, BEDROCK_CLIENT_MARKER);
+                if (spawned.getEquipment() != null) {
+                    spawned.getEquipment().setItemInMainHand(item.asOne());
+                }
+            });
+            bedrockDisplays.put(key, stand.getUniqueId());
+            bedrock.registerBedrockDisplay(stand.getUniqueId(), bedrockScale(chicken, role));
+        } else if (stand.getEquipment() != null) {
+            stand.getEquipment().setItemInMainHand(item.asOne());
         }
-        syncBedrockVisibility(display);
+        syncBedrockVisibility(stand);
     }
 
-    private void configureBedrockDisplay(Entity display) {
-        if (display instanceof FallingBlock block) {
-            // Geyser translates no-gravity FallingBlocks to Bedrock NO_AI, which freezes client movement.
-            block.setGravity(true);
-            block.setDropItem(false);
-            block.setCancelDrop(true);
-            block.setHurtEntities(false);
-            block.shouldAutoExpire(false);
-            block.setVelocity(new Vector());
-            block.setTicksLived(1);
-        } else if (display instanceof Shulker shulker) {
-            shulker.setPeek(0.0f);
-            shulker.setAware(false);
-            shulker.setGravity(false);
-            shulker.setCollidable(false);
-            shulker.setRemoveWhenFarAway(false);
-        }
-        display.setPersistent(false);
-        display.setInvulnerable(true);
-        display.setSilent(true);
+    private void configureBedrockDisplay(ArmorStand stand) {
+        stand.setInvisible(true);
+        stand.setMarker(true);
+        stand.setSmall(true);
+        stand.setGravity(false);
+        stand.setCollidable(false);
+        stand.setArms(true);
+        stand.setBasePlate(false);
+        stand.setPersistent(false);
+        stand.setInvulnerable(true);
+        stand.setSilent(true);
     }
 
-    private boolean isCorrectBedrockDisplay(Entity display, DisplayRole role) {
-        return role == DisplayRole.CARPET ? display instanceof FallingBlock : display instanceof Shulker;
-    }
-
-    private DyeColor shulkerColor(Material material) {
-        if (material == Material.SHULKER_BOX) return null;
-        String name = material.name();
-        return DyeColor.valueOf(name.substring(0, name.length() - "_SHULKER_BOX".length()));
+    private boolean isBedrockStand(ArmorStand stand) {
+        Byte marker = stand.getPersistentDataContainer().get(clientKey, PersistentDataType.BYTE);
+        return marker != null && marker == BEDROCK_CLIENT_MARKER;
     }
 
     private void syncBedrockVisibility(Entity display) {
@@ -367,11 +347,12 @@ public final class DisplayService {
     private Location bedrockTargetLocation(Chicken chicken, DisplayRole role) {
         double scale = store.load(chicken).value(StatType.SIZE);
         Location base = horizontalBase(chicken, role, scale);
-        double desiredY = scale * targetYFactor(role);
-        if (role == DisplayRole.SHULKER_BOX) {
-            desiredY -= bedrockScale(chicken, role) * 0.5;
-        }
-        base.add(0, desiredY, 0);
+        // A hand-held item has a different pivot from a FallingBlock or an armor-stand helmet.
+        // Keep Bedrock-only calibration separate from the Java display positions.
+        double targetY = scale * (role == DisplayRole.CARPET
+                ? BEDROCK_CARPET_TARGET_Y_FACTOR : BEDROCK_SHULKER_TARGET_Y_FACTOR);
+        double handAnchorHeight = bedrockScale(chicken, role) * BEDROCK_HAND_ANCHOR_FACTOR;
+        base.add(0, targetY - handAnchorHeight, 0);
         return base;
     }
 
@@ -390,9 +371,15 @@ public final class DisplayService {
         return role == DisplayRole.CARPET ? CARPET_TARGET_Y_FACTOR : SHULKER_TARGET_Y_FACTOR;
     }
 
-    private float bedrockScale(Chicken chicken, DisplayRole role) {
+    private float javaDisplayScale(Chicken chicken, DisplayRole role) {
         double chickenScale = store.load(chicken).value(StatType.SIZE);
         return (float) Math.max(0.2, chickenScale * displayScaleFactor(role));
+    }
+
+    private float bedrockScale(Chicken chicken, DisplayRole role) {
+        double chickenScale = store.load(chicken).value(StatType.SIZE);
+        double factor = role == DisplayRole.CARPET ? CARPET_SCALE_FACTOR : BEDROCK_SHULKER_SCALE_FACTOR;
+        return (float) Math.max(0.2, chickenScale * factor);
     }
 
     private double displayScaleFactor(DisplayRole role) {
@@ -432,11 +419,11 @@ public final class DisplayService {
         javaDisplays.clear();
         bedrockDisplays.clear();
         Map<DisplayKey, ArmorStand> firstJava = new HashMap<>();
-        Map<DisplayKey, Entity> firstBedrock = new HashMap<>();
+        Map<DisplayKey, ArmorStand> firstBedrock = new HashMap<>();
 
         Bukkit.getWorlds().forEach(world -> world.getEntities().forEach(entity -> {
             if (!(entity instanceof ArmorStand) && !(entity instanceof FallingBlock)
-                    && !(entity instanceof Shulker)) return;
+                    && !(entity instanceof org.bukkit.entity.Shulker)) return;
             DisplayKey key = displayKey(entity);
             if (key == null) return;
 
@@ -446,7 +433,25 @@ public final class DisplayService {
                 return;
             }
 
-            if (entity instanceof ArmorStand stand) {
+            if (!(entity instanceof ArmorStand stand)) {
+                unregisterAndRemove(entity);
+                return;
+            }
+
+            if (isBedrockStand(stand)) {
+                if (!bedrock.enabled()) {
+                    unregisterAndRemove(stand);
+                    return;
+                }
+                ArmorStand prior = firstBedrock.putIfAbsent(key, stand);
+                if (prior != null) {
+                    unregisterAndRemove(stand);
+                } else {
+                    configureBedrockDisplay(stand);
+                    bedrock.registerBedrockDisplay(stand.getUniqueId(), bedrockScale(chicken, key.role()));
+                    syncBedrockVisibility(stand);
+                }
+            } else {
                 ArmorStand prior = firstJava.putIfAbsent(key, stand);
                 if (prior != null) {
                     unregisterAndRemove(stand);
@@ -454,24 +459,11 @@ public final class DisplayService {
                     stand.setPersistent(false);
                     bedrock.registerJavaOnlyDisplay(stand.getUniqueId());
                 }
-            } else {
-                if (!bedrock.enabled() || !isCorrectBedrockDisplay(entity, key.role())) {
-                    unregisterAndRemove(entity);
-                    return;
-                }
-                Entity prior = firstBedrock.putIfAbsent(key, entity);
-                if (prior != null) {
-                    unregisterAndRemove(entity);
-                } else {
-                    configureBedrockDisplay(entity);
-                    bedrock.registerBedrockDisplay(entity.getUniqueId(), bedrockScale(chicken, key.role()));
-                    syncBedrockVisibility(entity);
-                }
             }
         }));
 
         firstJava.forEach((key, stand) -> javaDisplays.put(key, stand.getUniqueId()));
-        firstBedrock.forEach((key, display) -> bedrockDisplays.put(key, display.getUniqueId()));
+        firstBedrock.forEach((key, stand) -> bedrockDisplays.put(key, stand.getUniqueId()));
     }
 
     private record DisplayKey(UUID owner, DisplayRole role) {}
