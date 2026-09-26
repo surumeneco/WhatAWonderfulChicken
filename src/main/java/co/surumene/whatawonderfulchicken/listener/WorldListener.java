@@ -12,6 +12,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityBreedEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -74,6 +75,11 @@ public final class WorldListener implements Listener {
                 chickens.unregisterLoaded(chicken);
             }
         }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onDisplayBlockChange(EntityChangeBlockEvent event) {
+        if (displays.isBedrockCarpetDisplay(event.getEntity())) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
