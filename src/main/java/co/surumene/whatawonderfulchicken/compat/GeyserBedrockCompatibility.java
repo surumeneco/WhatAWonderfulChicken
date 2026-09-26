@@ -79,7 +79,7 @@ public final class GeyserBedrockCompatibility implements BedrockCompatibility, E
         bedrockDisplayScales.put(entityId, scale);
         for (GeyserConnection connection : api.onlineConnections()) {
             GeyserEntity entity = connection.entities().byUuid(entityId);
-            if (entity != null) {
+            if (entity != null && !Float.valueOf(scale).equals(entity.override(GeyserEntityDataTypes.SCALE))) {
                 entity.override(GeyserEntityDataTypes.SCALE, scale);
             }
         }
@@ -119,8 +119,10 @@ public final class GeyserBedrockCompatibility implements BedrockCompatibility, E
         // Reduce the previous Bedrock-only lift by one third; leave Java riding untouched.
         float extraY = (float) (Math.max(0.0, chicken.getBoundingBox().getHeight() - VANILLA_CHICKEN_MOUNT_HEIGHT) * (2.0 / 3.0));
         Vector3f base = state.baseOffset();
-        rider.override(GeyserEntityDataTypes.SEAT_OFFSET,
-                Vector3f.from(base.getX(), base.getY() + extraY, base.getZ()));
+        Vector3f corrected = Vector3f.from(base.getX(), base.getY() + extraY, base.getZ());
+        if (!corrected.equals(rider.override(GeyserEntityDataTypes.SEAT_OFFSET))) {
+            rider.override(GeyserEntityDataTypes.SEAT_OFFSET, corrected);
+        }
     }
 
     @Override
