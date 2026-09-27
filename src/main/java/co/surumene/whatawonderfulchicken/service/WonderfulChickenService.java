@@ -74,6 +74,11 @@ public final class WonderfulChickenService {
         store.invalidate(chicken);
     }
 
+    public boolean isSuperseded(Chicken chicken) {
+        Chicken current = loaded.get(chicken.getUniqueId());
+        return current != null && current != chicken;
+    }
+
     public Collection<Chicken> loadedChickens() {
         List<Chicken> result = new ArrayList<>();
         Iterator<Map.Entry<UUID, Chicken>> iterator = loaded.entrySet().iterator();
