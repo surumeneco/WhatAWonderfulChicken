@@ -175,8 +175,9 @@ public final class CommandService {
     private int infoNearest(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
         Location location = ctx.getSource().getLocation();
-        Chicken nearest = chickens.loadedChickens().stream()
-                .filter(chicken -> chicken.getWorld() == location.getWorld())
+        // Query actual loaded entities: the registry may not yet have seen a ClickMobs replacement.
+        Chicken nearest = location.getWorld().getEntitiesByClass(Chicken.class).stream()
+                .filter(chicken -> chicken.isValid() && store.isWonderful(chicken))
                 .min(Comparator.comparingDouble(chicken -> chicken.getLocation().distanceSquared(location)))
                 .orElse(null);
         if (nearest == null) {

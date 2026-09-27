@@ -39,9 +39,8 @@ public final class WonderfulChickenService {
         return entity instanceof Chicken chicken && store.isWonderful(chicken);
     }
 
-    public void registerLoaded(Chicken chicken) {
-        if (!store.isWonderful(chicken)) return;
-        loaded.add(chicken.getUniqueId());
+    public boolean registerLoaded(Chicken chicken) {
+        if (!store.isWonderful(chicken) || !loaded.add(chicken.getUniqueId())) return false;
         synchronizeRangePolicy(chicken);
         WonderfulChickenData data = store.load(chicken);
         if (!config.persistCurrentStamina()) {
@@ -49,6 +48,19 @@ public final class WonderfulChickenService {
             store.save(chicken, data);
         }
         synchronizeBehaviorState(chicken, data);
+        return true;
+    }
+
+    /**
+     * Also discovers chickens reconstructed by third-party plugins after spawn events.
+     * Existing chickens are not reinitialized and their equipment remains in PDC.
+     */
+    public Collection<Chicken> reconcileLoadedWorlds() {
+        List<Chicken> newlyRegistered = new ArrayList<>();
+        Bukkit.getWorlds().forEach(world -> world.getEntitiesByClass(Chicken.class).forEach(chicken -> {
+            if (registerLoaded(chicken)) newlyRegistered.add(chicken);
+        }));
+        return newlyRegistered;
     }
 
     public void unregisterLoaded(Chicken chicken) {

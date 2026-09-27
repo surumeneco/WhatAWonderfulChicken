@@ -1,6 +1,10 @@
 package co.surumene.whatawonderfulchicken.listener;
 
+import co.surumene.whatawonderfulchicken.WhatAWonderfulChickenPlugin;
 import co.surumene.whatawonderfulchicken.display.DisplayService;
+import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent;
+import com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent;
+import org.bukkit.Bukkit;
 import co.surumene.whatawonderfulchicken.gui.InventoryService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
@@ -16,16 +20,38 @@ import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 
 public final class WorldListener implements Listener {
+    private final WhatAWonderfulChickenPlugin plugin;
     private final WonderfulChickenService chickens;
     private final WonderfulChickenStore store;
     private final DisplayService displays;
     private final InventoryService inventories;
 
-    public WorldListener(WonderfulChickenService chickens, WonderfulChickenStore store, DisplayService displays, InventoryService inventories) {
+    public WorldListener(WhatAWonderfulChickenPlugin plugin, WonderfulChickenService chickens, WonderfulChickenStore store,
+                         DisplayService displays, InventoryService inventories) {
+        this.plugin = plugin;
         this.chickens = chickens;
         this.store = store;
         this.displays = displays;
         this.inventories = inventories;
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onEntityAdd(EntityAddToWorldEvent event) {
+        if (!(event.getEntity() instanceof Chicken chicken)) return;
+        // Other plugins can restore PDC after the spawn event. Check on the next tick.
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (!chicken.isValid() || !store.isWonderful(chicken)) return;
+            chickens.registerLoaded(chicken);
+            displays.rebuild(chicken);
+        });
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onEntityRemove(EntityRemoveFromWorldEvent event) {
+        if (!(event.getEntity() instanceof Chicken chicken) || !store.isWonderful(chicken)) return;
+        inventories.closeFor(chicken);
+        displays.removeFor(chicken);
+        chickens.unregisterLoaded(chicken);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

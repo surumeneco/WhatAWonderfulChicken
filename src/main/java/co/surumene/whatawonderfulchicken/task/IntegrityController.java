@@ -19,6 +19,10 @@ public final class IntegrityController implements Runnable {
         tick++;
         displays.tick();
         if (tick % 20 == 0) {
+            // Covers PDC that another plugin restores after EntityAddToWorldEvent.
+            for (Chicken chicken : chickens.reconcileLoadedWorlds()) {
+                displays.rebuild(chicken);
+            }
             for (Chicken chicken : chickens.loadedChickens()) {
                 chickens.captureHeadEquipment(chicken);
                 chickens.projectAttributes(chicken);
