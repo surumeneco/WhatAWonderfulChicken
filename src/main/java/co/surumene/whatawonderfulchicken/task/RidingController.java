@@ -1,5 +1,6 @@
 package co.surumene.whatawonderfulchicken.task;
 
+import co.surumene.whatawonderfulchicken.compat.BedrockCompatibility;
 import co.surumene.whatawonderfulchicken.config.ConfigService;
 import co.surumene.whatawonderfulchicken.data.StatType;
 import co.surumene.whatawonderfulchicken.data.WonderfulChickenData;
@@ -27,6 +28,7 @@ public final class RidingController implements Runnable {
     private final WonderfulChickenService chickens;
     private final WonderfulChickenStore store;
     private final ConfigService config;
+    private final BedrockCompatibility bedrock;
     private final Map<UUID, UUID> mountedInteractionProxies = new HashMap<>();
     private final Map<UUID, UUID> mountedInteractionOwners = new HashMap<>();
     private final Map<UUID, Long> lastAirborneTick = new HashMap<>();
@@ -36,10 +38,11 @@ public final class RidingController implements Runnable {
     private final Set<UUID> airFlapLockedUntilJumpRelease = new HashSet<>();
     private long tick;
 
-    public RidingController(WonderfulChickenService chickens, WonderfulChickenStore store, ConfigService config) {
+    public RidingController(WonderfulChickenService chickens, WonderfulChickenStore store, ConfigService config, BedrockCompatibility bedrock) {
         this.chickens = chickens;
         this.store = store;
         this.config = config;
+        this.bedrock = bedrock;
     }
 
     @Override
@@ -87,6 +90,7 @@ public final class RidingController implements Runnable {
         removeInteractionProxy(chickenId);
         Player player = Bukkit.getPlayer(playerId);
         Float exhaustion = exhaustionAtMount.remove(playerId);
+        bedrock.clearSeatOffset(playerId);
         if (player != null) {
             if (exhaustion != null) player.setExhaustion(exhaustion);
             restoreHud(player);
@@ -114,6 +118,7 @@ public final class RidingController implements Runnable {
     }
 
     private void tickMounted(Player player, Chicken chicken) {
+        bedrock.applySeatOffset(player, chicken);
         ensureInteractionProxy(chicken);
         WonderfulChickenData data = store.load(chicken);
         Input input = player.getCurrentInput();
