@@ -144,7 +144,7 @@ public final class WonderfulChickenService {
 
     public void initialize(Chicken chicken, WonderfulChickenData data) {
         store.save(chicken, data);
-        loaded.add(chicken.getUniqueId());
+        loaded.put(chicken.getUniqueId(), chicken);
         projectAttributes(chicken);
         chicken.setHealth(data.value(StatType.MAX_HEALTH));
         synchronizeBehaviorState(chicken, data);
