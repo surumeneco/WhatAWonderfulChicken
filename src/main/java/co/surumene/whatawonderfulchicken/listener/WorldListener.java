@@ -70,6 +70,10 @@ public final class WorldListener implements Listener {
         if (!(event.getEntity() instanceof Chicken chicken)) return;
         pendingRestoration.remove(chicken.getUniqueId(), chicken);
         if (!store.isWonderful(chicken)) return;
+        if (chickens.isSuperseded(chicken)) {
+            store.invalidate(chicken);
+            return;
+        }
         inventories.closeFor(chicken);
         displays.removeFor(chicken);
         chickens.unregisterLoaded(chicken);
@@ -116,6 +120,10 @@ public final class WorldListener implements Listener {
         for (Entity entity : event.getChunk().getEntities()) {
             if (entity instanceof Chicken chicken && store.isWonderful(chicken)) {
                 pendingRestoration.remove(chicken.getUniqueId(), chicken);
+                if (chickens.isSuperseded(chicken)) {
+                    store.invalidate(chicken);
+                    continue;
+                }
                 inventories.closeFor(chicken);
                 displays.removeFor(chicken);
                 chickens.unregisterLoaded(chicken);
@@ -137,7 +145,7 @@ public final class WorldListener implements Listener {
         } else if (data.headItem() != null) {
             event.getDrops().add(data.headItem());
         }
-        displays.removeFor(chicken);
+        if (!chickens.isSuperseded(chicken)) displays.removeFor(chicken);
         chickens.unregisterLoaded(chicken);
     }
 }
