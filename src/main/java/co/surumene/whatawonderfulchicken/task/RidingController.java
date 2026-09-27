@@ -106,21 +106,21 @@ public final class RidingController implements Runnable {
             lastAirborneTick.put(chickenId, tick);
             return;
         }
-        WonderfulChickenData data = store.load(chicken);
+        WonderfulChickenData data = store.read(chicken);
         double maximum = data.value(StatType.STAMINA);
         if (data.currentStamina() >= maximum) return;
         long delay = Math.round(config.recoveryDelaySeconds() * 20.0);
         long lastAir = lastAirborneTick.getOrDefault(chickenId, Long.MIN_VALUE / 4);
         if (tick - lastAir < delay) return;
-        data.currentStamina(Math.min(maximum,
+        store.setCurrentStamina(chicken, Math.min(maximum,
                 data.currentStamina() + data.value(StatType.STAMINA_RECOVERY) / 20.0));
-        store.save(chicken, data);
     }
 
     private void tickMounted(Player player, Chicken chicken) {
         bedrock.applySeatOffset(player, chicken);
         ensureInteractionProxy(chicken);
-        WonderfulChickenData data = store.load(chicken);
+        WonderfulChickenData data = store.read(chicken);
+        double stamina = data.currentStamina();
         Input input = player.getCurrentInput();
         UUID chickenId = chicken.getUniqueId();
         boolean onGround = isGrounded(chicken);
@@ -152,13 +152,13 @@ public final class RidingController implements Runnable {
             long delay = Math.round(config.recoveryDelaySeconds() * 20.0);
             long lastAir = lastAirborneTick.getOrDefault(chicken.getUniqueId(), Long.MIN_VALUE / 4);
             if (tick - lastAir >= delay) {
-                data.currentStamina(Math.min(data.value(StatType.STAMINA), data.currentStamina() + data.value(StatType.STAMINA_RECOVERY) / 20.0));
+                stamina = Math.min(data.value(StatType.STAMINA), stamina + data.value(StatType.STAMINA_RECOVERY) / 20.0);
             }
         } else {
             lastAirborneTick.put(chicken.getUniqueId(), tick);
-            if (input.isJump() && !airFlapLockedUntilJumpRelease.contains(chickenId) && data.currentStamina() > 0.0) {
+            if (input.isJump() && !airFlapLockedUntilJumpRelease.contains(chickenId) && stamina > 0.0) {
                 velocity.setY(data.value(StatType.ASCENT_SPEED) / 20.0);
-                data.currentStamina(Math.max(0.0, data.currentStamina() - config.staminaConsumptionPerSecond() / 20.0));
+                stamina = Math.max(0.0, stamina - config.staminaConsumptionPerSecond() / 20.0);
             } else if (velocity.getY() < -0.12) {
                 velocity.setY(-0.12);
             }
@@ -167,9 +167,9 @@ public final class RidingController implements Runnable {
         chicken.setVelocity(velocity);
         Float baselineExhaustion = exhaustionAtMount.get(player.getUniqueId());
         if (baselineExhaustion != null) player.setExhaustion(baselineExhaustion);
-        float progress = (float) Math.max(0.0, Math.min(1.0, data.currentStamina() / Math.max(0.0001, data.value(StatType.STAMINA))));
+        float progress = (float) Math.max(0.0, Math.min(1.0, stamina / Math.max(0.0001, data.value(StatType.STAMINA))));
         player.sendExperienceChange(progress, player.getLevel());
-        store.save(chicken, data);
+        store.setCurrentStamina(chicken, stamina);
     }
 
     private void ensureInteractionProxy(Chicken chicken) {
@@ -186,9 +186,16 @@ public final class RidingController implements Runnable {
             mountedInteractionOwners.put(proxy.getUniqueId(), chickenId);
         }
         BoundingBox box = chicken.getBoundingBox();
-        proxy.teleport(interactionLocation(chicken));
-        proxy.setInteractionWidth((float) Math.max(0.5, Math.max(box.getWidthX(), box.getWidthZ()) * 1.15));
-        proxy.setInteractionHeight((float) Math.max(0.5, box.getHeight() * 1.10));
+        Location destination = interactionLocation(chicken);
+        Location current = proxy.getLocation();
+        if (current.getX() != destination.getX() || current.getY() != destination.getY()
+                || current.getZ() != destination.getZ() || current.getYaw() != destination.getYaw()) {
+            proxy.teleport(destination);
+        }
+        float width = (float) Math.max(0.5, Math.max(box.getWidthX(), box.getWidthZ()) * 1.15);
+        float height = (float) Math.max(0.5, box.getHeight() * 1.10);
+        if (Float.compare(proxy.getInteractionWidth(), width) != 0) proxy.setInteractionWidth(width);
+        if (Float.compare(proxy.getInteractionHeight(), height) != 0) proxy.setInteractionHeight(height);
     }
 
     private Location interactionLocation(Chicken chicken) {

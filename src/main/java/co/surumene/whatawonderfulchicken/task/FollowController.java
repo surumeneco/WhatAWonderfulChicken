@@ -44,7 +44,7 @@ public final class FollowController implements Runnable {
                 chicken.getPathfinder().stopPathfinding();
                 continue;
             }
-            WonderfulChickenData data = store.load(chicken);
+            WonderfulChickenData data = store.read(chicken);
             if (!chicken.hasAI()) chicken.setAI(true);
 
             if (data.behaviorMode() == BehaviorMode.WANDER) {
@@ -114,7 +114,7 @@ public final class FollowController implements Runnable {
         @Override
         public boolean shouldActivate() {
             return chicken.isValid() && store.isWonderful(chicken) && chicken.isAware()
-                    && !isRidden(chicken) && store.load(chicken).behaviorMode() == BehaviorMode.FOLLOW;
+                    && !isRidden(chicken) && store.read(chicken).behaviorMode() == BehaviorMode.FOLLOW;
         }
 
         @Override
@@ -126,7 +126,7 @@ public final class FollowController implements Runnable {
         public void tick() {
             // Replan twice per second, leaving the navigation uninterrupted between updates.
             if (ticks++ % 10 != 0) return;
-            WonderfulChickenData data = store.load(chicken);
+            WonderfulChickenData data = store.read(chicken);
             Player target = data.followTarget() == null ? null : Bukkit.getPlayer(data.followTarget());
             if (target == null || !target.isOnline() || target.getWorld() != chicken.getWorld()
                     || chicken.getLocation().distanceSquared(target.getLocation())

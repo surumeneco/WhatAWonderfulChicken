@@ -16,9 +16,11 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -27,7 +29,7 @@ public final class WonderfulChickenService {
     private final WhatAWonderfulChickenPlugin plugin;
     private final ConfigService config;
     private final WonderfulChickenStore store;
-    private final Set<UUID> loaded = new HashSet<>();
+    private final Map<UUID, Chicken> loaded = new HashMap<>();
 
     public WonderfulChickenService(WhatAWonderfulChickenPlugin plugin, ConfigService config, WonderfulChickenStore store) {
         this.plugin = plugin;
@@ -40,7 +42,11 @@ public final class WonderfulChickenService {
     }
 
     public boolean registerLoaded(Chicken chicken) {
-        if (!store.isWonderful(chicken) || !loaded.add(chicken.getUniqueId())) return false;
+        if (!store.isWonderful(chicken)) return false;
+        Chicken previous = loaded.put(chicken.getUniqueId(), chicken);
+        if (previous == chicken) return false;
+        if (previous != null) store.invalidate(previous);
+        store.invalidate(chicken);
         synchronizeRangePolicy(chicken);
         WonderfulChickenData data = store.load(chicken);
         if (!config.persistCurrentStamina()) {
@@ -64,15 +70,26 @@ public final class WonderfulChickenService {
     }
 
     public void unregisterLoaded(Chicken chicken) {
-        loaded.remove(chicken.getUniqueId());
+        loaded.remove(chicken.getUniqueId(), chicken);
+        store.invalidate(chicken);
+    }
+
+    public boolean isSuperseded(Chicken chicken) {
+        Chicken current = loaded.get(chicken.getUniqueId());
+        return current != null && current != chicken;
     }
 
     public Collection<Chicken> loadedChickens() {
         List<Chicken> result = new ArrayList<>();
-        loaded.removeIf(uuid -> Bukkit.getEntity(uuid) == null);
-        for (UUID uuid : List.copyOf(loaded)) {
-            Entity entity = Bukkit.getEntity(uuid);
-            if (entity instanceof Chicken chicken && chicken.isValid() && store.isWonderful(chicken)) result.add(chicken);
+        Iterator<Map.Entry<UUID, Chicken>> iterator = loaded.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Chicken chicken = iterator.next().getValue();
+            if (!chicken.isValid() || !store.isWonderful(chicken)) {
+                iterator.remove();
+                store.invalidate(chicken);
+                continue;
+            }
+            result.add(chicken);
         }
         return result;
     }
@@ -132,7 +149,7 @@ public final class WonderfulChickenService {
 
     public void initialize(Chicken chicken, WonderfulChickenData data) {
         store.save(chicken, data);
-        loaded.add(chicken.getUniqueId());
+        loaded.put(chicken.getUniqueId(), chicken);
         projectAttributes(chicken);
         chicken.setHealth(data.value(StatType.MAX_HEALTH));
         synchronizeBehaviorState(chicken, data);
@@ -161,7 +178,7 @@ public final class WonderfulChickenService {
 
     public void projectAttributes(Chicken chicken) {
         if (!store.isWonderful(chicken)) return;
-        WonderfulChickenData data = store.load(chicken);
+        WonderfulChickenData data = store.read(chicken);
         setAttribute(chicken, Attribute.MAX_HEALTH, data.value(StatType.MAX_HEALTH));
         setAttribute(chicken, Attribute.SCALE, data.value(StatType.SIZE));
         setAttribute(chicken, Attribute.STEP_HEIGHT, data.value(StatType.STEP_HEIGHT));
@@ -170,16 +187,17 @@ public final class WonderfulChickenService {
         if (chicken.getHealth() > data.value(StatType.MAX_HEALTH)) chicken.setHealth(data.value(StatType.MAX_HEALTH));
         ItemStack head = data.headItem();
         if (chicken.getEquipment() != null) {
-            chicken.getEquipment().setHelmet(head);
-            chicken.getEquipment().setHelmetDropChance(0.0f);
+            if (!Objects.equals(chicken.getEquipment().getHelmet(), head)) chicken.getEquipment().setHelmet(head);
+            if (chicken.getEquipment().getHelmetDropChance() != 0.0f) chicken.getEquipment().setHelmetDropChance(0.0f);
         }
     }
 
     public void captureHeadEquipment(Chicken chicken) {
         if (!store.isWonderful(chicken) || chicken.getEquipment() == null) return;
-        WonderfulChickenData data = store.load(chicken);
         ItemStack actual = chicken.getEquipment().getHelmet();
-        data.headItem(actual == null || actual.isEmpty() ? null : actual.clone());
+        if (Objects.equals(store.read(chicken).headItem(), actual)) return;
+        WonderfulChickenData data = store.load(chicken);
+        data.headItem(actual);
         store.save(chicken, data);
     }
 
@@ -215,6 +233,7 @@ public final class WonderfulChickenService {
             return;
         }
         double clamped = Math.max(instance.getAttribute().getDefaultValue() == 0 ? 0.00001 : 0.0, value);
+        if (Double.compare(instance.getBaseValue(), clamped) == 0) return;
         try { instance.setBaseValue(clamped); } catch (IllegalArgumentException ex) {
             plugin.getLogger().warning("Could not apply " + attribute.key().asString() + "=" + value + ": " + ex.getMessage());
         }

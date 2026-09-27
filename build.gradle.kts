@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "co.surumene"
-version = "0.1.1-SNAPSHOT"
+version = "0.1.2-SNAPSHOT"
 
 repositories {
     maven("https://repo.papermc.io/repository/maven-public/")

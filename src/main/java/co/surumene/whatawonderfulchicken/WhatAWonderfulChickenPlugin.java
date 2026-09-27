@@ -53,7 +53,8 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
                 event.registrar().register(commands.build(), "What a Wonderful Chicken administration", List.of("whatawonderfulchicken")));
 
-        getServer().getPluginManager().registerEvents(new WorldListener(this, chickens, store, displays, inventories), this);
+        WorldListener worldListener = new WorldListener(this, chickens, store, displays, inventories);
+        getServer().getPluginManager().registerEvents(worldListener, this);
         getServer().getPluginManager().registerEvents(new InteractionListener(this, chickens, store, configService, messageService, inventories, displays, riding), this);
         getServer().getPluginManager().registerEvents(new InventoryListener(inventories), this);
 
@@ -62,7 +63,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
 
         Bukkit.getScheduler().runTaskTimer(this, riding, 1L, 1L);
         Bukkit.getScheduler().runTaskTimer(this, new FollowController(this, chickens, store, configService), 5L, 5L);
-        Bukkit.getScheduler().runTaskTimer(this, new IntegrityController(chickens, displays), 1L, 1L);
+        Bukkit.getScheduler().runTaskTimer(this, new IntegrityController(chickens, displays, worldListener), 1L, 1L);
 
         getLogger().info(messageService.text(Bukkit.getConsoleSender(), "plugin.enabled"));
     }

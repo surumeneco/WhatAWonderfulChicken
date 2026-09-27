@@ -19,12 +19,17 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 public final class WorldListener implements Listener {
     private final WhatAWonderfulChickenPlugin plugin;
     private final WonderfulChickenService chickens;
     private final WonderfulChickenStore store;
     private final DisplayService displays;
     private final InventoryService inventories;
+    private final Map<UUID, Chicken> pendingRestoration = new HashMap<>();
 
     public WorldListener(WhatAWonderfulChickenPlugin plugin, WonderfulChickenService chickens, WonderfulChickenStore store,
                          DisplayService displays, InventoryService inventories) {
@@ -40,15 +45,35 @@ public final class WorldListener implements Listener {
         if (!(event.getEntity() instanceof Chicken chicken)) return;
         // Other plugins can restore PDC after the spawn event. Check on the next tick.
         Bukkit.getScheduler().runTask(plugin, () -> {
-            if (!chicken.isValid() || !store.isWonderful(chicken)) return;
+            if (!chicken.isValid()) return;
+            if (!store.isWonderful(chicken)) {
+                pendingRestoration.put(chicken.getUniqueId(), chicken);
+                return;
+            }
             chickens.registerLoaded(chicken);
             displays.rebuild(chicken);
         });
     }
 
+    /** One-second delayed check for chickens whose PDC was restored after their add event. */
+    public void retryPendingRestoration() {
+        for (Chicken chicken : pendingRestoration.values()) {
+            if (!chicken.isValid() || !store.isWonderful(chicken)) continue;
+            chickens.registerLoaded(chicken);
+            displays.rebuild(chicken);
+        }
+        pendingRestoration.clear();
+    }
+
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityRemove(EntityRemoveFromWorldEvent event) {
-        if (!(event.getEntity() instanceof Chicken chicken) || !store.isWonderful(chicken)) return;
+        if (!(event.getEntity() instanceof Chicken chicken)) return;
+        pendingRestoration.remove(chicken.getUniqueId(), chicken);
+        if (!store.isWonderful(chicken)) return;
+        if (chickens.isSuperseded(chicken)) {
+            store.invalidate(chicken);
+            return;
+        }
         inventories.closeFor(chicken);
         displays.removeFor(chicken);
         chickens.unregisterLoaded(chicken);
@@ -94,6 +119,11 @@ public final class WorldListener implements Listener {
     public void onChunkUnload(ChunkUnloadEvent event) {
         for (Entity entity : event.getChunk().getEntities()) {
             if (entity instanceof Chicken chicken && store.isWonderful(chicken)) {
+                pendingRestoration.remove(chicken.getUniqueId(), chicken);
+                if (chickens.isSuperseded(chicken)) {
+                    store.invalidate(chicken);
+                    continue;
+                }
                 inventories.closeFor(chicken);
                 displays.removeFor(chicken);
                 chickens.unregisterLoaded(chicken);
@@ -115,7 +145,7 @@ public final class WorldListener implements Listener {
         } else if (data.headItem() != null) {
             event.getDrops().add(data.headItem());
         }
-        displays.removeFor(chicken);
+        if (!chickens.isSuperseded(chicken)) displays.removeFor(chicken);
         chickens.unregisterLoaded(chicken);
     }
 }

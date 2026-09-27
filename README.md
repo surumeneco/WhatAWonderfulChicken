@@ -26,7 +26,7 @@ Linux / macOS:
 生成物:
 
 ```text
-build/libs/WhatAWonderfulChicken-0.1.0-SNAPSHOT.jar
+build/libs/WhatAWonderfulChicken-0.1.2-SNAPSHOT.jar
 ```
 
 生成されたjarをPaperサーバーの `plugins/` に配置して起動してください。初回起動時に `plugins/WhatAWonderfulChicken/` 以下へconfigと言語ファイルを自動生成します。

@@ -13,6 +13,7 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -35,6 +36,7 @@ public final class WonderfulChickenStore {
     private final NamespacedKey pedigreeKey;
     private final Map<StatType, NamespacedKey> valueKeys = new EnumMap<>(StatType.class);
     private final Map<StatType, NamespacedKey> normalizedKeys = new EnumMap<>(StatType.class);
+    private final Map<UUID, CachedState> loadedCache = new HashMap<>();
 
     public WonderfulChickenStore(WhatAWonderfulChickenPlugin plugin, ConfigService config) {
         this.plugin = plugin;
@@ -60,7 +62,24 @@ public final class WonderfulChickenStore {
         return MARKER_VALUE.equals(chicken.getPersistentDataContainer().get(markerKey, PersistentDataType.STRING));
     }
 
-    public WonderfulChickenData load(Chicken chicken) {
+    /** Return an independent working copy for callers that may change the state. */
+    public WonderfulChickenData load(Chicken chicken) { return read(chicken).copy(); }
+
+    /** Internal read-only access: callers must not mutate the returned object. */
+    public WonderfulChickenData read(Chicken chicken) {
+        CachedState cached = loadedCache.get(chicken.getUniqueId());
+        if (cached != null && cached.entity() == chicken) return cached.data();
+        WonderfulChickenData restored = loadPersisted(chicken);
+        loadedCache.put(chicken.getUniqueId(), new CachedState(chicken, restored));
+        return restored;
+    }
+
+    public void invalidate(Chicken chicken) {
+        CachedState cached = loadedCache.get(chicken.getUniqueId());
+        if (cached != null && cached.entity() == chicken) loadedCache.remove(chicken.getUniqueId());
+    }
+
+    private WonderfulChickenData loadPersisted(Chicken chicken) {
         if (!isWonderful(chicken)) throw new IllegalArgumentException("Chicken is not wonderful");
         PersistentDataContainer pdc = chicken.getPersistentDataContainer();
         WonderfulChickenData data = new WonderfulChickenData();
@@ -115,12 +134,15 @@ public final class WonderfulChickenStore {
         pdc.set(bloodlineKey, PersistentDataType.STRING, data.bloodlineId());
         pdc.set(generationKey, PersistentDataType.INTEGER, data.generation());
         pdc.set(pedigreeKey, PersistentDataType.BYTE_ARRAY, data.pedigree().serialize());
+        loadedCache.put(chicken.getUniqueId(), new CachedState(chicken, data.copy()));
     }
 
     public void setCurrentStamina(Chicken chicken, double stamina) {
-        WonderfulChickenData data = load(chicken);
-        data.currentStamina(Math.max(0.0, Math.min(data.value(StatType.STAMINA), stamina)));
-        save(chicken, data);
+        WonderfulChickenData data = read(chicken);
+        double clamped = Math.max(0.0, Math.min(data.value(StatType.STAMINA), stamina));
+        if (Double.compare(data.currentStamina(), clamped) == 0) return;
+        chicken.getPersistentDataContainer().set(currentStaminaKey, PersistentDataType.DOUBLE, clamped);
+        data.currentStamina(clamped);
     }
 
     public double toValue(StatType stat, double normalized) {
@@ -150,4 +172,6 @@ public final class WonderfulChickenStore {
     }
 
     private NamespacedKey key(String name) { return new NamespacedKey(plugin, name); }
+
+    private record CachedState(Chicken entity, WonderfulChickenData data) {}
 }
