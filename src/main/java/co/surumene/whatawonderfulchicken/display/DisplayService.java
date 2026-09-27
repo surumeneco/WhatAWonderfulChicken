@@ -20,6 +20,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.Vector;
+import org.bukkit.util.EulerAngle;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -31,10 +32,12 @@ public final class DisplayService {
     private static final double SHULKER_SCALE_FACTOR = 0.63;
     private static final double CARPET_TARGET_Y_FACTOR = 0.85;
     private static final double SHULKER_TARGET_Y_FACTOR = 0.65;
-    private static final double BEDROCK_CARPET_TARGET_Y_FACTOR = 1.05;
+    // Calibrate the Bedrock helmet pivot independently from Java's armor stand display.
+    private static final double BEDROCK_CARPET_TARGET_Y_FACTOR = 0.85;
     private static final double BEDROCK_SHULKER_TARGET_Y_FACTOR = 0.65;
     private static final double BEDROCK_SHULKER_SCALE_FACTOR = 0.45;
-    private static final double BEDROCK_HAND_ANCHOR_FACTOR = 0.55;
+    private static final double BEDROCK_HELMET_ANCHOR_FACTOR = 0.90;
+    private static final double BEDROCK_SHULKER_BACK_OFFSET = 0.25;
     private static final byte BEDROCK_CLIENT_MARKER = 1;
 
     private final WhatAWonderfulChickenPlugin plugin;
@@ -277,13 +280,15 @@ public final class DisplayService {
                 tag(spawned, chicken, role);
                 spawned.getPersistentDataContainer().set(clientKey, PersistentDataType.BYTE, BEDROCK_CLIENT_MARKER);
                 if (spawned.getEquipment() != null) {
-                    spawned.getEquipment().setItemInMainHand(item.asOne());
+                    spawned.getEquipment().setHelmet(item.asOne());
                 }
             });
             bedrockDisplays.put(key, stand.getUniqueId());
             bedrock.registerBedrockDisplay(stand.getUniqueId(), bedrockScale(chicken, role));
         } else if (stand.getEquipment() != null) {
-            stand.getEquipment().setItemInMainHand(item.asOne());
+            // Migrate pre-fix MAIN_HAND displays without leaving their old held item visible.
+            stand.getEquipment().setItemInMainHand(null);
+            stand.getEquipment().setHelmet(item.asOne());
         }
         syncBedrockVisibility(stand);
     }
@@ -294,8 +299,10 @@ public final class DisplayService {
         stand.setSmall(true);
         stand.setGravity(false);
         stand.setCollidable(false);
-        stand.setArms(true);
+        stand.setArms(false);
         stand.setBasePlate(false);
+        stand.setHeadPose(new EulerAngle(0.0, 0.0, 0.0));
+        if (stand.getEquipment() != null) stand.getEquipment().setItemInMainHand(null);
         stand.setPersistent(false);
         stand.setInvulnerable(true);
         stand.setSilent(true);
@@ -347,13 +354,21 @@ public final class DisplayService {
     private Location bedrockTargetLocation(Chicken chicken, DisplayRole role) {
         double scale = store.load(chicken).value(StatType.SIZE);
         Location base = horizontalBase(chicken, role, scale);
-        // A hand-held item has a different pivot from a FallingBlock or an armor-stand helmet.
-        // Keep Bedrock-only calibration separate from the Java display positions.
+        // Head equipment is centered on the armor stand, unlike the old right-hand display.
+        // The cargo is placed behind the rider as well as behind the chicken body.
+        if (role == DisplayRole.SHULKER_BOX) {
+            base.add(backwardOffset(chicken.getBodyYaw(), scale * BEDROCK_SHULKER_BACK_OFFSET));
+        }
         double targetY = scale * (role == DisplayRole.CARPET
                 ? BEDROCK_CARPET_TARGET_Y_FACTOR : BEDROCK_SHULKER_TARGET_Y_FACTOR);
-        double handAnchorHeight = bedrockScale(chicken, role) * BEDROCK_HAND_ANCHOR_FACTOR;
-        base.add(0, targetY - handAnchorHeight, 0);
+        double helmetAnchorHeight = bedrockScale(chicken, role) * BEDROCK_HELMET_ANCHOR_FACTOR;
+        base.add(0, targetY - helmetAnchorHeight, 0);
         return base;
+    }
+
+    private Vector backwardOffset(float bodyYaw, double distance) {
+        double yaw = Math.toRadians(bodyYaw);
+        return new Vector(Math.sin(yaw) * distance, 0, -Math.cos(yaw) * distance);
     }
 
     private Location horizontalBase(Chicken chicken, DisplayRole role, double scale) {
