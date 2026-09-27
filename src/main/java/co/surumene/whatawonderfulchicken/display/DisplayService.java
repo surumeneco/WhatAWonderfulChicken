@@ -78,7 +78,7 @@ public final class DisplayService {
 
     public void rebuild(Chicken chicken) {
         if (!store.isWonderful(chicken)) return;
-        WonderfulChickenData data = store.load(chicken);
+        WonderfulChickenData data = store.read(chicken);
         syncRole(chicken, DisplayRole.CARPET, data.carpet());
         syncRole(chicken, DisplayRole.SHULKER_BOX, data.shulkerBox());
     }
@@ -106,12 +106,20 @@ public final class DisplayService {
                 iterator.remove();
                 continue;
             }
-            stand.teleport(targetLocation(chicken, entry.getKey().role()));
-            stand.setBodyYaw(chicken.getBodyYaw());
+            Location destination = targetLocation(chicken, entry.getKey().role());
+            Location current = stand.getLocation();
+            if (current.getX() != destination.getX() || current.getY() != destination.getY()
+                    || current.getZ() != destination.getZ() || current.getYaw() != destination.getYaw()) {
+                stand.teleport(destination);
+            }
+            if (Float.compare(stand.getBodyYaw(), chicken.getBodyYaw()) != 0) {
+                stand.setBodyYaw(chicken.getBodyYaw());
+            }
             AttributeInstance scale = stand.getAttribute(Attribute.SCALE);
             if (scale != null) {
-                double chickenScale = store.load(chicken).value(StatType.SIZE);
-                scale.setBaseValue(Math.max(0.2, chickenScale * displayScaleFactor(entry.getKey().role())));
+                double chickenScale = store.read(chicken).value(StatType.SIZE);
+                double intended = Math.max(0.2, chickenScale * displayScaleFactor(entry.getKey().role()));
+                if (Double.compare(scale.getBaseValue(), intended) != 0) scale.setBaseValue(intended);
             }
         }
     }
@@ -141,11 +149,14 @@ public final class DisplayService {
             });
             displays.put(key, stand.getUniqueId());
         }
-        if (stand.getEquipment() != null) stand.getEquipment().setHelmet(item.asOne());
+        if (stand.getEquipment() != null) {
+            ItemStack shown = item.asOne();
+            if (!shown.equals(stand.getEquipment().getHelmet())) stand.getEquipment().setHelmet(shown);
+        }
     }
 
     private Location targetLocation(Chicken chicken, DisplayRole role) {
-        WonderfulChickenData data = store.load(chicken);
+        WonderfulChickenData data = store.read(chicken);
         double scale = data.value(StatType.SIZE);
         Location base = chicken.getLocation().clone();
         float bodyYaw = chicken.getBodyYaw();
