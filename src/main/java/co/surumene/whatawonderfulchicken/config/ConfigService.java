@@ -19,6 +19,7 @@ import java.util.Set;
 public final class ConfigService {
     private final WhatAWonderfulChickenPlugin plugin;
     private final YamlConfiguration defaults;
+    private Set<Material> cachedRoadBlocks;
 
     public ConfigService(WhatAWonderfulChickenPlugin plugin) {
         this.plugin = plugin;
@@ -80,6 +81,7 @@ public final class ConfigService {
         ValidationResult validation = validate(candidate);
         if (!validation.valid()) return validation;
         plugin.reloadConfig();
+        cachedRoadBlocks = null;
         return validation;
     }
 
@@ -94,6 +96,7 @@ public final class ConfigService {
             return validation;
         }
         plugin.saveConfig();
+        cachedRoadBlocks = null;
         return validation;
     }
 
@@ -122,6 +125,7 @@ public final class ConfigService {
             return validation;
         }
         plugin.saveConfig();
+        cachedRoadBlocks = null;
         return validation;
     }
 
@@ -146,12 +150,14 @@ public final class ConfigService {
     public int infoMaxResults() { return config().getInt("commands.info-max-results", 10); }
 
     public Set<Material> roadBlocks() {
+        if (cachedRoadBlocks != null) return cachedRoadBlocks;
         Set<Material> blocks = new LinkedHashSet<>();
         for (String raw : config().getStringList("road.blocks")) {
             Material material = Material.matchMaterial(raw);
             if (material != null) blocks.add(material);
         }
-        return blocks;
+        cachedRoadBlocks = Set.copyOf(blocks);
+        return cachedRoadBlocks;
     }
 
     public YamlConfiguration defaults() { return defaults; }
