@@ -98,7 +98,7 @@ public final class InteractionListener implements Listener {
             return;
         }
 
-        if (hand.getType() == Material.NAME_TAG) return;
+        if (hand.getType() == Material.NAME_TAG || hand.getType() == Material.LEAD || chicken.isLeashed()) return;
         if (!chicken.isAdult() || store.load(chicken).carpet() == null) return;
         if (!chicken.getPassengers().isEmpty()) return;
         event.setCancelled(true);
