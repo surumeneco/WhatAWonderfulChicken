@@ -56,7 +56,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
                 event.registrar().register(commands.build(), "What a Wonderful Chicken administration", List.of("whatawonderfulchicken")));
 
-        WorldListener worldListener = new WorldListener(this, chickens, store, displays, inventories);
+        WorldListener worldListener = new WorldListener(this, chickens, store, displays, inventories, configService);
         getServer().getPluginManager().registerEvents(worldListener, this);
         getServer().getPluginManager().registerEvents(new InteractionListener(this, chickens, store, configService, messageService, inventories, displays, riding), this);
         getServer().getPluginManager().registerEvents(new InventoryListener(inventories), this);
