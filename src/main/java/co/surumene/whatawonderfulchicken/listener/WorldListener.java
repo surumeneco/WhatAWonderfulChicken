@@ -110,12 +110,17 @@ public final class WorldListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onEggLay(EntityDropItemEvent event) {
         if (!(event.getEntity() instanceof Chicken chicken) || !store.isWonderful(chicken)) return;
-        if (event.getItemDrop().getItemStack().getType() != Material.EGG) return;
+        // All three vanilla egg colors are naturally laid by chicken variants.
+        if (!isChickenEgg(event.getItemDrop().getItemStack().getType())) return;
         if (store.read(chicken).trait() != Trait.KIN_NO_TAMAGO) return;
         if (ThreadLocalRandom.current().nextDouble() >= config.eggGoldChance()) return;
         Material result = ThreadLocalRandom.current().nextDouble() < config.eggNetheriteChance()
                 ? Material.NETHERITE_SCRAP : Material.RAW_GOLD;
         event.getItemDrop().setItemStack(org.bukkit.inventory.ItemStack.of(result));
+    }
+
+    static boolean isChickenEgg(Material item) {
+        return item == Material.EGG || item == Material.BLUE_EGG || item == Material.BROWN_EGG;
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
