@@ -13,6 +13,7 @@ import co.surumene.whatawonderfulchicken.display.DisplayService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
 import co.surumene.whatawonderfulchicken.util.ItemUtil;
+import co.surumene.whatawonderfulchicken.util.ChickenDisplayName;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -88,7 +89,8 @@ public final class InventoryService {
         boolean cargo = data.shulkerBox() != null;
         int size = cargo ? 36 : 9;
         WonderfulChickenInventoryHolder customHolder = new WonderfulChickenInventoryHolder(chicken.getUniqueId());
-        Inventory inventory = Bukkit.createInventory(customHolder, size, Component.text(messages.text(player.locale(), "gui.title")));
+        Inventory inventory = Bukkit.createInventory(customHolder, size,
+                ChickenDisplayName.resolve(chicken, Component.text(messages.text(player.locale(), "gui.title"))));
         customHolder.inventory(inventory);
         populateMeta(player, inventory, data);
         if (cargo) loadCargo(inventory, data.shulkerBox());
@@ -376,6 +378,10 @@ public final class InventoryService {
                 .append(Component.text(
                         messages.text(player.locale(), pedigreeOnly ? "gui.pedigree" : "gui.info"),
                         NamedTextColor.YELLOW).decorate(TextDecoration.BOLD));
+        if (ChickenDisplayName.hasCustomName(chicken)) {
+            block = block.append(Component.text(" — ", NamedTextColor.GRAY))
+                    .append(ChickenDisplayName.resolve(chicken, Component.empty()));
+        }
 
         if (!pedigreeOnly) {
             block = block.append(Component.newline()).append(Component.text(
