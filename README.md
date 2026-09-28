@@ -26,7 +26,7 @@ Linux / macOS:
 生成物:
 
 ```text
-build/libs/WhatAWonderfulChicken-1.1.1.jar
+build/libs/WhatAWonderfulChicken-1.1.2.jar
 ```
 
 生成されたjarをPaperサーバーの `plugins/` に配置して起動してください。初回起動時に `plugins/WhatAWonderfulChicken/` 以下へconfigと言語ファイルを自動生成します。
@@ -94,3 +94,9 @@ Carpet / Shulker Boxの外観は、Geyser互換性を優先して不可視ArmorS
 1.0.0以前の設定ファイルに存在しない性格・特性・突然変異の追加項目を、JAR内のデフォルト値で補完して起動できるように修正しました。従来の `plugins/WhatAWonderfulChicken/config.yml` は削除せず、そのまま利用できます。明示的に設定した不正値は従来どおりエラーとなります。
 
 1.1.0で起動時に `Invalid configuration` が発生した場合は、ワールドと設定ファイルをバックアップのうえ、**旧1.1.0 JARを撤去**してこの1.1.1 JARのみを `plugins/` に配置し、サーバーを完全再起動してください。
+
+## 1.1.2：config・lang不足項目の自動追記
+
+起動時および `/wwc reload` 時に、ディスク上の `config.yml`、`lang/ja_jp.yml`、`lang/en_us.yml` をJAR同梱デフォルトと比較し、不足するキーだけを追加保存します。管理者が変更した設定値・翻訳文や独自キーは保持します。
+
+キーがすべて存在する場合は再保存しません。明示的に不正な値は従来どおり起動エラーの対象です。YAMLの保存時には引用符などの書式が一部変わることがあるため、導入前に設定ファイルをバックアップしてください。旧JARと同時配置せず、サーバーを完全再起動してください。

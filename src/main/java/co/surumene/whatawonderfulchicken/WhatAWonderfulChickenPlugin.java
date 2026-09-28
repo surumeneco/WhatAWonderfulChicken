@@ -43,6 +43,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
+        configService.persistMissingDefaults();
         messageService = new MessageService(this);
         store = new WonderfulChickenStore(this, configService);
         chickens = new WonderfulChickenService(this, configService, store);
