@@ -1,6 +1,10 @@
 package co.surumene.whatawonderfulchicken.config;
 
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
+
+import java.io.File;
+import java.io.IOException;
 
 /**
  * Adds only absent leaf keys from a bundled YAML file to a user's configuration.
@@ -18,6 +22,14 @@ public final class YamlKeyMerger {
             target.set(path, bundled.get(path));
             added++;
         }
+        return added;
+    }
+
+    /** Save only when additions were needed; the loaded YAML retains parsed comments. */
+    public static int mergeAndSave(FileConfiguration target, ConfigurationSection bundled, File file)
+            throws IOException {
+        int added = copyMissing(target, bundled);
+        if (added > 0) target.save(file);
         return added;
     }
 
