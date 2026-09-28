@@ -2,6 +2,7 @@ package co.surumene.whatawonderfulchicken.listener;
 
 import co.surumene.whatawonderfulchicken.WhatAWonderfulChickenPlugin;
 import co.surumene.whatawonderfulchicken.display.DisplayService;
+import co.surumene.whatawonderfulchicken.config.ConfigService;
 import co.surumene.whatawonderfulchicken.data.Trait;
 import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent;
 import com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent;
@@ -29,6 +30,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public final class WorldListener implements Listener {
     private final WhatAWonderfulChickenPlugin plugin;
+    private final ConfigService config;
     private final WonderfulChickenService chickens;
     private final WonderfulChickenStore store;
     private final DisplayService displays;
@@ -36,8 +38,9 @@ public final class WorldListener implements Listener {
     private final Map<UUID, Chicken> pendingRestoration = new HashMap<>();
 
     public WorldListener(WhatAWonderfulChickenPlugin plugin, WonderfulChickenService chickens, WonderfulChickenStore store,
-                         DisplayService displays, InventoryService inventories) {
+                         DisplayService displays, InventoryService inventories, ConfigService config) {
         this.plugin = plugin;
+        this.config = config;
         this.chickens = chickens;
         this.store = store;
         this.displays = displays;
@@ -109,8 +112,8 @@ public final class WorldListener implements Listener {
         if (!(event.getEntity() instanceof Chicken chicken) || !store.isWonderful(chicken)) return;
         if (event.getItemDrop().getItemStack().getType() != Material.EGG) return;
         if (store.read(chicken).trait() != Trait.KIN_NO_TAMAGO) return;
-        if (ThreadLocalRandom.current().nextDouble() >= chickens.store().configEggGoldChance()) return;
-        Material result = ThreadLocalRandom.current().nextDouble() < chickens.store().configEggNetheriteChance()
+        if (ThreadLocalRandom.current().nextDouble() >= config.eggGoldChance()) return;
+        Material result = ThreadLocalRandom.current().nextDouble() < config.eggNetheriteChance()
                 ? Material.NETHERITE_SCRAP : Material.RAW_GOLD;
         event.getItemDrop().setItemStack(org.bukkit.inventory.ItemStack.of(result));
     }
