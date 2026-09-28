@@ -83,6 +83,7 @@ public final class InventoryService {
             return;
         }
         chickens.registerLoaded(chicken);
+        chickens.refreshPedigree(chicken);
         WonderfulChickenData data = store.load(chicken);
         boolean cargo = data.shulkerBox() != null;
         int size = cargo ? 36 : 9;
@@ -369,6 +370,7 @@ public final class InventoryService {
     }
 
     private void sendDetailedInfo(Player player, Chicken chicken, boolean pedigreeOnly) {
+        chickens.refreshPedigree(chicken);
         WonderfulChickenData data = store.load(chicken);
         Component block = Component.text("◆ ", NamedTextColor.GOLD)
                 .append(Component.text(
