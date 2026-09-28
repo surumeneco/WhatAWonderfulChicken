@@ -13,6 +13,7 @@ import co.surumene.whatawonderfulchicken.display.DisplayService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
 import co.surumene.whatawonderfulchicken.util.ItemUtil;
+import co.surumene.whatawonderfulchicken.util.ChickenNames;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -88,7 +89,8 @@ public final class InventoryService {
         boolean cargo = data.shulkerBox() != null;
         int size = cargo ? 36 : 9;
         WonderfulChickenInventoryHolder customHolder = new WonderfulChickenInventoryHolder(chicken.getUniqueId());
-        Inventory inventory = Bukkit.createInventory(customHolder, size, Component.text(messages.text(player.locale(), "gui.title")));
+        Inventory inventory = Bukkit.createInventory(customHolder, size,
+                ChickenNames.display(chicken.customName(), messages.text(player.locale(), "gui.title")));
         customHolder.inventory(inventory);
         populateMeta(player, inventory, data);
         if (cargo) loadCargo(inventory, data.shulkerBox());
@@ -372,10 +374,14 @@ public final class InventoryService {
     private void sendDetailedInfo(Player player, Chicken chicken, boolean pedigreeOnly) {
         chickens.refreshPedigree(chicken);
         WonderfulChickenData data = store.load(chicken);
-        Component block = Component.text("◆ ", NamedTextColor.GOLD)
-                .append(Component.text(
-                        messages.text(player.locale(), pedigreeOnly ? "gui.pedigree" : "gui.info"),
-                        NamedTextColor.YELLOW).decorate(TextDecoration.BOLD));
+        Component section = Component.text(
+                messages.text(player.locale(), pedigreeOnly ? "gui.pedigree" : "gui.info"),
+                NamedTextColor.YELLOW).decorate(TextDecoration.BOLD);
+        Component customName = chicken.customName();
+        if (ChickenNames.isNamed(customName)) {
+            section = customName.append(Component.text(" - ", NamedTextColor.GRAY)).append(section);
+        }
+        Component block = Component.text("◆ ", NamedTextColor.GOLD).append(section);
 
         if (!pedigreeOnly) {
             block = block.append(Component.newline()).append(Component.text(
