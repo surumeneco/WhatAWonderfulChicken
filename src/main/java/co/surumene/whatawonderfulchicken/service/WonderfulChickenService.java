@@ -236,7 +236,7 @@ public final class WonderfulChickenService {
         store.save(chicken, data);
         loaded.put(chicken.getUniqueId(), chicken);
         projectAttributes(chicken);
-        chicken.setHealth(data.value(StatType.MAX_HEALTH));
+        chicken.setHealth(effective(data, StatType.MAX_HEALTH));
         synchronizeBehaviorState(chicken, data);
     }
 
