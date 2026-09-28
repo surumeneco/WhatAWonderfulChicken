@@ -508,7 +508,9 @@ public final class CommandService {
                 data.normalized(stat, store.toNormalized(stat, value));
             }
         }
-        if (root.containsKey("current_stamina")) data.currentStamina(Math.max(0.0, Math.min(data.value(StatType.STAMINA), number(root.get("current_stamina")))));
+        double capacity = chickens.effective(data, StatType.STAMINA);
+        data.currentStamina(root.containsKey("current_stamina")
+                ? Math.max(0.0, Math.min(capacity, number(root.get("current_stamina")))) : capacity);
         Object equipmentObj = root.get("equipment");
         if (equipmentObj instanceof Map<?, ?> equipment) {
             if (equipment.containsKey("carpet")) {
