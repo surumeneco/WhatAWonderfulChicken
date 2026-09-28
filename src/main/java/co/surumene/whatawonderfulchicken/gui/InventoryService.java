@@ -323,6 +323,10 @@ public final class InventoryService {
         ItemStack item = placeholder(Material.PAPER, messages.text(viewer.locale(), "gui.info"));
         ItemMeta meta = item.getItemMeta();
         List<Component> lore = new ArrayList<>();
+        lore.add(Component.text(messages.text(viewer.locale(), "gui.nature",
+                messages.text(viewer.locale(), "nature." + data.nature().key() + ".name"))));
+        lore.add(Component.text("  " + messages.text(viewer.locale(),
+                "nature." + data.nature().key() + ".description"), NamedTextColor.GRAY));
         for (StatType stat : StatType.values()) {
             String display = config.statDisplay(stat);
             if (display.equals("none")) continue;
@@ -345,6 +349,10 @@ public final class InventoryService {
         ItemStack item = placeholder(Material.WRITABLE_BOOK, messages.text(viewer.locale(), "gui.pedigree"));
         ItemMeta meta = item.getItemMeta();
         List<Component> lore = new ArrayList<>();
+        lore.add(Component.text(messages.text(viewer.locale(), "gui.trait",
+                messages.text(viewer.locale(), "trait." + data.trait().key() + ".name"))));
+        lore.add(Component.text("  " + messages.text(viewer.locale(),
+                "trait." + data.trait().key() + ".description"), NamedTextColor.GRAY));
         lore.add(Component.text(messages.text(viewer.locale(), "gui.pedigree_id", chickens.displayBloodlineId(data.bloodlineId()))));
         lore.add(Component.text(messages.text(viewer.locale(), "gui.generation", data.generation())));
         PedigreeData p = data.pedigree();
@@ -367,6 +375,11 @@ public final class InventoryService {
                         NamedTextColor.YELLOW).decorate(TextDecoration.BOLD));
 
         if (!pedigreeOnly) {
+            block = block.append(Component.newline()).append(Component.text(
+                    messages.text(player.locale(), "gui.nature",
+                            messages.text(player.locale(), "nature." + data.nature().key() + ".name")), NamedTextColor.AQUA))
+                    .append(Component.newline()).append(Component.text("  " + messages.text(player.locale(),
+                            "nature." + data.nature().key() + ".description"), NamedTextColor.GRAY));
             for (StatType stat : StatType.values()) {
                 String display = config.statDisplay(stat);
                 if (display.equals("none")) continue;
@@ -393,6 +406,11 @@ public final class InventoryService {
             }
         } else {
             block = block.append(Component.newline())
+                    .append(Component.text(messages.text(player.locale(), "gui.trait",
+                            messages.text(player.locale(), "trait." + data.trait().key() + ".name")), NamedTextColor.AQUA))
+                    .append(Component.newline()).append(Component.text("  " + messages.text(player.locale(),
+                            "trait." + data.trait().key() + ".description"), NamedTextColor.GRAY))
+                    .append(Component.newline())
                     .append(Component.text(messages.text(player.locale(), "gui.pedigree_id",
                             chickens.displayBloodlineId(data.bloodlineId())), NamedTextColor.AQUA))
                     .append(Component.newline())
@@ -413,7 +431,7 @@ public final class InventoryService {
 
     private Component appendAncestorLine(Component block, Player player, String labelKey, AncestorSnapshot snapshot) {
         Component line = Component.text("  " + messages.text(player.locale(), labelKey) + ": ", NamedTextColor.GRAY)
-                .append(Component.text(ancestorText(player, snapshot), NamedTextColor.WHITE));
+                .append(Component.text(ancestorText(player, snapshot, labelKey.startsWith("gui.parent_")), NamedTextColor.WHITE));
         return block.append(Component.newline()).append(line);
     }
 
@@ -528,16 +546,22 @@ public final class InventoryService {
 
     private void addAncestor(List<Component> lore, Player viewer, String labelKey, AncestorSnapshot snapshot) {
         String label = messages.text(viewer.locale(), labelKey);
-        lore.add(Component.text(label + ": " + ancestorText(viewer, snapshot)));
+        lore.add(Component.text(label + ": " + ancestorText(viewer, snapshot, labelKey.startsWith("gui.parent_"))));
     }
 
-    private String ancestorText(Player viewer, AncestorSnapshot snapshot) {
+    private String ancestorText(Player viewer, AncestorSnapshot snapshot, boolean includeGenetics) {
         if (snapshot == null) return messages.text(viewer.locale(), "gui.ancestor_none");
         String name = snapshot.name();
         if (name == null || name.isBlank() || name.equals("無名の鶏")) {
             name = messages.text(viewer.locale(), "gui.ancestor_unnamed");
         }
-        return messages.text(viewer.locale(), "gui.ancestor_value",
+        String base = messages.text(viewer.locale(), "gui.ancestor_value",
                 name, snapshot.generation(), chickens.displayBloodlineId(snapshot.bloodlineId()));
+        if (!includeGenetics) return base;
+        String natureName = snapshot.genetics() == null ? messages.text(viewer.locale(), "gui.ancestor_unknown")
+                : messages.text(viewer.locale(), "nature." + snapshot.genetics().nature().key() + ".name");
+        String traitName = snapshot.genetics() == null ? messages.text(viewer.locale(), "gui.ancestor_unknown")
+                : messages.text(viewer.locale(), "trait." + snapshot.genetics().trait().key() + ".name");
+        return base + " / " + messages.text(viewer.locale(), "gui.ancestor_genetics", natureName, traitName);
     }
 }
