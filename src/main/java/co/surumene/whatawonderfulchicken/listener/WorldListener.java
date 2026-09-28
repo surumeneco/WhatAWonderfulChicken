@@ -2,9 +2,11 @@ package co.surumene.whatawonderfulchicken.listener;
 
 import co.surumene.whatawonderfulchicken.WhatAWonderfulChickenPlugin;
 import co.surumene.whatawonderfulchicken.display.DisplayService;
+import co.surumene.whatawonderfulchicken.data.Trait;
 import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent;
 import com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import co.surumene.whatawonderfulchicken.gui.InventoryService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
@@ -16,12 +18,14 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityBreedEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityDropItemEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 public final class WorldListener implements Listener {
     private final WhatAWonderfulChickenPlugin plugin;
@@ -98,6 +102,17 @@ public final class WorldListener implements Listener {
             chickens.initialize(child, chickens.createBredData(mother, father));
             displays.rebuild(child);
         }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onEggLay(EntityDropItemEvent event) {
+        if (!(event.getEntity() instanceof Chicken chicken) || !store.isWonderful(chicken)) return;
+        if (event.getItemDrop().getItemStack().getType() != Material.EGG) return;
+        if (store.read(chicken).trait() != Trait.KIN_NO_TAMAGO) return;
+        if (ThreadLocalRandom.current().nextDouble() >= chickens.store().configEggGoldChance()) return;
+        Material result = ThreadLocalRandom.current().nextDouble() < chickens.store().configEggNetheriteChance()
+                ? Material.NETHERITE_SCRAP : Material.RAW_GOLD;
+        event.getItemDrop().setItemStack(org.bukkit.inventory.ItemStack.of(result));
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
