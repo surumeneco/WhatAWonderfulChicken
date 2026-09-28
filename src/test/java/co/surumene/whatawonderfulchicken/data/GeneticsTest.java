@@ -28,6 +28,30 @@ class GeneticsTest {
     }
 
     @Test
+    void expressionTablesMatchApprovedGenePairMatrix() {
+        Nature[][] natures = {
+                {Nature.ISOGINBO, Nature.SEKASEKA, Nature.HANEKKAERI, Nature.MAJIME, Nature.ISOGINBO},
+                {null, Nature.UWA_NO_SORA, Nature.TOBASHIYA, Nature.JIKKURI, Nature.TOBASHIYA},
+                {null, null, Nature.AWATENBO, Nature.NEBARIZUYOI, Nature.NEBARIZUYOI},
+                {null, null, null, Nature.TAMEKOMIYA, Nature.KOMAME},
+                {null, null, null, null, Nature.KUISHINBO}
+        };
+        Trait[][] traits = {
+                {Trait.YOME, Trait.MIHARIBAN, Trait.YOME, Trait.SAIKUTSU_OUEN, Trait.MIHARIBAN},
+                {null, Trait.HINOTORI, Trait.WATAGE, Trait.CHIKARAKOBU, Trait.HINOTORI},
+                {null, null, Trait.FUKUTSU, Trait.FUKUTSU, Trait.JIKIDEN},
+                {null, null, null, Trait.KUSE_MASHI, Trait.HATENKO},
+                {null, null, null, null, Trait.KIN_NO_TAMAGO}
+        };
+        for (int a = 0; a < 5; a++) {
+            for (int b = a; b < 5; b++) {
+                assertEquals(natures[a][b], Nature.fromGenes(a, b), "Nature genes " + a + "/" + b);
+                assertEquals(traits[a][b], Trait.fromGenes(a, b), "Trait genes " + a + "/" + b);
+            }
+        }
+    }
+
+    @Test
     void exclusivePairsAndUnorderedStorage() {
         assertEquals(Nature.KUISHINBO, Nature.fromGenes(4, 4));
         assertEquals(Trait.KIN_NO_TAMAGO, Trait.fromGenes(4, 4));
