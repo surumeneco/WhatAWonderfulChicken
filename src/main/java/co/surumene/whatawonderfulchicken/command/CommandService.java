@@ -357,6 +357,7 @@ public final class CommandService {
         for (Chicken chicken : targets) {
             index++;
             chickens.registerLoaded(chicken);
+            chickens.refreshPedigree(chicken);
             WonderfulChickenData data = store.load(chicken);
             Component block = Component.text("◆ ", NamedTextColor.GOLD)
                     .append(Component.text(messages.text(sender, "command.info_header", index, total), NamedTextColor.YELLOW)
