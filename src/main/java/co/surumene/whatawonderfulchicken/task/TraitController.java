@@ -39,7 +39,7 @@ public final class TraitController implements Runnable {
 
     @Override
     public void run() {
-        ticks += 20L;
+        ticks += 10L;
         Set<UUID> active = new HashSet<>();
         for (Chicken chicken : chickens.loadedChickens()) {
             active.add(chicken.getUniqueId());
