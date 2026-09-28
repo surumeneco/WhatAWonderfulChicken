@@ -192,8 +192,8 @@ public final class ConfigService {
     public double natureAdjustment() { return config().getDouble("nature.adjustment", 0.10); }
     public double statMutationRate() { return config().getDouble("breeding.stat-mutation-rate", 0.01); }
     public double geneticMutationRate() { return config().getDouble("breeding.genetic-mutation-rate", 0.01); }
-    public double hasteRadius() { return config().getDouble("traits.haste-radius", 5.0); }
-    public double alertRadius() { return config().getDouble("traits.alert-radius", 10.0); }
+    public double hasteRadius() { return config().getDouble("traits.haste-radius", 7.5); }
+    public double alertRadius() { return config().getDouble("traits.alert-radius", 20.0); }
     public int alertMinInterval() { return config().getInt("traits.alert-min-interval-ticks", 10); }
     public int alertMaxInterval() { return config().getInt("traits.alert-max-interval-ticks", 80); }
     public double eggGoldChance() { return config().getDouble("traits.egg-gold-chance", 0.05); }

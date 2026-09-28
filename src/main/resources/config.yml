@@ -52,8 +52,8 @@ breeding:
     spread-factor: 0.25
     minimum-standard-deviation: 0.03
 traits:
-  haste-radius: 5.0
-  alert-radius: 10.0
+  haste-radius: 7.5
+  alert-radius: 20.0
   alert-min-interval-ticks: 10
   alert-max-interval-ticks: 80
   egg-gold-chance: 0.05

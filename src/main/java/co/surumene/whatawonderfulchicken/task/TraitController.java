@@ -101,7 +101,7 @@ public final class TraitController implements Runnable {
                 * (config.alertMaxInterval() - config.alertMinInterval()));
         long last = lastAlert.getOrDefault(chicken.getUniqueId(), Long.MIN_VALUE / 2);
         if (ticks - last < interval) return;
-        chicken.getWorld().playSound(chicken.getLocation(), Sound.ENTITY_CHICKEN_AMBIENT, 1.0f, 1.1f);
+        chicken.getWorld().playSound(chicken.getLocation(), Sound.ENTITY_CHICKEN_HURT, 1.0f, 1.1f);
         lastAlert.put(chicken.getUniqueId(), ticks);
     }
 
