@@ -3,15 +3,18 @@ plugins {
 }
 
 group = "co.surumene"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 
 repositories {
     maven("https://repo.papermc.io/repository/maven-public/")
+    maven("https://repo.opencollab.dev/main/")
     mavenCentral()
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:26.2.build.129-stable")
+    testImplementation("io.papermc.paper:paper-api:26.2.build.129-stable")
+    compileOnly("org.geysermc.geyser:api:2.11.2-SNAPSHOT")
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

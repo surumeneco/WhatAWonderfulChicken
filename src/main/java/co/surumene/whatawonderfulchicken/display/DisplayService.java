@@ -35,6 +35,7 @@ public final class DisplayService {
     private final NamespacedKey ownerKey;
     private final NamespacedKey roleKey;
     private final Map<DisplayKey, UUID> displays = new HashMap<>();
+    private final DisplayRemovalQueue removals = new DisplayRemovalQueue();
 
     public DisplayService(WhatAWonderfulChickenPlugin plugin, WonderfulChickenService chickens, WonderfulChickenStore store) {
         this.plugin = plugin;
@@ -52,6 +53,7 @@ public final class DisplayService {
     public void reconcileChunk(Chunk chunk) {
         for (Entity entity : chunk.getEntities()) {
             if (!(entity instanceof ArmorStand stand)) continue;
+            if (removals.contains(stand.getUniqueId())) continue;
             String ownerRaw = stand.getPersistentDataContainer().get(ownerKey, PersistentDataType.STRING);
             String roleRaw = stand.getPersistentDataContainer().get(roleKey, PersistentDataType.STRING);
             if (ownerRaw == null || roleRaw == null) continue;
@@ -59,7 +61,7 @@ public final class DisplayService {
                 DisplayKey key = new DisplayKey(UUID.fromString(ownerRaw), DisplayRole.valueOf(roleRaw));
                 Entity owner = Bukkit.getEntity(key.owner());
                 if (!(owner instanceof Chicken chicken) || !store.isWonderful(chicken)) {
-                    stand.remove();
+                    removals.queue(stand.getUniqueId());
                     continue;
                 }
                 UUID current = displays.get(key);
@@ -68,17 +70,17 @@ public final class DisplayService {
                     stand.setPersistent(false);
                     displays.put(key, stand.getUniqueId());
                 } else if (!current.equals(stand.getUniqueId())) {
-                    stand.remove();
+                    removals.queue(stand.getUniqueId());
                 }
             } catch (IllegalArgumentException ex) {
-                stand.remove();
+                removals.queue(stand.getUniqueId());
             }
         }
     }
 
     public void rebuild(Chicken chicken) {
         if (!store.isWonderful(chicken)) return;
-        WonderfulChickenData data = store.load(chicken);
+        WonderfulChickenData data = store.read(chicken);
         syncRole(chicken, DisplayRole.CARPET, data.carpet());
         syncRole(chicken, DisplayRole.SHULKER_BOX, data.shulkerBox());
     }
@@ -88,30 +90,38 @@ public final class DisplayService {
     }
 
     public void removeAll() {
-        for (UUID displayId : displays.values()) {
-            Entity entity = Bukkit.getEntity(displayId);
-            if (entity != null) entity.remove();
-        }
+        displays.values().forEach(removals::queue);
         displays.clear();
+        // The periodic tick task no longer runs after plugin disable.
+        flushPendingRemovals();
     }
 
     public void tick() {
+        flushPendingRemovals();
         Iterator<Map.Entry<DisplayKey, UUID>> iterator = displays.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<DisplayKey, UUID> entry = iterator.next();
             Entity owner = Bukkit.getEntity(entry.getKey().owner());
             Entity display = Bukkit.getEntity(entry.getValue());
             if (!(owner instanceof Chicken chicken) || !store.isWonderful(chicken) || !(display instanceof ArmorStand stand) || !stand.isValid()) {
-                if (display != null) display.remove();
+                if (display != null) removals.queue(display.getUniqueId());
                 iterator.remove();
                 continue;
             }
-            stand.teleport(targetLocation(chicken, entry.getKey().role()));
-            stand.setBodyYaw(chicken.getBodyYaw());
+            Location destination = targetLocation(chicken, entry.getKey().role());
+            Location current = stand.getLocation();
+            if (current.getX() != destination.getX() || current.getY() != destination.getY()
+                    || current.getZ() != destination.getZ() || current.getYaw() != destination.getYaw()) {
+                stand.teleport(destination);
+            }
+            if (Float.compare(stand.getBodyYaw(), chicken.getBodyYaw()) != 0) {
+                stand.setBodyYaw(chicken.getBodyYaw());
+            }
             AttributeInstance scale = stand.getAttribute(Attribute.SCALE);
             if (scale != null) {
-                double chickenScale = store.load(chicken).value(StatType.SIZE);
-                scale.setBaseValue(Math.max(0.2, chickenScale * displayScaleFactor(entry.getKey().role())));
+                double chickenScale = store.read(chicken).value(StatType.SIZE);
+                double intended = Math.max(0.2, chickenScale * displayScaleFactor(entry.getKey().role()));
+                if (Double.compare(scale.getBaseValue(), intended) != 0) scale.setBaseValue(intended);
             }
         }
     }
@@ -141,11 +151,14 @@ public final class DisplayService {
             });
             displays.put(key, stand.getUniqueId());
         }
-        if (stand.getEquipment() != null) stand.getEquipment().setHelmet(item.asOne());
+        if (stand.getEquipment() != null) {
+            ItemStack shown = item.asOne();
+            if (!shown.equals(stand.getEquipment().getHelmet())) stand.getEquipment().setHelmet(shown);
+        }
     }
 
     private Location targetLocation(Chicken chicken, DisplayRole role) {
-        WonderfulChickenData data = store.load(chicken);
+        WonderfulChickenData data = store.read(chicken);
         double scale = data.value(StatType.SIZE);
         Location base = chicken.getLocation().clone();
         float bodyYaw = chicken.getBodyYaw();
@@ -170,16 +183,23 @@ public final class DisplayService {
 
     private void remove(UUID owner, DisplayRole role) {
         UUID display = displays.remove(new DisplayKey(owner, role));
-        if (display != null) {
-            Entity entity = Bukkit.getEntity(display);
-            if (entity != null) entity.remove();
-        }
+        if (display != null) removals.queue(display);
+    }
+
+    private void flushPendingRemovals() {
+        removals.flush(displayId -> {
+            Entity entity = Bukkit.getEntity(displayId);
+            if (entity == null || !entity.isValid()) return true;
+            entity.remove();
+            return !entity.isValid();
+        });
     }
 
     private void cleanupAndIndexExisting() {
         displays.clear();
         Map<DisplayKey, ArmorStand> first = new HashMap<>();
         Bukkit.getWorlds().forEach(world -> world.getEntitiesByClass(ArmorStand.class).forEach(stand -> {
+            if (removals.contains(stand.getUniqueId())) return;
             String ownerRaw = stand.getPersistentDataContainer().get(ownerKey, PersistentDataType.STRING);
             String roleRaw = stand.getPersistentDataContainer().get(roleKey, PersistentDataType.STRING);
             if (ownerRaw == null || roleRaw == null) return;
@@ -187,14 +207,14 @@ public final class DisplayService {
                 DisplayKey key = new DisplayKey(UUID.fromString(ownerRaw), DisplayRole.valueOf(roleRaw));
                 Entity owner = Bukkit.getEntity(key.owner());
                 if (!(owner instanceof Chicken chicken) || !store.isWonderful(chicken)) {
-                    stand.remove();
+                    removals.queue(stand.getUniqueId());
                     return;
                 }
                 ArmorStand prior = first.putIfAbsent(key, stand);
-                if (prior != null) stand.remove();
+                if (prior != null) removals.queue(stand.getUniqueId());
                 else stand.setPersistent(false);
             } catch (IllegalArgumentException ex) {
-                stand.remove();
+                removals.queue(stand.getUniqueId());
             }
         }));
         first.forEach((key, stand) -> displays.put(key, stand.getUniqueId()));

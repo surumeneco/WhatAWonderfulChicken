@@ -42,6 +42,22 @@ public final class WonderfulChickenData {
     public PedigreeData pedigree() { return pedigree; }
     public void pedigree(PedigreeData value) { pedigree = value == null ? PedigreeData.EMPTY : value; }
 
+    public WonderfulChickenData copy() {
+        WonderfulChickenData snapshot = new WonderfulChickenData();
+        snapshot.values.putAll(values);
+        snapshot.normalized.putAll(normalized);
+        snapshot.currentStamina = currentStamina;
+        snapshot.carpet = cloneOrNull(carpet);
+        snapshot.shulkerBox = cloneOrNull(shulkerBox);
+        snapshot.headItem = cloneOrNull(headItem);
+        snapshot.behaviorMode = behaviorMode;
+        snapshot.followTarget = followTarget;
+        snapshot.bloodlineId = bloodlineId;
+        snapshot.generation = generation;
+        snapshot.pedigree = pedigree;
+        return snapshot;
+    }
+
     private static ItemStack cloneOrNull(ItemStack item) {
         return item == null || item.isEmpty() ? null : item.clone();
     }
