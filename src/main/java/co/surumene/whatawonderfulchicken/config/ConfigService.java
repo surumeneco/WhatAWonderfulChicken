@@ -34,10 +34,14 @@ public final class ConfigService {
     public FileConfiguration config() { return plugin.getConfig(); }
 
     public ValidationResult validate(ConfigurationSection config) {
+        return validateConfiguration(config, defaults);
+    }
+
+    static ValidationResult validateConfiguration(ConfigurationSection config, ConfigurationSection defaults) {
         List<String> errors = new ArrayList<>();
         for (StatType stat : StatType.values()) {
-            double min = config.getDouble("stats." + stat.configName() + ".min", Double.NaN);
-            double max = config.getDouble("stats." + stat.configName() + ".max", Double.NaN);
+            double min = numberSetting(config, defaults, "stats." + stat.configName() + ".min");
+            double max = numberSetting(config, defaults, "stats." + stat.configName() + ".max");
             if (!Double.isFinite(min) || !Double.isFinite(max) || min >= max) {
                 errors.add("stats." + stat.configName() + ": min must be finite and < max");
             }
@@ -50,36 +54,36 @@ public final class ConfigService {
         if (!Set.of("preserve-value", "preserve-normalized").contains(policy)) {
             errors.add("stats.range-change-policy must be preserve-value or preserve-normalized");
         }
-        validateProbability(config, "natural-spawn.chance", errors);
-        validateProbability(config, "breeding.direct-inheritance-rate", errors);
-        validateProbability(config, "breeding.stat-mutation-rate", errors);
-        validateProbability(config, "breeding.genetic-mutation-rate", errors);
-        validateProbability(config, "traits.egg-gold-chance", errors);
-        validateProbability(config, "traits.egg-netherite-conditional-chance", errors);
-        double adjustment = config.getDouble("nature.adjustment", Double.NaN);
+        validateProbability(config, defaults, "natural-spawn.chance", errors);
+        validateProbability(config, defaults, "breeding.direct-inheritance-rate", errors);
+        validateProbability(config, defaults, "breeding.stat-mutation-rate", errors);
+        validateProbability(config, defaults, "breeding.genetic-mutation-rate", errors);
+        validateProbability(config, defaults, "traits.egg-gold-chance", errors);
+        validateProbability(config, defaults, "traits.egg-netherite-conditional-chance", errors);
+        double adjustment = numberSetting(config, defaults, "nature.adjustment");
         if (!Double.isFinite(adjustment) || adjustment < 0.0 || adjustment >= 2.0 / 3.0)
             errors.add("nature.adjustment must be >= 0 and < 2/3 (including Kuse Mashi)");
-        double maxNormalized = config.getDouble("natural-spawn.max-normalized", -1.0);
+        double maxNormalized = numberSetting(config, defaults, "natural-spawn.max-normalized");
         if (maxNormalized < 1.0 || !Double.isFinite(maxNormalized)) errors.add("natural-spawn.max-normalized must be >= 1.0");
-        double naturalMean = config.getDouble("natural-spawn.distribution.mean", Double.NaN);
+        double naturalMean = numberSetting(config, defaults, "natural-spawn.distribution.mean");
         if (!Double.isFinite(naturalMean) || naturalMean < 0.0 || naturalMean > maxNormalized) {
             errors.add("natural-spawn.distribution.mean must be finite and between 0.0 and natural-spawn.max-normalized");
         }
-        positive(config, "natural-spawn.distribution.standard-deviation", errors);
-        positive(config, "breeding.gaussian.spread-factor", errors);
-        positive(config, "breeding.gaussian.minimum-standard-deviation", errors);
-        positive(config, "flight.stamina-consumption-per-second", errors);
-        nonNegative(config, "flight.recovery-delay-seconds", errors);
-        nonNegative(config, "feeding.heal-per-seed", errors);
-        positive(config, "road.speed-multiplier", errors);
-        positive(config, "traits.haste-radius", errors);
-        positive(config, "traits.alert-radius", errors);
-        int minAlert = config.getInt("traits.alert-min-interval-ticks", 0);
-        int maxAlert = config.getInt("traits.alert-max-interval-ticks", 0);
+        positive(config, defaults, "natural-spawn.distribution.standard-deviation", errors);
+        positive(config, defaults, "breeding.gaussian.spread-factor", errors);
+        positive(config, defaults, "breeding.gaussian.minimum-standard-deviation", errors);
+        positive(config, defaults, "flight.stamina-consumption-per-second", errors);
+        nonNegative(config, defaults, "flight.recovery-delay-seconds", errors);
+        nonNegative(config, defaults, "feeding.heal-per-seed", errors);
+        positive(config, defaults, "road.speed-multiplier", errors);
+        positive(config, defaults, "traits.haste-radius", errors);
+        positive(config, defaults, "traits.alert-radius", errors);
+        int minAlert = integerSetting(config, defaults, "traits.alert-min-interval-ticks");
+        int maxAlert = integerSetting(config, defaults, "traits.alert-max-interval-ticks");
         if (minAlert < 10 || maxAlert < minAlert) errors.add("traits.alert interval must satisfy 10 <= min <= max");
-        if (config.getInt("road.check-interval-ticks", 0) < 1) errors.add("road.check-interval-ticks must be >= 1");
-        positive(config, "follow.teleport-distance", errors);
-        if (config.getInt("commands.info-max-results", 0) < 1) errors.add("commands.info-max-results must be >= 1");
+        if (integerSetting(config, defaults, "road.check-interval-ticks") < 1) errors.add("road.check-interval-ticks must be >= 1");
+        positive(config, defaults, "follow.teleport-distance", errors);
+        if (integerSetting(config, defaults, "commands.info-max-results") < 1) errors.add("commands.info-max-results must be >= 1");
         for (String block : config.getStringList("road.blocks")) {
             if (Material.matchMaterial(block) == null) errors.add("Unknown road block: " + block);
         }
@@ -100,7 +104,7 @@ public final class ConfigService {
     public ValidationResult set(String path, Object value) {
         if (!defaults.contains(path)) return ValidationResult.error("Unknown config path: " + path);
         FileConfiguration config = plugin.getConfig();
-        Object old = config.get(path);
+        Object old = config.isSet(path) ? config.get(path) : null;
         config.set(path, value);
         ValidationResult validation = validate(config);
         if (!validation.valid()) {
@@ -183,18 +187,35 @@ public final class ConfigService {
 
     public YamlConfiguration defaults() { return defaults; }
 
-    private static void validateProbability(ConfigurationSection config, String path, List<String> errors) {
-        double value = config.getDouble(path, -1.0);
-        if (!Double.isFinite(value) || value < 0.0 || value > 1.0) errors.add(path + " must be between 0.0 and 1.0");
+    /** Resolve omitted old-config keys from bundled defaults, never masking explicitly invalid values. */
+    private static double numberSetting(ConfigurationSection config, ConfigurationSection defaults, String path) {
+        Object raw = config.isSet(path) ? config.get(path) : defaults.get(path);
+        return raw instanceof Number number ? number.doubleValue() : Double.NaN;
     }
 
-    private static void positive(ConfigurationSection config, String path, List<String> errors) {
-        double value = config.getDouble(path, Double.NaN);
+    private static int integerSetting(ConfigurationSection config, ConfigurationSection defaults, String path) {
+        double value = numberSetting(config, defaults, path);
+        if (!Double.isFinite(value) || value < Integer.MIN_VALUE || value > Integer.MAX_VALUE
+                || value != Math.rint(value)) return Integer.MIN_VALUE;
+        return (int) value;
+    }
+
+    private static void validateProbability(ConfigurationSection config, ConfigurationSection defaults,
+                                            String path, List<String> errors) {
+        double value = numberSetting(config, defaults, path);
+        if (!Double.isFinite(value) || value < 0.0 || value > 1.0)
+            errors.add(path + " must be between 0.0 and 1.0");
+    }
+
+    private static void positive(ConfigurationSection config, ConfigurationSection defaults,
+                                 String path, List<String> errors) {
+        double value = numberSetting(config, defaults, path);
         if (!Double.isFinite(value) || value <= 0.0) errors.add(path + " must be > 0");
     }
 
-    private static void nonNegative(ConfigurationSection config, String path, List<String> errors) {
-        double value = config.getDouble(path, Double.NaN);
+    private static void nonNegative(ConfigurationSection config, ConfigurationSection defaults,
+                                    String path, List<String> errors) {
+        double value = numberSetting(config, defaults, path);
         if (!Double.isFinite(value) || value < 0.0) errors.add(path + " must be >= 0");
     }
 
