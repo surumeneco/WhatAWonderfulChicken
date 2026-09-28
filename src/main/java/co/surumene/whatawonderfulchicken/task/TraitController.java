@@ -23,7 +23,6 @@ import java.util.UUID;
 
 /** Apply short-lived vanilla effects. Never erase potion effects owned by other mechanics. */
 public final class TraitController implements Runnable {
-    static final Sound ALERT_SOUND = Sound.ENTITY_CHICKEN_HURT;
     private static final int EFFECT_TICKS = 80;
     private static final int EFFECT_REFRESH_THRESHOLD = 40;
     private final WonderfulChickenService chickens;
@@ -102,7 +101,7 @@ public final class TraitController implements Runnable {
                 * (config.alertMaxInterval() - config.alertMinInterval()));
         long last = lastAlert.getOrDefault(chicken.getUniqueId(), Long.MIN_VALUE / 2);
         if (ticks - last < interval) return;
-        chicken.getWorld().playSound(chicken.getLocation(), ALERT_SOUND, 1.0f, 1.1f);
+        chicken.getWorld().playSound(chicken.getLocation(), Sound.ENTITY_CHICKEN_HURT, 1.0f, 1.1f);
         lastAlert.put(chicken.getUniqueId(), ticks);
     }
 
