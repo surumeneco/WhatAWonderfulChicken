@@ -18,6 +18,7 @@ public final class WonderfulChickenData {
     private String bloodlineId;
     private int generation;
     private PedigreeData pedigree = PedigreeData.EMPTY;
+    private Genetics genetics;
 
     public double value(StatType stat) { return values.getOrDefault(stat, 0.0); }
     public void value(StatType stat, double value) { values.put(stat, value); }
@@ -39,6 +40,18 @@ public final class WonderfulChickenData {
     public void bloodlineId(String value) { bloodlineId = value; }
     public int generation() { return generation; }
     public void generation(int value) { generation = value; }
+    public Genetics genetics() { return genetics; }
+    public void genetics(Genetics genes) { genetics = genes; }
+    public Nature nature() { return genetics == null ? Nature.MAJIME : genetics.nature(); }
+    public Trait trait() { return genetics == null ? null : genetics.trait(); }
+
+    /** Effective gameplay value; breeding and ranks continue to use the unmodified stored value. */
+    public double effective(StatType stat, double configuredAdjustment) {
+        double adjustment = configuredAdjustment * (trait() == Trait.KUSE_MASHI ? 1.5 : 1.0);
+        double effective = value(stat) * nature().multiplier(stat, adjustment);
+        return stat == StatType.MAX_HEALTH ? Math.max(1.0, Math.round(effective)) : effective;
+    }
+
     public PedigreeData pedigree() { return pedigree; }
     public void pedigree(PedigreeData value) { pedigree = value == null ? PedigreeData.EMPTY : value; }
 
@@ -55,6 +68,7 @@ public final class WonderfulChickenData {
         snapshot.bloodlineId = bloodlineId;
         snapshot.generation = generation;
         snapshot.pedigree = pedigree;
+        snapshot.genetics = genetics;
         return snapshot;
     }
 

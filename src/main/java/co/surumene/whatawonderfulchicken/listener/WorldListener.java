@@ -2,9 +2,12 @@ package co.surumene.whatawonderfulchicken.listener;
 
 import co.surumene.whatawonderfulchicken.WhatAWonderfulChickenPlugin;
 import co.surumene.whatawonderfulchicken.display.DisplayService;
+import co.surumene.whatawonderfulchicken.config.ConfigService;
+import co.surumene.whatawonderfulchicken.data.Trait;
 import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent;
 import com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import co.surumene.whatawonderfulchicken.gui.InventoryService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
@@ -16,15 +19,18 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityBreedEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityDropItemEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 public final class WorldListener implements Listener {
     private final WhatAWonderfulChickenPlugin plugin;
+    private final ConfigService config;
     private final WonderfulChickenService chickens;
     private final WonderfulChickenStore store;
     private final DisplayService displays;
@@ -32,8 +38,9 @@ public final class WorldListener implements Listener {
     private final Map<UUID, Chicken> pendingRestoration = new HashMap<>();
 
     public WorldListener(WhatAWonderfulChickenPlugin plugin, WonderfulChickenService chickens, WonderfulChickenStore store,
-                         DisplayService displays, InventoryService inventories) {
+                         DisplayService displays, InventoryService inventories, ConfigService config) {
         this.plugin = plugin;
+        this.config = config;
         this.chickens = chickens;
         this.store = store;
         this.displays = displays;
@@ -98,6 +105,22 @@ public final class WorldListener implements Listener {
             chickens.initialize(child, chickens.createBredData(mother, father));
             displays.rebuild(child);
         }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onEggLay(EntityDropItemEvent event) {
+        if (!(event.getEntity() instanceof Chicken chicken) || !store.isWonderful(chicken)) return;
+        // All three vanilla egg colors are naturally laid by chicken variants.
+        if (!isChickenEgg(event.getItemDrop().getItemStack().getType())) return;
+        if (store.read(chicken).trait() != Trait.KIN_NO_TAMAGO) return;
+        if (ThreadLocalRandom.current().nextDouble() >= config.eggGoldChance()) return;
+        Material result = ThreadLocalRandom.current().nextDouble() < config.eggNetheriteChance()
+                ? Material.NETHERITE_SCRAP : Material.RAW_GOLD;
+        event.getItemDrop().setItemStack(org.bukkit.inventory.ItemStack.of(result));
+    }
+
+    static boolean isChickenEgg(Material item) {
+        return item == Material.EGG || item == Material.BLUE_EGG || item == Material.BROWN_EGG;
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
