@@ -12,6 +12,7 @@ import co.surumene.whatawonderfulchicken.display.DisplayService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
 import co.surumene.whatawonderfulchicken.util.CommandText;
+import co.surumene.whatawonderfulchicken.util.ChickenNames;
 import co.surumene.whatawonderfulchicken.util.ItemUtil;
 import co.surumene.whatawonderfulchicken.util.SnbtLikeParser;
 import com.mojang.brigadier.Command;
@@ -359,9 +360,14 @@ public final class CommandService {
             chickens.registerLoaded(chicken);
             chickens.refreshPedigree(chicken);
             WonderfulChickenData data = store.load(chicken);
+            Component customName = chicken.customName();
+            Component title = ChickenNames.isNamed(customName)
+                    ? customName.append(Component.text(" " + messages.text(sender, "command.info_position", index, total),
+                            NamedTextColor.YELLOW).decorate(TextDecoration.BOLD))
+                    : Component.text(messages.text(sender, "command.info_header", index, total),
+                            NamedTextColor.YELLOW).decorate(TextDecoration.BOLD);
             Component block = Component.text("◆ ", NamedTextColor.GOLD)
-                    .append(Component.text(messages.text(sender, "command.info_header", index, total), NamedTextColor.YELLOW)
-                            .decorate(TextDecoration.BOLD))
+                    .append(title)
                     .append(Component.newline())
                     .append(infoLine(messages.text(sender, "command.info_uuid"), chicken.getUniqueId().toString(), NamedTextColor.GRAY))
                     .append(Component.newline())
