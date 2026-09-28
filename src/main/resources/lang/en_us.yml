@@ -28,6 +28,12 @@ command:
   info_normalized: "Normalized"
   info_current_stamina: "Current Stamina"
 gui:
+  nature_label: "Nature"
+  trait_label: "Trait"
+  nature: "Nature: {0}"
+  trait: "Trait: {0}"
+  ancestor_genetics: "Nature: {0} / Trait: {1}"
+  ancestor_unknown: "Unknown"
   title: "Wonderful Chicken"
   slot_carpet: "Riding Carpet"
   slot_shulker: "Cargo Shulker Box"
@@ -74,3 +80,75 @@ rank:
   legendary: "Legendary"
   mythical: "Mythical"
   impossible: "Impossible"
+nature:
+  majime:
+    name: "Earnest"
+    description: "Always does their best with what they have."
+  sekaseka:
+    name: "Restless"
+    description: "Loves running more than flying."
+  uwa_no_sora:
+    name: "Daydreamer"
+    description: "Lost in thought, but comes alive in the sky."
+  awatenbo:
+    name: "Scatterbrain"
+    description: "Always rushing up and down."
+  nebarizuyoi:
+    name: "Persevering"
+    description: "Slow to climb, but keeps at it."
+  komame:
+    name: "Diligent"
+    description: "Takes even long journeys one short flight at a time."
+  tamekomiya:
+    name: "Hoarder"
+    description: "Does it all at once, then enjoys a long rest."
+  hanekkaeri:
+    name: "Bouncy"
+    description: "Loves jumping more than running."
+  isoginbo:
+    name: "Speedster"
+    description: "Might bump into walls, but keeps racing ahead."
+  kuishinbo:
+    name: "Glutton"
+    description: "Big-bodied and sturdy."
+  tobashiya:
+    name: "Daredevil"
+    description: "Hot-blooded and fond of quick battles."
+  jikkuri:
+    name: "Methodical"
+    description: "Makes slow but steady progress."
+
+trait:
+  jikiden:
+    name: "Direct Legacy"
+    description: "Always passes one of its abilities to its offspring."
+  hatenko:
+    name: "Wild Card"
+    description: "Unexpected offspring are more likely to hatch."
+  yome:
+    name: "Night Eyes"
+    description: "Riders can see better in the dark."
+  hinotori:
+    name: "Firebird"
+    description: "Unfazed even by flames."
+  watage:
+    name: "Downy"
+    description: "Falls even more slowly."
+  fukutsu:
+    name: "Indomitable"
+    description: "Slowly heals from injuries."
+  saikutsu_ouen:
+    name: "Mining Cheer"
+    description: "Players nearby mine faster."
+  chikarakobu:
+    name: "Muscle"
+    description: "Riders feel stronger."
+  kin_no_tamago:
+    name: "Golden Egg"
+    description: "Sometimes lays gold, and very rarely something finer."
+  mihariban:
+    name: "Lookout"
+    description: "Calls out when danger approaches."
+  kuse_mashi:
+    name: "Extra Quirky"
+    description: "Makes its nature's quirks stronger."
