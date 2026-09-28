@@ -184,6 +184,30 @@ public final class WonderfulChickenService {
         return child;
     }
 
+    /**
+     * Fill previously unknown parent snapshots when a real parent becomes available later.
+     * The child's own genotype is never re-rolled after its one-time migration.
+     * Called on demand, not by the periodic full-world reconciliation.
+     */
+    public void refreshPedigree(Chicken child) {
+        if (!store.isWonderful(child)) return;
+        Set<UUID> visiting = new HashSet<>();
+        visiting.add(child.getUniqueId());
+        WonderfulChickenData data = store.load(child);
+        if (data.genetics() == null) {
+            ensureGenetics(child, new HashSet<>());
+            data = store.load(child);
+        }
+        PedigreeData original = data.pedigree();
+        AncestorSnapshot parentA = recoverAncestor(child, original.parentA(), visiting);
+        AncestorSnapshot parentB = recoverAncestor(child, original.parentB(), visiting);
+        if (parentA == original.parentA() && parentB == original.parentB()) return;
+        data.pedigree(new PedigreeData(parentA, parentB,
+                original.grandparentAA(), original.grandparentAB(),
+                original.grandparentBA(), original.grandparentBB()));
+        store.save(child, data);
+    }
+
     /** One-time, persistent upgrade of a loaded legacy chicken. Never guesses ancestor genes from an ID. */
     private Genetics ensureGenetics(Chicken chicken, Set<UUID> visiting) {
         WonderfulChickenData data = store.load(chicken);
