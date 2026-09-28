@@ -26,7 +26,7 @@ Linux / macOS:
 生成物:
 
 ```text
-build/libs/WhatAWonderfulChicken-1.0.0.jar
+build/libs/WhatAWonderfulChicken-1.1.0.jar
 ```
 
 生成されたjarをPaperサーバーの `plugins/` に配置して起動してください。初回起動時に `plugins/WhatAWonderfulChicken/` 以下へconfigと言語ファイルを自動生成します。
@@ -79,3 +79,6 @@ WWCデータとバニラNBTを両方指定した場合、能力Attribute等の�
 ## 現時点の実機確認対象
 
 Carpet / Shulker Boxの外観は、Geyser互換性を優先して不可視ArmorStandの頭装備として追従表示する初期実装です。位置・倍率、Chicken騎乗時のJE/BE入力差、乗騎ハート表示などは実サーバーで確認して調整する前提です。
+## 1.1.0 — Nature and Traits
+
+Every Wonderful Chicken has a heritable nature and trait, with independent allele pairs and fixed expression tables. Natures adjust effective stats without changing stored base stats; traits provide breeding, rider, defense and utility effects. Existing chickens migrate once to persistent genetics, reusing loaded parents identified by bloodline IDs when possible. The inventory, pedigree and info command display their nature and trait, including parental phenotype snapshots when available.
