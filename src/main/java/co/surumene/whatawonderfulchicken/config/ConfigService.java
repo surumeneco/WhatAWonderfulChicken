@@ -39,6 +39,18 @@ public final class ConfigService {
 
     static ValidationResult validateConfiguration(ConfigurationSection config, ConfigurationSection defaults) {
         List<String> errors = new ArrayList<>();
+        // A scalar in place of a section is an explicit invalid value, not a missing key.
+        Set<String> nonSections = new LinkedHashSet<>();
+        for (String path : defaults.getKeys(true)) {
+            if (defaults.isConfigurationSection(path)) continue;
+            int separator = path.indexOf('.');
+            while (separator >= 0) {
+                String parent = path.substring(0, separator);
+                if (config.isSet(parent) && !config.isConfigurationSection(parent)) nonSections.add(parent);
+                separator = path.indexOf('.', separator + 1);
+            }
+        }
+        for (String path : nonSections) errors.add(path + " must be a configuration section");
         for (StatType stat : StatType.values()) {
             double min = numberSetting(config, defaults, "stats." + stat.configName() + ".min");
             double max = numberSetting(config, defaults, "stats." + stat.configName() + ".max");
@@ -90,6 +102,20 @@ public final class ConfigService {
         return new ValidationResult(errors.isEmpty(), List.copyOf(errors));
     }
 
+    /**
+     * Persist newly introduced settings after successful validation.
+     * Existing user overrides and unrelated keys are never modified.
+     * On subsequent loads this is a no-op, avoiding unnecessary disk writes.
+     */
+    public int persistMissingDefaults() {
+        int added = YamlKeyMerger.copyMissing(plugin.getConfig(), defaults);
+        if (added > 0) {
+            plugin.saveConfig();
+            plugin.getLogger().info("Added " + added + " missing configuration entries to config.yml");
+        }
+        return added;
+    }
+
     public ValidationResult reloadFromDisk() {
         File file = new File(plugin.getDataFolder(), "config.yml");
         YamlConfiguration candidate = YamlConfiguration.loadConfiguration(file);
@@ -97,6 +123,7 @@ public final class ConfigService {
         ValidationResult validation = validate(candidate);
         if (!validation.valid()) return validation;
         plugin.reloadConfig();
+        persistMissingDefaults();
         cachedRoadBlocks = null;
         return validation;
     }
