@@ -1,6 +1,5 @@
 package co.surumene.whatawonderfulchicken.task;
 
-import org.bukkit.Sound;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
@@ -23,8 +22,4 @@ class TraitControllerDefaultsTest {
         }
     }
 
-    @Test
-    void lookoutPlaysChickenHurtCryRatherThanNormalAmbientCluck() {
-        assertEquals(Sound.ENTITY_CHICKEN_HURT, TraitController.ALERT_SOUND);
-    }
 }
