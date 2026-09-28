@@ -82,6 +82,7 @@ public final class InventoryService {
             player.sendMessage(messages.text(player, "error.inventory_busy"));
             return;
         }
+        chickens.registerLoaded(chicken);
         WonderfulChickenData data = store.load(chicken);
         boolean cargo = data.shulkerBox() != null;
         int size = cargo ? 36 : 9;
