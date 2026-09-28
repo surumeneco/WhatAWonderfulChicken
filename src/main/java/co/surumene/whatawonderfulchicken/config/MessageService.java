@@ -103,15 +103,31 @@ public final class MessageService {
     }
 
     private YamlConfiguration loadWithBundledDefaults(String path) {
-        YamlConfiguration result = YamlConfiguration.loadConfiguration(new File(plugin.getDataFolder(), path));
+        File file = new File(plugin.getDataFolder(), path);
+        YamlConfiguration result = YamlConfiguration.loadConfiguration(file);
         try (var stream = plugin.getResource(path)) {
             if (stream != null) {
                 YamlConfiguration bundled = YamlConfiguration.loadConfiguration(
                         new InputStreamReader(stream, StandardCharsets.UTF_8));
+                // Update the actual language file, not only its in-memory fallbacks.
+                // Missing nested keys are added, but custom translations and unknown keys remain.
+                int added = YamlKeyMerger.mergeAndSave(result, bundled, file);
+                if (added > 0) {
+                    plugin.getLogger().info("Added " + added + " missing translations to " + path);
+                }
                 result.setDefaults(bundled);
             }
         } catch (Exception ex) {
-            plugin.getLogger().warning("Failed to load bundled language defaults for " + path + ": " + ex.getMessage());
+            plugin.getLogger().warning("Failed to update language file " + path + ": " + ex.getMessage());
+            // Keep the bundled defaults available even when the disk is unwritable.
+            try (var defaultsStream = plugin.getResource(path)) {
+                if (defaultsStream != null) {
+                    result.setDefaults(YamlConfiguration.loadConfiguration(
+                            new InputStreamReader(defaultsStream, StandardCharsets.UTF_8)));
+                }
+            } catch (Exception ignored) {
+                // The warning above already identifies the affected language file.
+            }
         }
         return result;
     }
