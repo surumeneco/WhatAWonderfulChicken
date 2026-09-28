@@ -76,7 +76,7 @@ public final class ConfigService {
         positive(config, "traits.alert-radius", errors);
         int minAlert = config.getInt("traits.alert-min-interval-ticks", 0);
         int maxAlert = config.getInt("traits.alert-max-interval-ticks", 0);
-        if (minAlert < 1 || maxAlert < minAlert) errors.add("traits.alert interval must satisfy 1 <= min <= max");
+        if (minAlert < 10 || maxAlert < minAlert) errors.add("traits.alert interval must satisfy 10 <= min <= max");
         if (config.getInt("road.check-interval-ticks", 0) < 1) errors.add("road.check-interval-ticks must be >= 1");
         positive(config, "follow.teleport-distance", errors);
         if (config.getInt("commands.info-max-results", 0) < 1) errors.add("commands.info-max-results must be >= 1");
