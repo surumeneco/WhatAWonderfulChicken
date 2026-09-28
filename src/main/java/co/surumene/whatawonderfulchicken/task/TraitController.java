@@ -77,9 +77,13 @@ public final class TraitController implements Runnable {
 
     private void apply(org.bukkit.entity.LivingEntity entity, PotionEffectType type) {
         PotionEffect current = entity.getPotionEffect(type);
+        // Vanilla night vision flashes below 10 seconds; refresh before entering that window.
+        // On dismount the effect expires naturally, without removing another source's potion.
+        int duration = type == PotionEffectType.NIGHT_VISION ? 240 : EFFECT_TICKS;
+        int threshold = type == PotionEffectType.NIGHT_VISION ? 220 : EFFECT_REFRESH_THRESHOLD;
         // Respect external stronger or longer-lasting effects. Do not add amplifiers.
-        if (current != null && (current.getAmplifier() > 0 || current.getDuration() > EFFECT_REFRESH_THRESHOLD)) return;
-        entity.addPotionEffect(new PotionEffect(type, EFFECT_TICKS, 0, true, false, false));
+        if (current != null && (current.getAmplifier() > 0 || current.getDuration() > threshold)) return;
+        entity.addPotionEffect(new PotionEffect(type, duration, 0, true, false, false));
     }
 
     private void alert(Chicken chicken) {
