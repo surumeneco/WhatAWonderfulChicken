@@ -4,6 +4,7 @@ import co.surumene.whatawonderfulchicken.WhatAWonderfulChickenPlugin;
 import co.surumene.whatawonderfulchicken.config.ConfigService;
 import co.surumene.whatawonderfulchicken.config.MessageService;
 import co.surumene.whatawonderfulchicken.data.BehaviorMode;
+import co.surumene.whatawonderfulchicken.data.AncestorSnapshot;
 import co.surumene.whatawonderfulchicken.data.Rank;
 import co.surumene.whatawonderfulchicken.data.StatType;
 import co.surumene.whatawonderfulchicken.data.WonderfulChickenData;
@@ -251,7 +252,7 @@ public final class CommandService {
         if (field.equalsIgnoreCase("current-stamina")) {
             double next = operation.equals("add") ? data.currentStamina() + operand : operand;
             if (next < 0) throw new IllegalArgumentException("current-stamina cannot be negative");
-            data.currentStamina(Math.min(data.value(StatType.STAMINA), next));
+            data.currentStamina(Math.min(chickens.effective(data, StatType.STAMINA), next));
         } else {
             StatType stat = StatType.fromCommandName(field).orElseThrow(() -> new IllegalArgumentException("Unknown field: " + field));
             double next = operation.equals("add") ? data.value(stat) + operand : operand;
@@ -261,7 +262,7 @@ public final class CommandService {
             } else if (next < 0) throw new IllegalArgumentException(field + " must be >= 0");
             data.value(stat, next);
             data.normalized(stat, store.toNormalized(stat, next));
-            if (stat == StatType.STAMINA) data.currentStamina(Math.min(data.currentStamina(), next));
+            if (stat == StatType.STAMINA) data.currentStamina(Math.min(data.currentStamina(), chickens.effective(data, StatType.STAMINA)));
         }
         store.save(chicken, data);
         chickens.projectAttributes(chicken);
@@ -355,6 +356,8 @@ public final class CommandService {
         int index = 0;
         for (Chicken chicken : targets) {
             index++;
+            chickens.registerLoaded(chicken);
+            chickens.refreshPedigree(chicken);
             WonderfulChickenData data = store.load(chicken);
             Component block = Component.text("◆ ", NamedTextColor.GOLD)
                     .append(Component.text(messages.text(sender, "command.info_header", index, total), NamedTextColor.YELLOW)
@@ -369,7 +372,17 @@ public final class CommandService {
                             Integer.toString(data.generation()), NamedTextColor.AQUA))
                     .append(Component.newline())
                     .append(infoLine(messages.text(sender, "command.info_behavior"),
-                            messages.text(sender, "behavior." + data.behaviorMode().name().toLowerCase(Locale.ROOT)), NamedTextColor.GREEN));
+                            messages.text(sender, "behavior." + data.behaviorMode().name().toLowerCase(Locale.ROOT)), NamedTextColor.GREEN))
+                    .append(Component.newline())
+                    .append(infoLine(messages.text(sender, "gui.nature_label"),
+                            messages.text(sender, "nature." + data.nature().key() + ".name"), NamedTextColor.GREEN))
+                    .append(Component.newline())
+                    .append(infoLine(messages.text(sender, "gui.trait_label"),
+                            messages.text(sender, "trait." + data.trait().key() + ".name"), NamedTextColor.GREEN));
+            block = block.append(Component.newline()).append(infoLine(
+                    messages.text(sender, "gui.parent_a"), ancestorSummary(sender, data.pedigree().parentA()), NamedTextColor.AQUA))
+                    .append(Component.newline()).append(infoLine(
+                            messages.text(sender, "gui.parent_b"), ancestorSummary(sender, data.pedigree().parentB()), NamedTextColor.AQUA));
 
             for (StatType stat : StatType.values()) {
                 Rank rank = Rank.fromNormalized(data.normalized(stat));
@@ -384,10 +397,21 @@ public final class CommandService {
 
             block = block.append(Component.newline()).append(
                     infoLine(messages.text(sender, "command.info_current_stamina"),
-                            String.format(Locale.ROOT, "%.2f / %.2f", data.currentStamina(), data.value(StatType.STAMINA)),
+                            String.format(Locale.ROOT, "%.2f / %.2f", data.currentStamina(), chickens.effective(data, StatType.STAMINA)),
                             NamedTextColor.GREEN));
             sender.sendMessage(block);
         }
+    }
+
+    private String ancestorSummary(CommandSender sender, AncestorSnapshot snapshot) {
+        if (snapshot == null) return messages.text(sender, "gui.ancestor_none");
+        String name = snapshot.name() == null || snapshot.name().isBlank()
+                ? messages.text(sender, "gui.ancestor_unnamed") : snapshot.name();
+        String nature = snapshot.genetics() == null ? messages.text(sender, "gui.ancestor_unknown")
+                : messages.text(sender, "nature." + snapshot.genetics().nature().key() + ".name");
+        String trait = snapshot.genetics() == null ? messages.text(sender, "gui.ancestor_unknown")
+                : messages.text(sender, "trait." + snapshot.genetics().trait().key() + ".name");
+        return name + " / " + messages.text(sender, "gui.ancestor_genetics", nature, trait);
     }
 
     private Component infoLine(String label, String value, NamedTextColor valueColor) {
@@ -485,7 +509,9 @@ public final class CommandService {
                 data.normalized(stat, store.toNormalized(stat, value));
             }
         }
-        if (root.containsKey("current_stamina")) data.currentStamina(Math.max(0.0, Math.min(data.value(StatType.STAMINA), number(root.get("current_stamina")))));
+        double capacity = chickens.effective(data, StatType.STAMINA);
+        data.currentStamina(root.containsKey("current_stamina")
+                ? Math.max(0.0, Math.min(capacity, number(root.get("current_stamina")))) : capacity);
         Object equipmentObj = root.get("equipment");
         if (equipmentObj instanceof Map<?, ?> equipment) {
             if (equipment.containsKey("carpet")) {

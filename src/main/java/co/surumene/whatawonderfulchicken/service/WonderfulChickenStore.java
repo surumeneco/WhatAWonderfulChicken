@@ -3,6 +3,7 @@ package co.surumene.whatawonderfulchicken.service;
 import co.surumene.whatawonderfulchicken.WhatAWonderfulChickenPlugin;
 import co.surumene.whatawonderfulchicken.config.ConfigService;
 import co.surumene.whatawonderfulchicken.data.BehaviorMode;
+import co.surumene.whatawonderfulchicken.data.Genetics;
 import co.surumene.whatawonderfulchicken.data.PedigreeData;
 import co.surumene.whatawonderfulchicken.data.StatType;
 import co.surumene.whatawonderfulchicken.data.WonderfulChickenData;
@@ -19,7 +20,7 @@ import java.util.UUID;
 
 public final class WonderfulChickenStore {
     public static final String MARKER_VALUE = "wonderful_chicken";
-    private static final int DATA_VERSION = 1;
+    private static final int DATA_VERSION = 2;
 
     private final WhatAWonderfulChickenPlugin plugin;
     private final ConfigService config;
@@ -34,6 +35,7 @@ public final class WonderfulChickenStore {
     private final NamespacedKey bloodlineKey;
     private final NamespacedKey generationKey;
     private final NamespacedKey pedigreeKey;
+    private final NamespacedKey geneticsKey;
     private final Map<StatType, NamespacedKey> valueKeys = new EnumMap<>(StatType.class);
     private final Map<StatType, NamespacedKey> normalizedKeys = new EnumMap<>(StatType.class);
     private final Map<UUID, CachedState> loadedCache = new HashMap<>();
@@ -52,6 +54,7 @@ public final class WonderfulChickenStore {
         this.bloodlineKey = key("bloodline_id");
         this.generationKey = key("generation");
         this.pedigreeKey = key("pedigree");
+        this.geneticsKey = key("genetics");
         for (StatType stat : StatType.values()) {
             valueKeys.put(stat, key("stat_" + stat.key()));
             normalizedKeys.put(stat, key("normalized_" + stat.key()));
@@ -83,6 +86,7 @@ public final class WonderfulChickenStore {
         if (!isWonderful(chicken)) throw new IllegalArgumentException("Chicken is not wonderful");
         PersistentDataContainer pdc = chicken.getPersistentDataContainer();
         WonderfulChickenData data = new WonderfulChickenData();
+        data.genetics(Genetics.fromBytes(pdc.get(geneticsKey, PersistentDataType.BYTE_ARRAY)));
         for (StatType stat : StatType.values()) {
             Double value = pdc.get(valueKeys.get(stat), PersistentDataType.DOUBLE);
             Double normalized = pdc.get(normalizedKeys.get(stat), PersistentDataType.DOUBLE);
@@ -91,7 +95,7 @@ public final class WonderfulChickenStore {
             data.value(stat, value == null ? config.statMin(stat) : value);
             data.normalized(stat, normalized == null ? 0.0 : normalized);
         }
-        double maxStamina = data.value(StatType.STAMINA);
+        double maxStamina = data.effective(StatType.STAMINA, config.natureAdjustment());
         Double storedStamina = pdc.get(currentStaminaKey, PersistentDataType.DOUBLE);
         data.currentStamina(storedStamina != null
                 ? Math.max(0.0, Math.min(maxStamina, storedStamina))
@@ -134,12 +138,14 @@ public final class WonderfulChickenStore {
         pdc.set(bloodlineKey, PersistentDataType.STRING, data.bloodlineId());
         pdc.set(generationKey, PersistentDataType.INTEGER, data.generation());
         pdc.set(pedigreeKey, PersistentDataType.BYTE_ARRAY, data.pedigree().serialize());
+        if (data.genetics() != null) pdc.set(geneticsKey, PersistentDataType.BYTE_ARRAY, data.genetics().toBytes());
+        else pdc.remove(geneticsKey);
         loadedCache.put(chicken.getUniqueId(), new CachedState(chicken, data.copy()));
     }
 
     public void setCurrentStamina(Chicken chicken, double stamina) {
         WonderfulChickenData data = read(chicken);
-        double clamped = Math.max(0.0, Math.min(data.value(StatType.STAMINA), stamina));
+        double clamped = Math.max(0.0, Math.min(data.effective(StatType.STAMINA, config.natureAdjustment()), stamina));
         if (Double.compare(data.currentStamina(), clamped) == 0) return;
         chicken.getPersistentDataContainer().set(currentStaminaKey, PersistentDataType.DOUBLE, clamped);
         data.currentStamina(clamped);

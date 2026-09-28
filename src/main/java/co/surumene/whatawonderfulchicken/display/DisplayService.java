@@ -119,7 +119,7 @@ public final class DisplayService {
             }
             AttributeInstance scale = stand.getAttribute(Attribute.SCALE);
             if (scale != null) {
-                double chickenScale = store.read(chicken).value(StatType.SIZE);
+                double chickenScale = chickens.effective(store.read(chicken), StatType.SIZE);
                 double intended = Math.max(0.2, chickenScale * displayScaleFactor(entry.getKey().role()));
                 if (Double.compare(scale.getBaseValue(), intended) != 0) scale.setBaseValue(intended);
             }
@@ -159,7 +159,7 @@ public final class DisplayService {
 
     private Location targetLocation(Chicken chicken, DisplayRole role) {
         WonderfulChickenData data = store.read(chicken);
-        double scale = data.value(StatType.SIZE);
+        double scale = chickens.effective(data, StatType.SIZE);
         Location base = chicken.getLocation().clone();
         float bodyYaw = chicken.getBodyYaw();
         double yaw = Math.toRadians(bodyYaw);

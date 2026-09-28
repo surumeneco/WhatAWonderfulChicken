@@ -28,6 +28,12 @@ command:
   info_normalized: "正規化"
   info_current_stamina: "現在スタミナ"
 gui:
+  nature_label: "性格"
+  trait_label: "特性"
+  nature: "性格: {0}"
+  trait: "特性: {0}"
+  ancestor_genetics: "性格: {0} / 特性: {1}"
+  ancestor_unknown: "不明"
   title: "わんだふるちきん"
   slot_carpet: "騎乗用カーペット"
   slot_shulker: "荷物用シュルカーボックス"
@@ -74,3 +80,75 @@ rank:
   legendary: "伝説級"
   mythical: "神話級"
   impossible: "規格外"
+nature:
+  majime:
+    name: "まじめ"
+    description: "自分のできることを精一杯頑張る。"
+  sekaseka:
+    name: "せかせか"
+    description: "飛ぶよりも走るのが大好き。"
+  uwa_no_sora:
+    name: "うわのそら"
+    description: "ぼーっとしているが、空では活き活き。"
+  awatenbo:
+    name: "あわてんぼ"
+    description: "上がったり下がったり忙しいヤツ。"
+  nebarizuyoi:
+    name: "ねばりづよい"
+    description: "上がるのはゆっくりだけど長く続くタイプ。"
+  komame:
+    name: "こまめ"
+    description: "長い道でも少しずつ飛んでいく。"
+  tamekomiya:
+    name: "ためこみや"
+    description: "一気にやってのんびり休む。"
+  hanekkaeri:
+    name: "はねっかえり"
+    description: "走るよりジャンプが好き。"
+  isoginbo:
+    name: "いそぎんぼ"
+    description: "壁にはぶつかるけど駆け抜けていく。"
+  kuishinbo:
+    name: "くいしんぼ"
+    description: "体が大きくて丈夫。"
+  tobashiya:
+    name: "とばしや"
+    description: "血気盛んで短期決戦が好き。"
+  jikkuri:
+    name: "じっくり"
+    description: "少しずつ着実に進むタイプ。"
+
+trait:
+  jikiden:
+    name: "直伝"
+    description: "自分の能力を必ず1つ子供に伝える。"
+  hatenko:
+    name: "破天荒"
+    description: "思いがけない子供が生まれやすい。"
+  yome:
+    name: "夜目"
+    description: "背中に乗ると暗い場所でもよく見える。"
+  hinotori:
+    name: "火の鳥"
+    description: "炎の中でもへっちゃら。"
+  watage:
+    name: "綿毛"
+    description: "更にゆっくり落ちていく。"
+  fukutsu:
+    name: "不屈"
+    description: "傷付いても少しずつ回復する。"
+  saikutsu_ouen:
+    name: "採掘応援"
+    description: "近くにいると採掘速度が上がる。"
+  chikarakobu:
+    name: "力こぶ"
+    description: "背中に乗ると力が湧いてくる。"
+  kin_no_tamago:
+    name: "金の卵"
+    description: "たまに金を産む。ごく稀にもっと貴重なものも。"
+  mihariban:
+    name: "見張り番"
+    description: "危険が近付くと鳴いて教えてくれる。"
+  kuse_mashi:
+    name: "クセ増し"
+    description: "性格のクセが強くなる。"

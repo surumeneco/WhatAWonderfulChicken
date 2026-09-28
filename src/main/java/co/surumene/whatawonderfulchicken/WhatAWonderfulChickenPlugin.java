@@ -15,6 +15,7 @@ import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
 import co.surumene.whatawonderfulchicken.task.FollowController;
 import co.surumene.whatawonderfulchicken.task.IntegrityController;
 import co.surumene.whatawonderfulchicken.task.RidingController;
+import co.surumene.whatawonderfulchicken.task.TraitController;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -29,6 +30,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
     private DisplayService displays;
     private InventoryService inventories;
     private RidingController riding;
+    private TraitController traits;
     private BedrockCompatibility bedrock;
 
     @Override
@@ -48,12 +50,13 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         displays = new DisplayService(this, chickens, store);
         inventories = new InventoryService(this, chickens, store, configService, messageService, displays);
         riding = new RidingController(chickens, store, configService, bedrock);
+        traits = new TraitController(chickens, store, configService);
 
         CommandService commands = new CommandService(this, chickens, store, configService, messageService, displays);
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
                 event.registrar().register(commands.build(), "What a Wonderful Chicken administration", List.of("whatawonderfulchicken")));
 
-        WorldListener worldListener = new WorldListener(this, chickens, store, displays, inventories);
+        WorldListener worldListener = new WorldListener(this, chickens, store, displays, inventories, configService);
         getServer().getPluginManager().registerEvents(worldListener, this);
         getServer().getPluginManager().registerEvents(new InteractionListener(this, chickens, store, configService, messageService, inventories, displays, riding), this);
         getServer().getPluginManager().registerEvents(new InventoryListener(inventories), this);
@@ -62,6 +65,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         displays.rebuildAllLoaded();
 
         Bukkit.getScheduler().runTaskTimer(this, riding, 1L, 1L);
+        Bukkit.getScheduler().runTaskTimer(this, traits, 10L, 10L);
         Bukkit.getScheduler().runTaskTimer(this, new FollowController(this, chickens, store, configService), 5L, 5L);
         Bukkit.getScheduler().runTaskTimer(this, new IntegrityController(chickens, displays, worldListener), 1L, 1L);
 
@@ -72,6 +76,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
     public void onDisable() {
         if (inventories != null) inventories.closeAll();
         if (riding != null) riding.shutdown();
+        if (traits != null) traits.shutdown();
         if (displays != null) displays.removeAll();
         if (bedrock != null) bedrock.shutdown();
     }

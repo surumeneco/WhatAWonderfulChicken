@@ -52,6 +52,13 @@ public final class ConfigService {
         }
         validateProbability(config, "natural-spawn.chance", errors);
         validateProbability(config, "breeding.direct-inheritance-rate", errors);
+        validateProbability(config, "breeding.stat-mutation-rate", errors);
+        validateProbability(config, "breeding.genetic-mutation-rate", errors);
+        validateProbability(config, "traits.egg-gold-chance", errors);
+        validateProbability(config, "traits.egg-netherite-conditional-chance", errors);
+        double adjustment = config.getDouble("nature.adjustment", Double.NaN);
+        if (!Double.isFinite(adjustment) || adjustment < 0.0 || adjustment >= 2.0 / 3.0)
+            errors.add("nature.adjustment must be >= 0 and < 2/3 (including Kuse Mashi)");
         double maxNormalized = config.getDouble("natural-spawn.max-normalized", -1.0);
         if (maxNormalized < 1.0 || !Double.isFinite(maxNormalized)) errors.add("natural-spawn.max-normalized must be >= 1.0");
         double naturalMean = config.getDouble("natural-spawn.distribution.mean", Double.NaN);
@@ -65,6 +72,11 @@ public final class ConfigService {
         nonNegative(config, "flight.recovery-delay-seconds", errors);
         nonNegative(config, "feeding.heal-per-seed", errors);
         positive(config, "road.speed-multiplier", errors);
+        positive(config, "traits.haste-radius", errors);
+        positive(config, "traits.alert-radius", errors);
+        int minAlert = config.getInt("traits.alert-min-interval-ticks", 0);
+        int maxAlert = config.getInt("traits.alert-max-interval-ticks", 0);
+        if (minAlert < 10 || maxAlert < minAlert) errors.add("traits.alert interval must satisfy 10 <= min <= max");
         if (config.getInt("road.check-interval-ticks", 0) < 1) errors.add("road.check-interval-ticks must be >= 1");
         positive(config, "follow.teleport-distance", errors);
         if (config.getInt("commands.info-max-results", 0) < 1) errors.add("commands.info-max-results must be >= 1");
@@ -140,6 +152,15 @@ public final class ConfigService {
     public double directInheritanceRate() { return config().getDouble("breeding.direct-inheritance-rate", 0.40); }
     public double breedingSpreadFactor() { return config().getDouble("breeding.gaussian.spread-factor", 0.25); }
     public double breedingMinStdDev() { return config().getDouble("breeding.gaussian.minimum-standard-deviation", 0.03); }
+    public double natureAdjustment() { return config().getDouble("nature.adjustment", 0.10); }
+    public double statMutationRate() { return config().getDouble("breeding.stat-mutation-rate", 0.01); }
+    public double geneticMutationRate() { return config().getDouble("breeding.genetic-mutation-rate", 0.01); }
+    public double hasteRadius() { return config().getDouble("traits.haste-radius", 5.0); }
+    public double alertRadius() { return config().getDouble("traits.alert-radius", 10.0); }
+    public int alertMinInterval() { return config().getInt("traits.alert-min-interval-ticks", 10); }
+    public int alertMaxInterval() { return config().getInt("traits.alert-max-interval-ticks", 80); }
+    public double eggGoldChance() { return config().getDouble("traits.egg-gold-chance", 0.05); }
+    public double eggNetheriteChance() { return config().getDouble("traits.egg-netherite-conditional-chance", 0.01); }
     public double staminaConsumptionPerSecond() { return config().getDouble("flight.stamina-consumption-per-second", 1.0); }
     public double recoveryDelaySeconds() { return config().getDouble("flight.recovery-delay-seconds", 1.0); }
     public double healPerSeed() { return config().getDouble("feeding.heal-per-seed", 2.0); }

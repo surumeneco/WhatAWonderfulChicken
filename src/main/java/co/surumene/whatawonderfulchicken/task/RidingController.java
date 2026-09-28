@@ -107,13 +107,13 @@ public final class RidingController implements Runnable {
             return;
         }
         WonderfulChickenData data = store.read(chicken);
-        double maximum = data.value(StatType.STAMINA);
+        double maximum = chickens.effective(data, StatType.STAMINA);
         if (data.currentStamina() >= maximum) return;
         long delay = Math.round(config.recoveryDelaySeconds() * 20.0);
         long lastAir = lastAirborneTick.getOrDefault(chickenId, Long.MIN_VALUE / 4);
         if (tick - lastAir < delay) return;
         store.setCurrentStamina(chicken, Math.min(maximum,
-                data.currentStamina() + data.value(StatType.STAMINA_RECOVERY) / 20.0));
+                data.currentStamina() + chickens.effective(data, StatType.STAMINA_RECOVERY) / 20.0));
     }
 
     private void tickMounted(Player player, Chicken chicken) {
@@ -133,7 +133,7 @@ public final class RidingController implements Runnable {
 
         Vector velocity = chicken.getVelocity();
         Vector horizontal = horizontalInput(player, input);
-        double speed = (onGround ? data.value(StatType.GROUND_SPEED) : data.value(StatType.AIR_SPEED)) / 20.0;
+        double speed = (onGround ? chickens.effective(data, StatType.GROUND_SPEED) : chickens.effective(data, StatType.AIR_SPEED)) / 20.0;
         if (onGround && isRoad(chicken)) speed *= config.roadMultiplier();
         if (horizontal.lengthSquared() > 0.0) {
             horizontal.normalize().multiply(speed);
@@ -146,18 +146,18 @@ public final class RidingController implements Runnable {
             lastAirborneTick.put(chicken.getUniqueId(), tick);
         } else if (onGround) {
             if (input.isJump() && !airFlapLockedUntilJumpRelease.contains(chickenId)) {
-                velocity.setY(chickens.jumpVelocityForHeight(data.value(StatType.JUMP_STRENGTH)));
+                velocity.setY(chickens.jumpVelocityForHeight(chickens.effective(data, StatType.JUMP_STRENGTH)));
                 airFlapLockedUntilJumpRelease.add(chickenId);
             }
             long delay = Math.round(config.recoveryDelaySeconds() * 20.0);
             long lastAir = lastAirborneTick.getOrDefault(chicken.getUniqueId(), Long.MIN_VALUE / 4);
             if (tick - lastAir >= delay) {
-                stamina = Math.min(data.value(StatType.STAMINA), stamina + data.value(StatType.STAMINA_RECOVERY) / 20.0);
+                stamina = Math.min(chickens.effective(data, StatType.STAMINA), stamina + chickens.effective(data, StatType.STAMINA_RECOVERY) / 20.0);
             }
         } else {
             lastAirborneTick.put(chicken.getUniqueId(), tick);
             if (input.isJump() && !airFlapLockedUntilJumpRelease.contains(chickenId) && stamina > 0.0) {
-                velocity.setY(data.value(StatType.ASCENT_SPEED) / 20.0);
+                velocity.setY(chickens.effective(data, StatType.ASCENT_SPEED) / 20.0);
                 stamina = Math.max(0.0, stamina - config.staminaConsumptionPerSecond() / 20.0);
             } else if (velocity.getY() < -0.12) {
                 velocity.setY(-0.12);
@@ -167,7 +167,7 @@ public final class RidingController implements Runnable {
         chicken.setVelocity(velocity);
         Float baselineExhaustion = exhaustionAtMount.get(player.getUniqueId());
         if (baselineExhaustion != null) player.setExhaustion(baselineExhaustion);
-        float progress = (float) Math.max(0.0, Math.min(1.0, stamina / Math.max(0.0001, data.value(StatType.STAMINA))));
+        float progress = (float) Math.max(0.0, Math.min(1.0, stamina / Math.max(0.0001, chickens.effective(data, StatType.STAMINA))));
         player.sendExperienceChange(progress, player.getLevel());
         store.setCurrentStamina(chicken, stamina);
     }
