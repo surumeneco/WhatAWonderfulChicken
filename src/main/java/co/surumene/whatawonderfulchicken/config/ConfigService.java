@@ -108,12 +108,18 @@ public final class ConfigService {
      * On subsequent loads this is a no-op, avoiding unnecessary disk writes.
      */
     public int persistMissingDefaults() {
-        int added = YamlKeyMerger.copyMissing(plugin.getConfig(), defaults);
-        if (added > 0) {
-            plugin.saveConfig();
-            plugin.getLogger().info("Added " + added + " missing configuration entries to config.yml");
+        try {
+            int added = YamlKeyMerger.mergeAndSave(plugin.getConfig(), defaults,
+                    new File(plugin.getDataFolder(), "config.yml"));
+            if (added > 0) {
+                plugin.getLogger().info("Added " + added + " missing configuration entries to config.yml");
+            }
+            return added;
+        } catch (java.io.IOException ex) {
+            plugin.getLogger().warning("Failed to update config.yml: " + ex.getMessage());
+            // The in-memory defaults still allow the plugin to operate.
+            return 0;
         }
-        return added;
     }
 
     public ValidationResult reloadFromDisk() {
