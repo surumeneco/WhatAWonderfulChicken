@@ -7,6 +7,7 @@ import co.surumene.whatawonderfulchicken.data.Genetics;
 import co.surumene.whatawonderfulchicken.data.PedigreeData;
 import co.surumene.whatawonderfulchicken.data.StatType;
 import co.surumene.whatawonderfulchicken.data.WonderfulChickenData;
+import co.surumene.whatawonderfulchicken.persistence.PhenotypeSnapshotCodecV1;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Chicken;
 import org.bukkit.inventory.ItemStack;
@@ -20,7 +21,8 @@ import java.util.UUID;
 
 public final class WonderfulChickenStore {
     public static final String MARKER_VALUE = "wonderful_chicken";
-    private static final int DATA_VERSION = 2;
+    private static final int LEGACY_DATA_VERSION = 2;
+    private static final int DATA_VERSION = 3;
 
     private final WhatAWonderfulChickenPlugin plugin;
     private final ConfigService config;
@@ -36,6 +38,10 @@ public final class WonderfulChickenStore {
     private final NamespacedKey generationKey;
     private final NamespacedKey pedigreeKey;
     private final NamespacedKey geneticsKey;
+    private final NamespacedKey genomeKey;
+    private final NamespacedKey phenotypeSnapshotKey;
+    private final NamespacedKey adultBiologicalTimeKey;
+    private final PhenotypeSnapshotCodecV1 phenotypeCodec = new PhenotypeSnapshotCodecV1();
     private final Map<StatType, NamespacedKey> valueKeys = new EnumMap<>(StatType.class);
     private final Map<StatType, NamespacedKey> normalizedKeys = new EnumMap<>(StatType.class);
     private final Map<UUID, CachedState> loadedCache = new HashMap<>();
@@ -55,6 +61,9 @@ public final class WonderfulChickenStore {
         this.generationKey = key("generation");
         this.pedigreeKey = key("pedigree");
         this.geneticsKey = key("genetics");
+        this.genomeKey = key("genome");
+        this.phenotypeSnapshotKey = key("phenotype_snapshot");
+        this.adultBiologicalTimeKey = key("adult_biological_time");
         for (StatType stat : StatType.values()) {
             valueKeys.put(stat, key("stat_" + stat.key()));
             normalizedKeys.put(stat, key("normalized_" + stat.key()));
@@ -95,11 +104,10 @@ public final class WonderfulChickenStore {
             data.value(stat, value == null ? config.statMin(stat) : value);
             data.normalized(stat, normalized == null ? 0.0 : normalized);
         }
-        double maxStamina = data.effective(StatType.STAMINA, config.natureAdjustment());
         Double storedStamina = pdc.get(currentStaminaKey, PersistentDataType.DOUBLE);
         data.currentStamina(storedStamina != null
-                ? Math.max(0.0, Math.min(maxStamina, storedStamina))
-                : maxStamina);
+                ? Math.max(0.0, storedStamina)
+                : data.value(StatType.STAMINA));
         data.carpet(readItem(pdc, carpetKey));
         data.shulkerBox(readItem(pdc, shulkerKey));
         data.headItem(readItem(pdc, headKey));
@@ -116,13 +124,42 @@ public final class WonderfulChickenStore {
         Integer generation = pdc.get(generationKey, PersistentDataType.INTEGER);
         data.generation(generation == null ? 0 : generation);
         data.pedigree(PedigreeData.deserialize(pdc.get(pedigreeKey, PersistentDataType.BYTE_ARRAY)));
+
+        Integer dataVersion = pdc.get(dataVersionKey, PersistentDataType.INTEGER);
+        if (dataVersion != null && dataVersion > DATA_VERSION) {
+            throw new IllegalStateException("Unsupported WWC data version: " + dataVersion);
+        }
+        if (dataVersion != null && dataVersion >= DATA_VERSION) {
+            byte[] genomeBytes = pdc.get(genomeKey, PersistentDataType.BYTE_ARRAY);
+            byte[] phenotypeBytes = pdc.get(phenotypeSnapshotKey, PersistentDataType.BYTE_ARRAY);
+            Long adultBiologicalTime = pdc.get(adultBiologicalTimeKey, PersistentDataType.LONG);
+            if (genomeBytes == null || genomeBytes.length == 0
+                    || phenotypeBytes == null || phenotypeBytes.length == 0
+                    || adultBiologicalTime == null) {
+                throw new IllegalStateException("WWC data version 3 is missing Genome model payload");
+            }
+            data.genome(plugin.genomeLib().engine().decodeBinary(genomeBytes));
+            data.phenotypeSnapshot(phenotypeCodec.decode(phenotypeBytes));
+            data.adultBiologicalTime(adultBiologicalTime);
+        }
+        double maxStamina = data.effective(StatType.STAMINA, config.natureAdjustment());
+        data.currentStamina(Math.min(maxStamina, data.currentStamina()));
         return data;
     }
 
     public void save(Chicken chicken, WonderfulChickenData data) {
+        byte[] genomeBytes = null;
+        byte[] phenotypeBytes = null;
+        if (data.hasGenomeModel()) {
+            // Finish all potentially-failing codec work before mutating PDC.
+            genomeBytes = plugin.genomeLib().engine().encode(data.genome());
+            phenotypeBytes = phenotypeCodec.encode(data.phenotypeSnapshot());
+        }
+
         PersistentDataContainer pdc = chicken.getPersistentDataContainer();
         pdc.set(markerKey, PersistentDataType.STRING, MARKER_VALUE);
-        pdc.set(dataVersionKey, PersistentDataType.INTEGER, DATA_VERSION);
+        // data_version is the commit point for the compound WWC payload.
+        pdc.remove(dataVersionKey);
         for (StatType stat : StatType.values()) {
             pdc.set(valueKeys.get(stat), PersistentDataType.DOUBLE, data.value(stat));
             pdc.set(normalizedKeys.get(stat), PersistentDataType.DOUBLE, data.normalized(stat));
@@ -140,6 +177,19 @@ public final class WonderfulChickenStore {
         pdc.set(pedigreeKey, PersistentDataType.BYTE_ARRAY, data.pedigree().serialize());
         if (data.genetics() != null) pdc.set(geneticsKey, PersistentDataType.BYTE_ARRAY, data.genetics().toBytes());
         else pdc.remove(geneticsKey);
+
+        if (data.hasGenomeModel()) {
+            pdc.set(genomeKey, PersistentDataType.BYTE_ARRAY, genomeBytes);
+            pdc.set(phenotypeSnapshotKey, PersistentDataType.BYTE_ARRAY, phenotypeBytes);
+            pdc.set(adultBiologicalTimeKey, PersistentDataType.LONG, data.adultBiologicalTime());
+            // Version is written after all v3 payloads and acts as the migration commit point.
+            pdc.set(dataVersionKey, PersistentDataType.INTEGER, DATA_VERSION);
+        } else {
+            pdc.remove(genomeKey);
+            pdc.remove(phenotypeSnapshotKey);
+            pdc.remove(adultBiologicalTimeKey);
+            pdc.set(dataVersionKey, PersistentDataType.INTEGER, LEGACY_DATA_VERSION);
+        }
         loadedCache.put(chicken.getUniqueId(), new CachedState(chicken, data.copy()));
     }
 

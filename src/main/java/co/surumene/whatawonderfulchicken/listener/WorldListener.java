@@ -112,7 +112,7 @@ public final class WorldListener implements Listener {
         if (!(event.getEntity() instanceof Chicken chicken) || !store.isWonderful(chicken)) return;
         // All three vanilla egg colors are naturally laid by chicken variants.
         if (!isChickenEgg(event.getItemDrop().getItemStack().getType())) return;
-        if (store.read(chicken).trait() != Trait.KIN_NO_TAMAGO) return;
+        if (!store.read(chicken).hasTrait(Trait.KIN_NO_TAMAGO)) return;
         if (ThreadLocalRandom.current().nextDouble() >= config.eggGoldChance()) return;
         Material result = ThreadLocalRandom.current().nextDouble() < config.eggNetheriteChance()
                 ? Material.NETHERITE_SCRAP : Material.RAW_GOLD;

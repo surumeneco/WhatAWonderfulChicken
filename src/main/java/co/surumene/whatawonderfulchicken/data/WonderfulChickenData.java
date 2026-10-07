@@ -1,5 +1,6 @@
 package co.surumene.whatawonderfulchicken.data;
 
+import co.surumene.wgl.api.DiploidGenome;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.EnumMap;
@@ -19,6 +20,9 @@ public final class WonderfulChickenData {
     private int generation;
     private PedigreeData pedigree = PedigreeData.EMPTY;
     private Genetics genetics;
+    private DiploidGenome genome;
+    private PhenotypeSnapshot phenotypeSnapshot;
+    private long adultBiologicalTime;
 
     public double value(StatType stat) { return values.getOrDefault(stat, 0.0); }
     public void value(StatType stat, double value) { values.put(stat, value); }
@@ -42,12 +46,38 @@ public final class WonderfulChickenData {
     public void generation(int value) { generation = value; }
     public Genetics genetics() { return genetics; }
     public void genetics(Genetics genes) { genetics = genes; }
-    public Nature nature() { return genetics == null ? Nature.MAJIME : genetics.nature(); }
-    public Trait trait() { return genetics == null ? null : genetics.trait(); }
+    public DiploidGenome genome() { return genome; }
+    public void genome(DiploidGenome value) { genome = value; }
+    public PhenotypeSnapshot phenotypeSnapshot() { return phenotypeSnapshot; }
+    public void phenotypeSnapshot(PhenotypeSnapshot value) { phenotypeSnapshot = value; }
+    public long adultBiologicalTime() { return adultBiologicalTime; }
+    public void adultBiologicalTime(long value) {
+        if (value < 0L) throw new IllegalArgumentException("adultBiologicalTime must be >= 0");
+        adultBiologicalTime = value;
+    }
+    public boolean hasGenomeModel() { return genome != null && phenotypeSnapshot != null; }
+    public Nature nature() {
+        return phenotypeSnapshot != null
+                ? phenotypeSnapshot.personality()
+                : genetics == null ? Nature.MAJIME : genetics.nature();
+    }
+    public Trait trait() {
+        if (phenotypeSnapshot != null && !phenotypeSnapshot.expressedTraits().isEmpty()) {
+            return phenotypeSnapshot.expressedTraits().getFirst().trait();
+        }
+        return genetics == null ? null : genetics.trait();
+    }
+    public boolean hasTrait(Trait trait) {
+        if (phenotypeSnapshot != null) {
+            return phenotypeSnapshot.expressedTraits().stream()
+                    .anyMatch(expressed -> expressed.trait() == trait);
+        }
+        return genetics != null && genetics.trait() == trait;
+    }
 
     /** Effective gameplay value; breeding and ranks continue to use the unmodified stored value. */
     public double effective(StatType stat, double configuredAdjustment) {
-        double adjustment = configuredAdjustment * (trait() == Trait.KUSE_MASHI ? 1.5 : 1.0);
+        double adjustment = configuredAdjustment * (hasTrait(Trait.KUSE_MASHI) ? 1.5 : 1.0);
         double effective = value(stat) * nature().multiplier(stat, adjustment);
         return stat == StatType.MAX_HEALTH ? Math.max(1.0, Math.round(effective)) : effective;
     }
@@ -69,6 +99,9 @@ public final class WonderfulChickenData {
         snapshot.generation = generation;
         snapshot.pedigree = pedigree;
         snapshot.genetics = genetics;
+        snapshot.genome = genome;
+        snapshot.phenotypeSnapshot = phenotypeSnapshot;
+        snapshot.adultBiologicalTime = adultBiologicalTime;
         return snapshot;
     }
 

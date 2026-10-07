@@ -1,7 +1,6 @@
 package co.surumene.whatawonderfulchicken.genome;
 
 import co.surumene.whatawonderfulchicken.data.StatType;
-import co.surumene.whatawonderfulchicken.founder.FounderOrigin;
 import co.surumene.whatawonderfulchicken.founder.WonderfulChickenSynthesisTarget;
 import co.surumene.wgl.api.BackboneDefinition;
 import co.surumene.wgl.api.BitSequence;
@@ -77,7 +76,7 @@ final class WonderfulChickenSynthesisMaterial {
             List<SynthesisBlock> out,
             WonderfulChickenSynthesisTarget target,
             GenomeRandom random) {
-        if (target.origin() != FounderOrigin.CHICKEN_TRAP) return;
+        if (!target.divineSupplyAllowed()) return;
         var divine = settings.divine();
         if (random.nextDouble() >= divine.supplyProbability()) return;
 

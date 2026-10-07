@@ -25,16 +25,22 @@ public final class WonderfulChickenSynthesisTarget implements SynthesisTarget {
     private final Map<GenomeAddress, Double> continuousTargets;
     private final Map<StatType, Double> baseAbilityTargets;
     private final Map<StatType, Double> extraordinaryTargets;
+    private final boolean extraordinarySupplyAllowed;
+    private final boolean divineSupplyAllowed;
 
     private WonderfulChickenSynthesisTarget(
             FounderOrigin origin,
             Map<GenomeAddress, Double> continuousTargets,
             Map<StatType, Double> baseAbilityTargets,
-            Map<StatType, Double> extraordinaryTargets) {
+            Map<StatType, Double> extraordinaryTargets,
+            boolean extraordinarySupplyAllowed,
+            boolean divineSupplyAllowed) {
         this.origin = Objects.requireNonNull(origin, "origin");
         this.continuousTargets = Map.copyOf(continuousTargets);
         this.baseAbilityTargets = immutableStatMap(baseAbilityTargets);
         this.extraordinaryTargets = immutableStatMap(extraordinaryTargets);
+        this.extraordinarySupplyAllowed = extraordinarySupplyAllowed;
+        this.divineSupplyAllowed = divineSupplyAllowed;
     }
 
     public static WonderfulChickenSynthesisTarget from(
@@ -47,6 +53,41 @@ public final class WonderfulChickenSynthesisTarget implements SynthesisTarget {
         Objects.requireNonNull(synthesisSettings, "synthesisSettings");
         Objects.requireNonNull(random, "random");
 
+        boolean trap = founder.origin() == FounderOrigin.CHICKEN_TRAP;
+        return build(founder, trap, trap, genomeSettings, synthesisSettings, random);
+    }
+
+    public static WonderfulChickenSynthesisTarget forMigration(
+            FounderTarget target,
+            boolean extraordinaryAllowed,
+            boolean divineSupplyAllowed,
+            WonderfulChickenGenomeSettings genomeSettings,
+            WonderfulChickenSynthesisSettings synthesisSettings,
+            GenomeRandom random) {
+        return build(
+                Objects.requireNonNull(target, "target"),
+                extraordinaryAllowed,
+                divineSupplyAllowed,
+                genomeSettings,
+                synthesisSettings,
+                random);
+    }
+
+    private static WonderfulChickenSynthesisTarget build(
+            FounderTarget founder,
+            boolean extraordinaryAllowed,
+            boolean divineSupplyAllowed,
+            WonderfulChickenGenomeSettings genomeSettings,
+            WonderfulChickenSynthesisSettings synthesisSettings,
+            GenomeRandom random) {
+        Objects.requireNonNull(genomeSettings, "genomeSettings");
+        Objects.requireNonNull(synthesisSettings, "synthesisSettings");
+        Objects.requireNonNull(random, "random");
+        if (divineSupplyAllowed && !extraordinaryAllowed) {
+            throw new IllegalArgumentException(
+                    "divine supply requires extraordinary-capable synthesis");
+        }
+
         Map<GenomeAddress, Double> continuous = new LinkedHashMap<>();
         EnumMap<StatType, Double> base = new EnumMap<>(StatType.class);
         EnumMap<StatType, Double> extraordinary = new EnumMap<>(StatType.class);
@@ -55,7 +96,7 @@ public final class WonderfulChickenSynthesisTarget implements SynthesisTarget {
             double finalTarget = founder.abilities().get(stat);
             double b = finalTarget;
             double e = 0.0;
-            if (founder.origin() == FounderOrigin.CHICKEN_TRAP && finalTarget > 1.0) {
+            if (extraordinaryAllowed && finalTarget > 1.0) {
                 double maxTransfer = Math.min(
                         synthesisSettings.extraordinary().transferMax(),
                         1.5 - finalTarget);
@@ -78,13 +119,21 @@ public final class WonderfulChickenSynthesisTarget implements SynthesisTarget {
         }
 
         addTraitTargets(founder, genomeSettings, continuous);
-        return new WonderfulChickenSynthesisTarget(founder.origin(), continuous, base, extraordinary);
+        return new WonderfulChickenSynthesisTarget(
+                founder.origin(),
+                continuous,
+                base,
+                extraordinary,
+                extraordinaryAllowed,
+                divineSupplyAllowed);
     }
 
     public FounderOrigin origin() { return origin; }
     @Override public Map<GenomeAddress, Double> continuousTargets() { return continuousTargets; }
     public Map<StatType, Double> baseAbilityTargets() { return baseAbilityTargets; }
     public Map<StatType, Double> extraordinaryTargets() { return extraordinaryTargets; }
+    public boolean extraordinarySupplyAllowed() { return extraordinarySupplyAllowed; }
+    public boolean divineSupplyAllowed() { return divineSupplyAllowed; }
 
     @Override
     public boolean isSatisfied(DecodedGenome decoded, double tolerance) {
