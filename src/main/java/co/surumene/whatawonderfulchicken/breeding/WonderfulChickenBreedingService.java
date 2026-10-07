@@ -33,7 +33,7 @@ public final class WonderfulChickenBreedingService {
             BreedingParent parentA,
             BreedingParent parentB,
             long seed) {
-        GenomeEngine engine = Objects.requireNonNull(engineSupplier.get(), "current engine");
+        GenomeEngine engine = currentEngine();
         return breed(parentA, parentB, engine.standardRandom(seed), engine);
     }
 
@@ -41,8 +41,37 @@ public final class WonderfulChickenBreedingService {
             BreedingParent parentA,
             BreedingParent parentB,
             GenomeRandom random) {
-        GenomeEngine engine = Objects.requireNonNull(engineSupplier.get(), "current engine");
+        GenomeEngine engine = currentEngine();
         return breed(parentA, parentB, random, engine);
+    }
+
+    public WonderfulChickenBreedingOutcome breedSources(
+            BreedingParentSource parentA,
+            BreedingParentSource parentB,
+            long seed) {
+        GenomeEngine engine = currentEngine();
+        WonderfulChickenGenomeProfile profile = currentProfile();
+        BreedingContext context = new BreedingContext(
+                profile.backbone(),
+                1.0,
+                WonderfulChickenBreedingPolicy.deNovoForbiddenAddresses(),
+                null,
+                false);
+        return breedSources(parentA, parentB, context, engine.standardRandom(seed), engine, profile);
+    }
+
+    public WonderfulChickenBreedingOutcome breedSources(
+            BreedingParentSource parentA,
+            BreedingParentSource parentB,
+            BreedingContext context,
+            GenomeRandom random) {
+        return breedSources(
+                parentA,
+                parentB,
+                context,
+                random,
+                currentEngine(),
+                currentProfile());
     }
 
     private WonderfulChickenBreedingOutcome breed(
@@ -54,12 +83,37 @@ public final class WonderfulChickenBreedingService {
         Objects.requireNonNull(parentB, "parentB");
         Objects.requireNonNull(random, "random");
 
-        WonderfulChickenGenomeProfile profile =
-                Objects.requireNonNull(profileSupplier.get(), "current profile");
+        WonderfulChickenGenomeProfile profile = currentProfile();
+        BreedingContext context =
+                new WonderfulChickenBreedingContextFactory(
+                        engine, profile, settings)
+                        .create(parentA.data(), parentB.data(), random);
+
+        return breedSources(
+                new BreedingParentSource.DiploidParent(parentA.data().genome()),
+                new BreedingParentSource.DiploidParent(parentB.data().genome()),
+                context,
+                random,
+                engine,
+                profile);
+    }
+
+    private WonderfulChickenBreedingOutcome breedSources(
+            BreedingParentSource parentA,
+            BreedingParentSource parentB,
+            BreedingContext context,
+            GenomeRandom random,
+            GenomeEngine engine,
+            WonderfulChickenGenomeProfile profile) {
+        Objects.requireNonNull(parentA, "parentA");
+        Objects.requireNonNull(parentB, "parentB");
+        Objects.requireNonNull(context, "context");
+        Objects.requireNonNull(random, "random");
+        Objects.requireNonNull(engine, "engine");
+        Objects.requireNonNull(profile, "profile");
 
         BackboneCompatibilityReport backboneA =
-                engine.assessBackboneCompatibility(
-                        profile.backbone(), parentA.data().genome());
+                assessBackboneCompatibility(engine, profile.backbone(), parentA);
         if (!backboneA.compatible()) {
             return new WonderfulChickenBreedingOutcome.Fallback(
                     "parent A is incompatible with Wonderful Chicken Backbone: "
@@ -67,23 +121,17 @@ public final class WonderfulChickenBreedingService {
         }
 
         BackboneCompatibilityReport backboneB =
-                engine.assessBackboneCompatibility(
-                        profile.backbone(), parentB.data().genome());
+                assessBackboneCompatibility(engine, profile.backbone(), parentB);
         if (!backboneB.compatible()) {
             return new WonderfulChickenBreedingOutcome.Fallback(
                     "parent B is incompatible with Wonderful Chicken Backbone: "
                             + backboneB.reason());
         }
 
-        BreedingContext context =
-                new WonderfulChickenBreedingContextFactory(
-                        engine, profile, settings)
-                        .create(parentA.data(), parentB.data(), random);
-
         BreedingResult result = engine.breed(
                 profile,
-                new BreedingParentSource.DiploidParent(parentA.data().genome()),
-                new BreedingParentSource.DiploidParent(parentB.data().genome()),
+                parentA,
+                parentB,
                 context,
                 random);
 
@@ -110,5 +158,25 @@ public final class WonderfulChickenBreedingService {
                 success.genome(),
                 snapshot,
                 marker);
+    }
+
+    private static BackboneCompatibilityReport assessBackboneCompatibility(
+            GenomeEngine engine,
+            BackboneDefinition backbone,
+            BreedingParentSource source) {
+        return switch (source) {
+            case BreedingParentSource.DiploidParent diploid ->
+                    engine.assessBackboneCompatibility(backbone, diploid.genome());
+            case BreedingParentSource.Gamete gamete ->
+                    engine.assessBackboneCompatibility(backbone, gamete.genome());
+        };
+    }
+
+    private GenomeEngine currentEngine() {
+        return Objects.requireNonNull(engineSupplier.get(), "current engine");
+    }
+
+    private WonderfulChickenGenomeProfile currentProfile() {
+        return Objects.requireNonNull(profileSupplier.get(), "current profile");
     }
 }
