@@ -8,6 +8,7 @@ import co.surumene.whatawonderfulchicken.data.PersonalityFactor;
 import co.surumene.whatawonderfulchicken.data.StatType;
 import co.surumene.whatawonderfulchicken.data.Trait;
 import co.surumene.whatawonderfulchicken.data.TraitStrength;
+import co.surumene.whatawonderfulchicken.founder.WonderfulChickenSynthesisTarget;
 import co.surumene.wgl.api.AddressAggregate;
 import co.surumene.wgl.api.BackboneDefinition;
 import co.surumene.wgl.api.DecodedGene;
@@ -17,8 +18,14 @@ import co.surumene.wgl.api.DirectContributionModel;
 import co.surumene.wgl.api.EffectiveContribution;
 import co.surumene.wgl.api.GenomeAddress;
 import co.surumene.wgl.api.GenomeProfile;
+import co.surumene.wgl.api.GenomeRandom;
+import co.surumene.wgl.api.GeneSequenceCodec;
 import co.surumene.wgl.api.ProfileDescriptor;
 import co.surumene.wgl.api.StandardDirectContributionModel;
+import co.surumene.wgl.api.SynthesisAddressPlan;
+import co.surumene.wgl.api.SynthesisBlock;
+import co.surumene.wgl.api.SynthesisContext;
+import co.surumene.wgl.api.SynthesisSafetyPolicy;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -38,17 +45,38 @@ public final class WonderfulChickenGenomeProfile implements GenomeProfile<Wonder
                     address -> 2.0);
 
     private final WonderfulChickenGenomeSettings settings;
+    private final WonderfulChickenSynthesisSettings synthesisSettings;
     private final ProfileDescriptor descriptor;
     private final BackboneDefinition backbone;
+    private final GeneSequenceCodec geneSequenceCodec;
 
     public WonderfulChickenGenomeProfile(WonderfulChickenGenomeSettings settings) {
+        this(settings, WonderfulChickenSynthesisSettings.defaults(), null);
+    }
+
+    public WonderfulChickenGenomeProfile(
+            WonderfulChickenGenomeSettings settings,
+            GeneSequenceCodec geneSequenceCodec) {
+        this(settings, WonderfulChickenSynthesisSettings.defaults(), geneSequenceCodec);
+    }
+
+    public WonderfulChickenGenomeProfile(
+            WonderfulChickenGenomeSettings settings,
+            WonderfulChickenSynthesisSettings synthesisSettings,
+            GeneSequenceCodec geneSequenceCodec) {
         this.settings = Objects.requireNonNull(settings, "settings");
-        this.descriptor = WonderfulChickenProfileFoundation.descriptor(settings);
+        this.synthesisSettings = Objects.requireNonNull(synthesisSettings, "synthesisSettings");
+        this.descriptor = WonderfulChickenProfileFoundation.descriptor(settings, synthesisSettings);
         this.backbone = WonderfulChickenProfileFoundation.backbone(settings);
+        this.geneSequenceCodec = geneSequenceCodec;
     }
 
     public WonderfulChickenGenomeSettings settings() {
         return settings;
+    }
+
+    public WonderfulChickenSynthesisSettings synthesisSettings() {
+        return synthesisSettings;
     }
 
     public BackboneDefinition backbone() {
@@ -91,6 +119,192 @@ public final class WonderfulChickenGenomeProfile implements GenomeProfile<Wonder
             throw new IllegalArgumentException("undefined Wonderful Chicken address: " + address);
         }
         return address.type() == 0x07 ? EXTRAORDINARY_CONTRIBUTION : STANDARD_CONTRIBUTION;
+    }
+
+    @Override
+    public SynthesisAddressPlan synthesisPlan(
+            GenomeAddress address,
+            double target,
+            SynthesisContext context,
+            GenomeRandom random) {
+        Objects.requireNonNull(address, "address");
+        Objects.requireNonNull(context, "context");
+        Objects.requireNonNull(random, "random");
+        if (!isDefinedAddress(address)) {
+            throw new IllegalArgumentException("undefined Wonderful Chicken address: " + address);
+        }
+
+        WonderfulChickenSynthesisSettings.Range range;
+        return switch (address.type()) {
+            case 0x00 -> boundedPlan(target, synthesisSettings.abilityGenes(), random);
+            case 0x01 -> centeredPlan(target, synthesisSettings.developmentGenes(), random);
+            case 0x03 -> mixedCenteredPlan(target, synthesisSettings.personalityGenes(), random);
+            case 0x04 -> boundedPlan(target, synthesisSettings.traitGenes(), random);
+            case 0x07 -> {
+                var e = synthesisSettings.extraordinary();
+                range = new WonderfulChickenSynthesisSettings.Range(
+                        e.genesPerTargetMin(),
+                        (e.genesPerTargetMin() + e.genesPerTargetMax()) / 2,
+                        e.genesPerTargetMax());
+                yield boundedPlan(target, range, random);
+            }
+            default -> GenomeProfile.super.synthesisPlan(address, target, context, random);
+        };
+    }
+
+    @Override
+    public List<SynthesisBlock> synthesisBlocks(
+            co.surumene.wgl.api.SynthesisTarget target,
+            SynthesisContext context,
+            GenomeRandom random) {
+        Objects.requireNonNull(target, "target");
+        Objects.requireNonNull(context, "context");
+        Objects.requireNonNull(random, "random");
+        if (!(target instanceof WonderfulChickenSynthesisTarget chickenTarget)) {
+            return List.of();
+        }
+        if (geneSequenceCodec == null) {
+            throw new IllegalStateException(
+                    "Wonderful Chicken synthesis requires the WGL GeneSequenceCodec");
+        }
+        return new WonderfulChickenSynthesisMaterial(
+                synthesisSettings,
+                backbone,
+                geneSequenceCodec,
+                this::contributionModel)
+                .blocks(chickenTarget, random);
+    }
+
+    @Override
+    public SynthesisSafetyPolicy synthesisSafetyPolicy() {
+        return (metrics, decodedGenome) -> {
+            for (int haplotype = 0; haplotype <= 1; haplotype++) {
+                int lane = haplotype;
+                int candidateCount = metrics.haplotypes().stream()
+                        .filter(metric -> metric.haplotypeIndex() == lane)
+                        .mapToInt(metric -> metric.geneCandidateCount())
+                        .sum();
+                long recognizableBits = metrics.haplotypes().stream()
+                        .filter(metric -> metric.haplotypeIndex() == lane)
+                        .mapToLong(metric -> metric.recognizableBits())
+                        .sum();
+                long totalBits = metrics.haplotypes().stream()
+                        .filter(metric -> metric.haplotypeIndex() == lane)
+                        .mapToLong(metric -> metric.bitLength())
+                        .sum();
+                double recognizableRatio =
+                        totalBits == 0L ? 0.0 : recognizableBits / (double) totalBits;
+
+                long direct = decodedGenome.physicalGenes().stream()
+                        .filter(DecodedGene::addressValid)
+                        .filter(gene -> gene.haplotypeIndex() == lane)
+                        .filter(gene -> !gene.regulation())
+                        .count();
+                long regulation = decodedGenome.physicalGenes().stream()
+                        .filter(DecodedGene::addressValid)
+                        .filter(gene -> gene.haplotypeIndex() == lane)
+                        .filter(DecodedGene::regulation)
+                        .count();
+
+                if (candidateCount > synthesisSettings.recognizableGenesHardMax()
+                        || direct > synthesisSettings.directGenesHardMax()
+                        || regulation > synthesisSettings.regulationGenesHardMax()
+                        || recognizableRatio > synthesisSettings.recognizableRegionMaxRatio() + EPS
+                        || 1.0 - recognizableRatio < synthesisSettings.noncodingRegionMinRatio() - EPS) {
+                    return false;
+                }
+            }
+            return true;
+        };
+    }
+
+    private SynthesisAddressPlan boundedPlan(
+            double target,
+            WonderfulChickenSynthesisSettings.Range range,
+            GenomeRandom random) {
+        if (!Double.isFinite(target) || target < 0.0 || target > 1.0) {
+            throw new IllegalArgumentException("target must be finite and in [0,1]");
+        }
+        if (target == 0.0) return new SynthesisAddressPlan(0.0, 0.0, 0, 0, 0, 0);
+
+        double draw = synthesisSettings.cancellationMin()
+                + (synthesisSettings.cancellationMax() - synthesisSettings.cancellationMin())
+                * random.nextDouble();
+        double cancellation = Math.min(
+                draw,
+                Math.max(0.0, 1.0 - synthesisSettings.highTargetHeadroom() - target));
+        double positive = target / (1.0 - cancellation);
+
+        int totalGenes = 2 * triangularInt(range.min(), range.center(), range.max(), random);
+        if (cancellation == 0.0) {
+            return new SynthesisAddressPlan(positive, 0.0, totalGenes, totalGenes, 0, 0);
+        }
+        int negativeGenes = Math.max(1, Math.min(
+                totalGenes - 1,
+                (int) StrictMath.round(totalGenes * cancellation / (positive + cancellation))));
+        int positiveGenes = totalGenes - negativeGenes;
+        return new SynthesisAddressPlan(
+                positive, cancellation,
+                positiveGenes, positiveGenes,
+                negativeGenes, negativeGenes);
+    }
+
+    private static SynthesisAddressPlan centeredPlan(
+            double target,
+            WonderfulChickenSynthesisSettings.Range range,
+            GenomeRandom random) {
+        int totalGenes = 2 * triangularInt(range.min(), range.center(), range.max(), random);
+        double delta = 2.0 * target - 1.0;
+        if (delta > 0.0) {
+            return new SynthesisAddressPlan(delta, 0.0, totalGenes, totalGenes, 0, 0);
+        }
+        if (delta < 0.0) {
+            return new SynthesisAddressPlan(0.0, -delta, 0, 0, totalGenes, totalGenes);
+        }
+        return new SynthesisAddressPlan(0.0, 0.0, 0, 0, 0, 0);
+    }
+
+    private SynthesisAddressPlan mixedCenteredPlan(
+            double target,
+            WonderfulChickenSynthesisSettings.Range range,
+            GenomeRandom random) {
+        if (!Double.isFinite(target) || target < 0.0 || target > 1.0) {
+            throw new IllegalArgumentException("target must be finite and in [0,1]");
+        }
+        double delta = 2.0 * target - 1.0;
+        double draw = synthesisSettings.personalityCancellationMin()
+                + (synthesisSettings.personalityCancellationMax()
+                - synthesisSettings.personalityCancellationMin()) * random.nextDouble();
+        double cancellation = Math.min(draw, Math.max(0.0, 1.0 - StrictMath.abs(delta)));
+        double positive = Math.max(0.0, delta) + cancellation;
+        double negative = Math.max(0.0, -delta) + cancellation;
+
+        int totalGenes = 2 * triangularInt(range.min(), range.center(), range.max(), random);
+        if (positive == 0.0) {
+            return new SynthesisAddressPlan(0.0, negative, 0, 0, totalGenes, totalGenes);
+        }
+        if (negative == 0.0) {
+            return new SynthesisAddressPlan(positive, 0.0, totalGenes, totalGenes, 0, 0);
+        }
+        int positiveGenes = Math.max(1, Math.min(
+                totalGenes - 1,
+                (int) StrictMath.round(totalGenes * positive / (positive + negative))));
+        int negativeGenes = totalGenes - positiveGenes;
+        return new SynthesisAddressPlan(
+                positive, negative,
+                positiveGenes, positiveGenes,
+                negativeGenes, negativeGenes);
+    }
+
+    private static int triangularInt(
+            int min, int mode, int max, GenomeRandom random) {
+        if (min == max) return min;
+        double u = random.nextDouble();
+        double split = (mode - min) / (double) (max - min);
+        double value = u < split
+                ? min + StrictMath.sqrt(u * (max - min) * (mode - min))
+                : max - StrictMath.sqrt((1.0 - u) * (max - min) * (max - mode));
+        return Math.max(min, Math.min(max, (int) StrictMath.round(value)));
     }
 
     @Override
