@@ -84,18 +84,22 @@ public final class WonderfulChickenBreedingService {
         Objects.requireNonNull(random, "random");
 
         WonderfulChickenGenomeProfile profile = currentProfile();
+        BreedingParentSource sourceA =
+                new BreedingParentSource.DiploidParent(parentA.data().genome());
+        BreedingParentSource sourceB =
+                new BreedingParentSource.DiploidParent(parentB.data().genome());
+
+        WonderfulChickenBreedingOutcome.Fallback incompatible =
+                backboneFailure(engine, profile.backbone(), sourceA, sourceB);
+        if (incompatible != null) return incompatible;
+
         BreedingContext context =
                 new WonderfulChickenBreedingContextFactory(
                         engine, profile, settings)
                         .create(parentA.data(), parentB.data(), random);
 
-        return breedSources(
-                new BreedingParentSource.DiploidParent(parentA.data().genome()),
-                new BreedingParentSource.DiploidParent(parentB.data().genome()),
-                context,
-                random,
-                engine,
-                profile);
+        return breedCompatibleSources(
+                sourceA, sourceB, context, random, engine, profile);
     }
 
     private WonderfulChickenBreedingOutcome breedSources(
@@ -112,22 +116,21 @@ public final class WonderfulChickenBreedingService {
         Objects.requireNonNull(engine, "engine");
         Objects.requireNonNull(profile, "profile");
 
-        BackboneCompatibilityReport backboneA =
-                assessBackboneCompatibility(engine, profile.backbone(), parentA);
-        if (!backboneA.compatible()) {
-            return new WonderfulChickenBreedingOutcome.Fallback(
-                    "parent A is incompatible with Wonderful Chicken Backbone: "
-                            + backboneA.reason());
-        }
+        WonderfulChickenBreedingOutcome.Fallback incompatible =
+                backboneFailure(engine, profile.backbone(), parentA, parentB);
+        if (incompatible != null) return incompatible;
 
-        BackboneCompatibilityReport backboneB =
-                assessBackboneCompatibility(engine, profile.backbone(), parentB);
-        if (!backboneB.compatible()) {
-            return new WonderfulChickenBreedingOutcome.Fallback(
-                    "parent B is incompatible with Wonderful Chicken Backbone: "
-                            + backboneB.reason());
-        }
+        return breedCompatibleSources(
+                parentA, parentB, context, random, engine, profile);
+    }
 
+    private WonderfulChickenBreedingOutcome breedCompatibleSources(
+            BreedingParentSource parentA,
+            BreedingParentSource parentB,
+            BreedingContext context,
+            GenomeRandom random,
+            GenomeEngine engine,
+            WonderfulChickenGenomeProfile profile) {
         BreedingResult result = engine.breed(
                 profile,
                 parentA,
@@ -158,6 +161,29 @@ public final class WonderfulChickenBreedingService {
                 success.genome(),
                 snapshot,
                 marker);
+    }
+
+    private static WonderfulChickenBreedingOutcome.Fallback backboneFailure(
+            GenomeEngine engine,
+            BackboneDefinition backbone,
+            BreedingParentSource parentA,
+            BreedingParentSource parentB) {
+        BackboneCompatibilityReport backboneA =
+                assessBackboneCompatibility(engine, backbone, parentA);
+        if (!backboneA.compatible()) {
+            return new WonderfulChickenBreedingOutcome.Fallback(
+                    "parent A is incompatible with Wonderful Chicken Backbone: "
+                            + backboneA.reason());
+        }
+
+        BackboneCompatibilityReport backboneB =
+                assessBackboneCompatibility(engine, backbone, parentB);
+        if (!backboneB.compatible()) {
+            return new WonderfulChickenBreedingOutcome.Fallback(
+                    "parent B is incompatible with Wonderful Chicken Backbone: "
+                            + backboneB.reason());
+        }
+        return null;
     }
 
     private static BackboneCompatibilityReport assessBackboneCompatibility(
