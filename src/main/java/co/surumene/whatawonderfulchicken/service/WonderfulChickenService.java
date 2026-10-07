@@ -2,6 +2,9 @@ package co.surumene.whatawonderfulchicken.service;
 
 import co.surumene.whatawonderfulchicken.WhatAWonderfulChickenPlugin;
 import co.surumene.whatawonderfulchicken.config.ConfigService;
+import co.surumene.whatawonderfulchicken.breeding.BreedingParent;
+import co.surumene.whatawonderfulchicken.breeding.WonderfulChickenBreedingOutcome;
+import co.surumene.whatawonderfulchicken.breeding.WonderfulChickenBreedingService;
 import co.surumene.whatawonderfulchicken.data.AncestorSnapshot;
 import co.surumene.whatawonderfulchicken.data.Genetics;
 import co.surumene.whatawonderfulchicken.data.Trait;
@@ -155,62 +158,76 @@ public final class WonderfulChickenService {
         return data;
     }
 
-    public WonderfulChickenData createBredData(Chicken parentA, Chicken parentB) {
-        ensureGenetics(parentA, new HashSet<>());
-        ensureGenetics(parentB, new HashSet<>());
+    public java.util.Optional<WonderfulChickenData> createBredData(
+            Chicken parentA,
+            Chicken parentB) {
+        ensureGenomeModel(parentA);
+        ensureGenomeModel(parentB);
+
         WonderfulChickenData a = store.load(parentA);
         WonderfulChickenData b = store.load(parentB);
-        var random = ThreadLocalRandom.current();
-        double mutationMultiplier = (a.hasTrait(Trait.HATENKO) ? 2.0 : 1.0)
-                * (b.hasTrait(Trait.HATENKO) ? 2.0 : 1.0);
-        WonderfulChickenData child = new WonderfulChickenData();
-        child.genetics(Genetics.breed(a.genetics(), b.genetics(),
-                Math.min(1.0, config.geneticMutationRate() * mutationMultiplier), random));
 
-        // Guaranteed direct slots have priority over the single independent stat mutation.
-        Map<StatType, Double> guaranteed = new EnumMap<>(StatType.class);
-        List<StatType> eligible = new ArrayList<>(List.of(StatType.values()));
-        if (a.hasTrait(Trait.JIKIDEN)) {
-            StatType chosen = eligible.remove(random.nextInt(eligible.size()));
-            guaranteed.put(chosen, a.normalized(chosen));
+        WonderfulChickenBreedingService breeding =
+                new WonderfulChickenBreedingService(
+                        () -> plugin.genomeLib().engine(),
+                        plugin::genomeProfile);
+
+        WonderfulChickenBreedingOutcome outcome = breeding.breed(
+                new BreedingParent(breedingDisplayName(parentA), a),
+                new BreedingParent(breedingDisplayName(parentB), b),
+                ThreadLocalRandom.current().nextLong());
+
+        if (outcome instanceof WonderfulChickenBreedingOutcome.Fallback) {
+            return java.util.Optional.empty();
         }
-        if (b.hasTrait(Trait.JIKIDEN)) {
-            StatType chosen = eligible.remove(random.nextInt(eligible.size()));
-            guaranteed.put(chosen, b.normalized(chosen));
-        }
-        StatType mutated = random.nextDouble() < Math.min(1.0, config.statMutationRate() * mutationMultiplier)
-                ? eligible.get(random.nextInt(eligible.size())) : null;
+
+        WonderfulChickenBreedingOutcome.Success success =
+                (WonderfulChickenBreedingOutcome.Success) outcome;
+
+        WonderfulChickenData child = new WonderfulChickenData();
+        child.genome(success.genome());
+        child.phenotypeSnapshot(success.phenotypeSnapshot());
+        child.adultBiologicalTime(0L);
 
         for (StatType stat : StatType.values()) {
-            double normalized;
-            if (guaranteed.containsKey(stat)) {
-                // This is the only breeding path which can retain wild-only normalized values > 1.
-                normalized = guaranteed.get(stat);
-            } else if (stat == mutated) {
-                normalized = random.nextDouble();
-            } else {
-                double av = Math.min(1.0, Math.max(0.0, a.normalized(stat)));
-                double bv = Math.min(1.0, Math.max(0.0, b.normalized(stat)));
-                if (random.nextDouble() < config.directInheritanceRate()) {
-                    normalized = random.nextBoolean() ? av : bv;
-                } else {
-                    double mean = (av + bv) / 2.0;
-                    double sigma = Math.max(config.breedingMinStdDev(), Math.abs(av - bv) * config.breedingSpreadFactor());
-                    normalized = truncatedGaussian(mean, sigma, 0.0, 1.0);
-                }
-            }
-            double value = store.toValue(stat, normalized);
-            child.value(stat, value);
-            child.normalized(stat, stat == StatType.MAX_HEALTH ? store.toNormalized(stat, value) : normalized);
+            double normalized =
+                    success.phenotypeSnapshot().normalizedAbilities().get(stat);
+            child.normalized(stat, normalized);
+            child.value(stat, store.toValue(stat, normalized));
         }
-        child.currentStamina(child.effective(StatType.STAMINA, config.natureAdjustment()));
+
+        child.currentStamina(
+                child.effective(StatType.STAMINA, config.natureAdjustment()));
         child.bloodlineId(UUID.randomUUID().toString());
         child.generation(Math.max(a.generation(), b.generation()) + 1);
         child.pedigree(new PedigreeData(
                 selfSnapshot(parentA, a), selfSnapshot(parentB, b),
                 a.pedigree().parentA(), a.pedigree().parentB(),
                 b.pedigree().parentA(), b.pedigree().parentB()));
-        return child;
+
+        // Retain a legacy shadow genotype only for backward/rollback compatibility.
+        // It is not consulted when producing the Genome or Phenotype Snapshot.
+        if (a.genetics() != null && b.genetics() != null) {
+            child.genetics(Genetics.breed(
+                    a.genetics(),
+                    b.genetics(),
+                    Math.min(1.0, config.geneticMutationRate()),
+                    ThreadLocalRandom.current()));
+        } else {
+            child.genetics(Genetics.random());
+        }
+
+        return java.util.Optional.of(child);
+    }
+
+    private static String breedingDisplayName(Chicken chicken) {
+        if (chicken.customName() != null) {
+            String custom = PlainTextComponentSerializer.plainText()
+                    .serialize(chicken.customName());
+            if (!custom.isBlank()) return custom;
+        }
+        String name = chicken.getName();
+        return name == null || name.isBlank() ? "Chicken" : name;
     }
 
     /**
