@@ -4,26 +4,29 @@ import java.util.Arrays;
 import java.util.Optional;
 
 public enum StatType {
-    MAX_HEALTH("max_health", "max-health", "max-health"),
-    SIZE("size", "size", "size"),
-    GROUND_SPEED("ground_speed", "ground-speed", "ground-speed"),
-    AIR_SPEED("air_speed", "air-speed", "air-speed"),
-    ASCENT_SPEED("ascent_speed", "ascent-speed", "ascent-speed"),
-    JUMP_STRENGTH("jump_strength", "jump-strength", "jump-strength"),
-    STEP_HEIGHT("step_height", "step-height", "step-height"),
-    STAMINA("stamina", "stamina", "stamina"),
-    STAMINA_RECOVERY("stamina_recovery", "stamina-recovery", "stamina-recovery");
+    MAX_HEALTH(0x00, "max_health", "max-health", "max-health"),
+    SIZE(0x01, "size", "size", "size"),
+    GROUND_SPEED(0x02, "ground_speed", "ground-speed", "ground-speed"),
+    AIR_SPEED(0x03, "air_speed", "air-speed", "air-speed"),
+    ASCENT_SPEED(0x04, "ascent_speed", "ascent-speed", "ascent-speed"),
+    JUMP_STRENGTH(0x05, "jump_strength", "jump-strength", "jump-strength"),
+    STEP_HEIGHT(0x06, "step_height", "step-height", "step-height"),
+    STAMINA(0x07, "stamina", "stamina", "stamina"),
+    STAMINA_RECOVERY(0x08, "stamina_recovery", "stamina-recovery", "stamina-recovery");
 
+    private final int targetId;
     private final String key;
     private final String commandName;
     private final String configName;
 
-    StatType(String key, String commandName, String configName) {
+    StatType(int targetId, String key, String commandName, String configName) {
+        this.targetId = targetId;
         this.key = key;
         this.commandName = commandName;
         this.configName = configName;
     }
 
+    public int targetId() { return targetId; }
     public String key() { return key; }
     public String commandName() { return commandName; }
     public String configName() { return configName; }

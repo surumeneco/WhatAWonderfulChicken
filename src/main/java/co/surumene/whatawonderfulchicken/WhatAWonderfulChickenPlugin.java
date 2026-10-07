@@ -6,6 +6,10 @@ import co.surumene.whatawonderfulchicken.compat.GeyserBedrockCompatibility;
 import co.surumene.whatawonderfulchicken.config.ConfigService;
 import co.surumene.whatawonderfulchicken.config.MessageService;
 import co.surumene.whatawonderfulchicken.display.DisplayService;
+import co.surumene.whatawonderfulchicken.genome.WonderfulChickenGenomeProfile;
+import co.surumene.whatawonderfulchicken.genome.WonderfulChickenGenomeSettings;
+import co.surumene.whatawonderfulchicken.genome.lifecycle.ProfileRegistryGateway;
+import co.surumene.whatawonderfulchicken.genome.lifecycle.WglProfileRegistryGateway;
 import co.surumene.whatawonderfulchicken.gui.InventoryService;
 import co.surumene.whatawonderfulchicken.listener.InteractionListener;
 import co.surumene.whatawonderfulchicken.listener.InventoryListener;
@@ -25,6 +29,8 @@ import java.util.List;
 
 public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
     private WonderfulGenomeLibService genomeLib;
+    private ProfileRegistryGateway profileRegistry;
+    private WonderfulChickenGenomeProfile genomeProfile;
     private ConfigService configService;
     private MessageService messageService;
     private WonderfulChickenStore store;
@@ -51,6 +57,11 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
             return;
         }
         configService.persistMissingDefaults();
+
+        profileRegistry = new WglProfileRegistryGateway(genomeLib, this);
+        genomeProfile = new WonderfulChickenGenomeProfile(WonderfulChickenGenomeSettings.defaults());
+        profileRegistry.register(genomeProfile);
+
         messageService = new MessageService(this);
         store = new WonderfulChickenStore(this, configService);
         chickens = new WonderfulChickenService(this, configService, store);
@@ -87,6 +98,9 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         if (traits != null) traits.shutdown();
         if (displays != null) displays.removeAll();
         if (bedrock != null) bedrock.shutdown();
+        if (profileRegistry != null) profileRegistry.unregisterOwner();
+        genomeProfile = null;
+        profileRegistry = null;
         genomeLib = null;
     }
 
@@ -96,6 +110,14 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
             throw new IllegalStateException("WonderfulGenomeLib service is not available");
         }
         return service;
+    }
+
+    public WonderfulChickenGenomeProfile genomeProfile() {
+        WonderfulChickenGenomeProfile profile = genomeProfile;
+        if (profile == null) {
+            throw new IllegalStateException("Wonderful Chicken genome profile is not available");
+        }
+        return profile;
     }
 
     private BedrockCompatibility createBedrockCompatibility() {
