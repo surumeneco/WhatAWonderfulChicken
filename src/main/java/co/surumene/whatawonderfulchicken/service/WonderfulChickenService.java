@@ -8,6 +8,15 @@ import co.surumene.whatawonderfulchicken.data.Trait;
 import co.surumene.whatawonderfulchicken.data.PedigreeData;
 import co.surumene.whatawonderfulchicken.data.StatType;
 import co.surumene.whatawonderfulchicken.data.WonderfulChickenData;
+import co.surumene.whatawonderfulchicken.founder.FounderGenomeSynthesis;
+import co.surumene.whatawonderfulchicken.founder.FounderOrigin;
+import co.surumene.whatawonderfulchicken.founder.WonderfulChickenFounderSynthesizer;
+import co.surumene.whatawonderfulchicken.genome.PhenotypeOrigin;
+import co.surumene.whatawonderfulchicken.genome.WonderfulChickenDecodedPhenotype;
+import co.surumene.whatawonderfulchicken.migration.LegacyChickenGenomeMigrator;
+import co.surumene.whatawonderfulchicken.migration.MigrationResult;
+import co.surumene.wgl.api.DecodeResult;
+import co.surumene.wgl.api.SynthesisResult;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.attribute.Attribute;
@@ -52,7 +61,7 @@ public final class WonderfulChickenService {
         if (previous == chicken) return false;
         if (previous != null) store.invalidate(previous);
         store.invalidate(chicken);
-        ensureGenetics(chicken, new HashSet<>());
+        ensureGenomeModel(chicken);
         synchronizeRangePolicy(chicken);
         WonderfulChickenData data = store.load(chicken);
         if (!config.persistCurrentStamina()) {
@@ -110,17 +119,37 @@ public final class WonderfulChickenService {
     }
 
     public WonderfulChickenData createNaturalData() {
+        var engine = plugin.genomeLib().engine();
+        WonderfulChickenFounderSynthesizer synthesizer =
+                new WonderfulChickenFounderSynthesizer(engine, plugin.genomeProfile());
+        FounderGenomeSynthesis synthesis =
+                synthesizer.synthesize(FounderOrigin.NATURAL, ThreadLocalRandom.current().nextLong());
+        if (!(synthesis.result() instanceof SynthesisResult.Success success)) {
+            SynthesisResult.Failure failure = (SynthesisResult.Failure) synthesis.result();
+            throw new IllegalStateException(
+                    "Natural Wonderful Chicken genome synthesis failed: "
+                            + failure.reason() + " / " + failure.detail());
+        }
+
+        DecodeResult<WonderfulChickenDecodedPhenotype> decoded =
+                engine.decode(plugin.genomeProfile(), success.genome());
+        var snapshot = decoded.phenotype().toSnapshot(
+                decoded.identity(), PhenotypeOrigin.NATURAL_FOUNDER);
+
         WonderfulChickenData data = new WonderfulChickenData();
         for (StatType stat : StatType.values()) {
-            double normalized = truncatedGaussian(config.naturalMean(), config.naturalStdDev(), 0.0, config.naturalMaxNormalized());
-            double value = store.toValue(stat, normalized);
-            data.value(stat, value);
-            data.normalized(stat, stat == StatType.MAX_HEALTH ? store.toNormalized(stat, value) : normalized);
+            double normalized = snapshot.normalizedAbilities().get(stat);
+            data.normalized(stat, normalized);
+            data.value(stat, store.toValue(stat, normalized));
         }
+        data.genome(success.genome());
+        data.phenotypeSnapshot(snapshot);
+        data.adultBiologicalTime(0L);
         data.currentStamina(data.value(StatType.STAMINA));
         data.bloodlineId(UUID.randomUUID().toString());
         data.generation(0);
         data.pedigree(PedigreeData.EMPTY);
+        // Legacy genetics remain only as transition-era compatibility data.
         data.genetics(Genetics.random());
         data.currentStamina(data.effective(StatType.STAMINA, config.natureAdjustment()));
         return data;
@@ -251,12 +280,40 @@ public final class WonderfulChickenService {
         return snapshot;
     }
 
+    private void ensureGenomeModel(Chicken chicken) {
+        WonderfulChickenData data = store.load(chicken);
+        if (data.hasGenomeModel()) return;
+        migrateGenomeModel(chicken, data);
+        store.save(chicken, data);
+    }
+
+    private void migrateGenomeModel(Chicken chicken, WonderfulChickenData data) {
+        long seed = migrationSeed(chicken.getUniqueId());
+        LegacyChickenGenomeMigrator migrator =
+                new LegacyChickenGenomeMigrator(
+                        plugin.genomeLib().engine(),
+                        plugin.genomeProfile());
+        MigrationResult migrated = migrator.migrate(data, 0L, seed);
+        data.genome(migrated.genome());
+        data.phenotypeSnapshot(migrated.phenotypeSnapshot());
+        data.adultBiologicalTime(migrated.adultBiologicalTime());
+    }
+
+    private static long migrationSeed(UUID entityId) {
+        return entityId.getMostSignificantBits()
+                ^ Long.rotateLeft(entityId.getLeastSignificantBits(), 17)
+                ^ 0x5757435F56325F31L;
+    }
+
     public double effective(WonderfulChickenData data, StatType stat) {
         return data.effective(stat, config.natureAdjustment());
     }
 
     public void initialize(Chicken chicken, WonderfulChickenData data) {
         if (data.genetics() == null) data.genetics(Genetics.random());
+        if (!data.hasGenomeModel()) {
+            migrateGenomeModel(chicken, data);
+        }
         store.save(chicken, data);
         loaded.put(chicken.getUniqueId(), chicken);
         projectAttributes(chicken);
@@ -267,8 +324,18 @@ public final class WonderfulChickenService {
     public void synchronizeRangePolicy(Chicken chicken) {
         if (!store.isWonderful(chicken)) return;
         WonderfulChickenData data = store.load(chicken);
-        if (config.rangeChangePolicy().equals("preserve-normalized")) {
-            for (StatType stat : StatType.values()) data.value(stat, store.toValue(stat, data.normalized(stat)));
+        if (data.hasGenomeModel()) {
+            // Snapshot is immutable historical phenotype. Config range changes may change
+            // its projected gameplay value, but never rewrite the stored normalized phenotype.
+            for (StatType stat : StatType.values()) {
+                double normalized = data.phenotypeSnapshot().normalizedAbilities().get(stat);
+                data.normalized(stat, normalized);
+                data.value(stat, store.toValue(stat, normalized));
+            }
+        } else if (config.rangeChangePolicy().equals("preserve-normalized")) {
+            for (StatType stat : StatType.values()) {
+                data.value(stat, store.toValue(stat, data.normalized(stat)));
+            }
         } else {
             for (StatType stat : StatType.values()) {
                 double value = stat.canonicalizeValue(data.value(stat));
