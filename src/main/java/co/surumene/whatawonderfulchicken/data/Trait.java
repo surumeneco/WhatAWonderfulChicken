@@ -1,31 +1,36 @@
 package co.surumene.whatawonderfulchicken.data;
 
 public enum Trait {
-    JIKIDEN("jikiden"),
-    HATENKO("hatenko"),
-    YOME("yome"),
-    HINOTORI("hinotori"),
-    WATAGE("watage"),
-    FUKUTSU("fukutsu"),
-    SAIKUTSU_OUEN("saikutsu_ouen"),
-    CHIKARAKOBU("chikarakobu"),
-    KIN_NO_TAMAGO("kin_no_tamago"),
-    MIHARIBAN("mihariban"),
-    KUSE_MASHI("kuse_mashi"),
-    OYOGI_JOUZU("oyogi_jouzu"),
-    YUKIGUNI_UMARE("yukiguni_umare");
+    JIKIDEN(0x00, "jikiden"),
+    HATENKO(0x01, "hatenko"),
+    YOME(0x02, "yome"),
+    HINOTORI(0x03, "hinotori"),
+    WATAGE(0x04, "watage"),
+    FUKUTSU(0x05, "fukutsu"),
+    SAIKUTSU_OUEN(0x06, "saikutsu_ouen"),
+    CHIKARAKOBU(0x07, "chikarakobu"),
+    KIN_NO_TAMAGO(0x08, "kin_no_tamago"),
+    MIHARIBAN(0x09, "mihariban"),
+    KUSE_MASHI(0x0A, "kuse_mashi"),
+    OYOGI_JOUZU(0x0B, "oyogi_jouzu"),
+    YUKIGUNI_UMARE(0x0C, "yukiguni_umare");
 
+    private final int targetId;
     private final String key;
-    Trait(String key) { this.key = key; }
+
+    Trait(int targetId, String key) {
+        this.targetId = targetId;
+        this.key = key;
+    }
+
+    public int targetId() { return targetId; }
     public String key() { return key; }
 
-    public int targetId() { return ordinal(); }
-
     public static Trait fromTargetId(int targetId) {
-        if (targetId < 0 || targetId >= values().length) {
-            throw new IllegalArgumentException("Unknown trait target id: " + targetId);
+        for (Trait trait : values()) {
+            if (trait.targetId == targetId) return trait;
         }
-        return values()[targetId];
+        throw new IllegalArgumentException("Unknown trait target id: " + targetId);
     }
 
     public static Trait fromGenes(int first, int second) {
