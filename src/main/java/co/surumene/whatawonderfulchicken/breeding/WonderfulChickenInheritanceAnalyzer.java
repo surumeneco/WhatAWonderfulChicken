@@ -44,7 +44,7 @@ final class WonderfulChickenInheritanceAnalyzer {
             this.decoded = decoded;
         }
 
-        double baseStatType(StatType stat) {
+        double baseAbility(StatType stat) {
             return decoded.phenotype().baseAbilities().get(stat);
         }
 
@@ -267,14 +267,14 @@ final class WonderfulChickenInheritanceAnalyzer {
         }
 
         InheritanceConstraint softConstraint(
-                double retentionProbstat,
+                double retentionProbability,
                 double crossoverWeightMultiplier) {
             return InheritanceConstraint.soft(
                     chromosomeIndex,
                     haplotypeIndex,
                     startBit,
                     endBitExclusive,
-                    retentionProbstat,
+                    retentionProbability,
                     crossoverWeightMultiplier);
         }
     }
