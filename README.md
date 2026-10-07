@@ -6,27 +6,30 @@ Paper 26.2 向けの、育成・繁殖可能な騎乗用巨大Chickenプラグ�
 
 - Paper 26.2
 - Java 25
+- WonderfulGenomeLib
 
-追加の前提プラグインや外部DBはありません。個体データはChicken EntityのPDCへ保存されるため、プラグインjarとワールドデータがあれば個体情報を引き継げます。
+WonderfulGenomeLibは2.0.0から必須依存です。WWCへWGLクラスをshade / bundleせず、Paper上では別Pluginとして読み込みます。個体データは引き続きChicken EntityのPDCへ保存します。
 
 ## ビルド
 
-Windows (PowerShell / cmd):
+開発時はWonderfulGenomeLibをWWCの隣へcheckoutします。
 
 ```text
-gradlew.bat build
+workspace/
+├─ WonderfulGenomeLib/
+└─ WhatAWonderfulChicken/
 ```
 
-Linux / macOS:
+WWCはGradle Composite Buildで隣接WGLを `co.surumene:wgl-plugin:0.1.0-SNAPSHOT` へ置換します。
 
 ```text
-./gradlew build
+gradle build
 ```
 
 生成物:
 
 ```text
-build/libs/WhatAWonderfulChicken-1.1.0.jar
+build/libs/WhatAWonderfulChicken-2.0.0.jar
 ```
 
 生成されたjarをPaperサーバーの `plugins/` に配置して起動してください。初回起動時に `plugins/WhatAWonderfulChicken/` 以下へconfigと言語ファイルを自動生成します。
@@ -95,4 +98,4 @@ Carpet / Shulker Boxの外観は、Geyser互換性を優先して不可視ArmorS
 
 ### バージョン採番
 
-`main`への反映・リリースが完了するまでは、`develop`上の修正や機能追加もすべて同じ次期リリース番号を使用します。今回の未リリース変更はすべて`1.1.0`に含め、次の番号はリリース後の変更で採番します。
+`main`への反映・リリースが完了するまでは、`develop`上の修正や機能追加もすべて同じ次期リリース番号を使用します。今回のGenome移行を含む未リリース変更はすべて`2.0.0`に含め、次の番号は2.0.0リリース後の変更で採番します。

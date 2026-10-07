@@ -16,6 +16,7 @@ import co.surumene.whatawonderfulchicken.task.FollowController;
 import co.surumene.whatawonderfulchicken.task.IntegrityController;
 import co.surumene.whatawonderfulchicken.task.RidingController;
 import co.surumene.whatawonderfulchicken.task.TraitController;
+import co.surumene.wgl.plugin.WonderfulGenomeLibService;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -23,6 +24,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.List;
 
 public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
+    private WonderfulGenomeLibService genomeLib;
     private ConfigService configService;
     private MessageService messageService;
     private WonderfulChickenStore store;
@@ -35,6 +37,11 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        genomeLib = Bukkit.getServicesManager().load(WonderfulGenomeLibService.class);
+        if (genomeLib == null) {
+            throw new IllegalStateException("WonderfulGenomeLib service is unavailable");
+        }
+
         saveDefaultConfig();
         configService = new ConfigService(this);
         ConfigService.ValidationResult validation = configService.validate(getConfig());
@@ -80,6 +87,15 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         if (traits != null) traits.shutdown();
         if (displays != null) displays.removeAll();
         if (bedrock != null) bedrock.shutdown();
+        genomeLib = null;
+    }
+
+    public WonderfulGenomeLibService genomeLib() {
+        WonderfulGenomeLibService service = genomeLib;
+        if (service == null) {
+            throw new IllegalStateException("WonderfulGenomeLib service is not available");
+        }
+        return service;
     }
 
     private BedrockCompatibility createBedrockCompatibility() {
