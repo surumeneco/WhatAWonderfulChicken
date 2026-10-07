@@ -198,8 +198,8 @@ public final class WonderfulChickenBreedingService {
                 profile.backbone(),
                 context.mutationRateMultiplier(),
                 forbidden,
-                context.compatibilityPolicy(),
-                context.allowSafetyOverride(),
+                null,
+                false,
                 context.parentAPolicy(),
                 context.parentBPolicy());
     }
