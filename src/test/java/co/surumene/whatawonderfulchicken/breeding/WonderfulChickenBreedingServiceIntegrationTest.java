@@ -43,6 +43,24 @@ final class WonderfulChickenBreedingServiceIntegrationTest {
     }
 
     @Test
+    void acceptsAlreadyResolvedGameteSources() {
+        WonderfulChickenData a = parent(FounderOrigin.NATURAL, 111L);
+        WonderfulChickenData b = parent(FounderOrigin.NATURAL, 222L);
+
+        HaploidGenome gameteA = haplotypeA(a.genome());
+        HaploidGenome gameteB = haplotypeA(b.genome());
+
+        WonderfulChickenBreedingOutcome outcome = breeding.breedSources(
+                new BreedingParentSource.Gamete(gameteA),
+                new BreedingParentSource.Gamete(gameteB),
+                333L);
+
+        WonderfulChickenBreedingOutcome.Success success =
+                assertInstanceOf(WonderfulChickenBreedingOutcome.Success.class, outcome);
+        assertEquals(6, success.genome().chromosomePairCount());
+    }
+
+    @Test
     void incompatibleBackboneFallsBackWithoutCallingConsumerHomologyLogic() {
         WonderfulChickenData compatible = parent(FounderOrigin.NATURAL, 404L);
         WonderfulChickenData incompatible = parent(FounderOrigin.NATURAL, 505L);
@@ -137,6 +155,14 @@ final class WonderfulChickenBreedingServiceIntegrationTest {
                 p.divineLineageTotalScore(),
                 p.divineLineageExpressed()));
         return source;
+    }
+
+    private static HaploidGenome haplotypeA(DiploidGenome genome) {
+        return new HaploidGenome(
+                genome.genomeFormatVersion(),
+                genome.chromosomePairs().stream()
+                        .map(ChromosomePair::haplotypeA)
+                        .toList());
     }
 
     private static DiploidGenome zeroGenome() {
