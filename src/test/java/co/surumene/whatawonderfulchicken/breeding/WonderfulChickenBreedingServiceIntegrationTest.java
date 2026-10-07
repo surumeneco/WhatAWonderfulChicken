@@ -63,7 +63,9 @@ final class WonderfulChickenBreedingServiceIntegrationTest {
     @Test
     void incompatibleBackboneFallsBackWithoutCallingConsumerHomologyLogic() {
         WonderfulChickenData compatible = parent(FounderOrigin.NATURAL, 404L);
-        WonderfulChickenData incompatible = parent(FounderOrigin.NATURAL, 505L);
+        WonderfulChickenData incompatible = withTraits(
+                parent(FounderOrigin.NATURAL, 505L),
+                List.of(new ExpressedTrait(Trait.JIKIDEN, TraitStrength.WEAK)));
         incompatible.genome(zeroGenome());
 
         WonderfulChickenBreedingOutcome outcome = breeding.breed(
