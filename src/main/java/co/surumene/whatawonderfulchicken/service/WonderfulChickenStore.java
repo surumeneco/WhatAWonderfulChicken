@@ -148,6 +148,14 @@ public final class WonderfulChickenStore {
     }
 
     public void save(Chicken chicken, WonderfulChickenData data) {
+        byte[] genomeBytes = null;
+        byte[] phenotypeBytes = null;
+        if (data.hasGenomeModel()) {
+            // Finish all potentially-failing codec work before mutating PDC.
+            genomeBytes = plugin.genomeLib().engine().encode(data.genome());
+            phenotypeBytes = phenotypeCodec.encode(data.phenotypeSnapshot());
+        }
+
         PersistentDataContainer pdc = chicken.getPersistentDataContainer();
         pdc.set(markerKey, PersistentDataType.STRING, MARKER_VALUE);
         // data_version is the commit point for the compound WWC payload.
@@ -171,10 +179,8 @@ public final class WonderfulChickenStore {
         else pdc.remove(geneticsKey);
 
         if (data.hasGenomeModel()) {
-            pdc.set(genomeKey, PersistentDataType.BYTE_ARRAY,
-                    plugin.genomeLib().engine().encode(data.genome()));
-            pdc.set(phenotypeSnapshotKey, PersistentDataType.BYTE_ARRAY,
-                    phenotypeCodec.encode(data.phenotypeSnapshot()));
+            pdc.set(genomeKey, PersistentDataType.BYTE_ARRAY, genomeBytes);
+            pdc.set(phenotypeSnapshotKey, PersistentDataType.BYTE_ARRAY, phenotypeBytes);
             pdc.set(adultBiologicalTimeKey, PersistentDataType.LONG, data.adultBiologicalTime());
             // Version is written after all v3 payloads and acts as the migration commit point.
             pdc.set(dataVersionKey, PersistentDataType.INTEGER, DATA_VERSION);
