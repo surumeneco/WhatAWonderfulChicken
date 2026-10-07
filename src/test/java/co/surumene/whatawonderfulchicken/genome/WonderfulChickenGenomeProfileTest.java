@@ -40,8 +40,8 @@ final class WonderfulChickenGenomeProfileTest {
         Map<GenomeAddress, AddressAggregate> aggregates = new HashMap<>();
 
         for (StatType stat : StatType.values()) {
-            aggregates.put(new GenomeAddress(0x00, stat.ordinal()), bounded(0.40));
-            aggregates.put(new GenomeAddress(0x07, stat.ordinal()), bounded(0.20));
+            aggregates.put(new GenomeAddress(0x00, stat.targetId()), bounded(0.40));
+            aggregates.put(new GenomeAddress(0x07, stat.targetId()), bounded(0.20));
         }
         for (DevelopmentFactor factor : DevelopmentFactor.values()) {
             aggregates.put(new GenomeAddress(0x01, factor.targetId()), centered(0.50));
@@ -81,8 +81,8 @@ final class WonderfulChickenGenomeProfileTest {
     void maxBelowHalfIsSeriousEvenWhenScoresAreSpread() {
         Map<GenomeAddress, AddressAggregate> aggregates = new HashMap<>();
         for (StatType stat : StatType.values()) {
-            aggregates.put(new GenomeAddress(0x00, stat.ordinal()), bounded(0.40));
-            aggregates.put(new GenomeAddress(0x07, stat.ordinal()), bounded(0.0));
+            aggregates.put(new GenomeAddress(0x00, stat.targetId()), bounded(0.40));
+            aggregates.put(new GenomeAddress(0x07, stat.targetId()), bounded(0.0));
         }
         for (DevelopmentFactor factor : DevelopmentFactor.values()) {
             aggregates.put(new GenomeAddress(0x01, factor.targetId()), centered(0.50));
