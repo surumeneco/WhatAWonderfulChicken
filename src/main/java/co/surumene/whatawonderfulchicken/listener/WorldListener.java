@@ -101,10 +101,27 @@ public final class WorldListener implements Listener {
     public void onBreed(EntityBreedEvent event) {
         if (!(event.getEntity() instanceof Chicken child)) return;
         if (!(event.getMother() instanceof Chicken mother) || !(event.getFather() instanceof Chicken father)) return;
-        if (store.isWonderful(mother) && store.isWonderful(father)) {
-            chickens.initialize(child, chickens.createBredData(mother, father));
-            displays.rebuild(child);
+        if (!store.isWonderful(mother) || !store.isWonderful(father)) return;
+
+        try {
+            chickens.createBredData(mother, father).ifPresent(data -> {
+                chickens.initialize(child, data);
+                displays.rebuild(child);
+            });
+        } catch (RuntimeException error) {
+            plugin.getLogger().warning(
+                    "Wonderful Chicken breeding failed unexpectedly for child "
+                            + child.getUniqueId()
+                            + "; leaving vanilla child unchanged: "
+                            + safeMessage(error));
         }
+    }
+
+    private static String safeMessage(RuntimeException error) {
+        String message = error.getMessage();
+        return message == null || message.isBlank()
+                ? error.getClass().getSimpleName()
+                : error.getClass().getSimpleName() + ": " + message;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
