@@ -65,13 +65,15 @@ public final class WonderfulChickenBreedingService {
             BreedingParentSource parentB,
             BreedingContext context,
             GenomeRandom random) {
+        GenomeEngine engine = currentEngine();
+        WonderfulChickenGenomeProfile profile = currentProfile();
         return breedSources(
                 parentA,
                 parentB,
-                context,
+                normalizeContext(context, profile),
                 random,
-                currentEngine(),
-                currentProfile());
+                engine,
+                profile);
     }
 
     private WonderfulChickenBreedingOutcome breed(
@@ -184,6 +186,22 @@ public final class WonderfulChickenBreedingService {
                             + backboneB.reason());
         }
         return null;
+    }
+
+    private static BreedingContext normalizeContext(
+            BreedingContext context,
+            WonderfulChickenGenomeProfile profile) {
+        java.util.Set<GenomeAddress> forbidden =
+                new java.util.HashSet<>(context.deNovoForbiddenAddresses());
+        forbidden.addAll(WonderfulChickenBreedingPolicy.deNovoForbiddenAddresses());
+        return new BreedingContext(
+                profile.backbone(),
+                context.mutationRateMultiplier(),
+                forbidden,
+                context.compatibilityPolicy(),
+                context.allowSafetyOverride(),
+                context.parentAPolicy(),
+                context.parentBPolicy());
     }
 
     private static BackboneCompatibilityReport assessBackboneCompatibility(
