@@ -104,11 +104,10 @@ public final class WonderfulChickenStore {
             data.value(stat, value == null ? config.statMin(stat) : value);
             data.normalized(stat, normalized == null ? 0.0 : normalized);
         }
-        double maxStamina = data.effective(StatType.STAMINA, config.natureAdjustment());
         Double storedStamina = pdc.get(currentStaminaKey, PersistentDataType.DOUBLE);
         data.currentStamina(storedStamina != null
-                ? Math.max(0.0, Math.min(maxStamina, storedStamina))
-                : maxStamina);
+                ? Math.max(0.0, storedStamina)
+                : data.value(StatType.STAMINA));
         data.carpet(readItem(pdc, carpetKey));
         data.shulkerBox(readItem(pdc, shulkerKey));
         data.headItem(readItem(pdc, headKey));
@@ -143,12 +142,16 @@ public final class WonderfulChickenStore {
             data.phenotypeSnapshot(phenotypeCodec.decode(phenotypeBytes));
             data.adultBiologicalTime(adultBiologicalTime);
         }
+        double maxStamina = data.effective(StatType.STAMINA, config.natureAdjustment());
+        data.currentStamina(Math.min(maxStamina, data.currentStamina()));
         return data;
     }
 
     public void save(Chicken chicken, WonderfulChickenData data) {
         PersistentDataContainer pdc = chicken.getPersistentDataContainer();
         pdc.set(markerKey, PersistentDataType.STRING, MARKER_VALUE);
+        // data_version is the commit point for the compound WWC payload.
+        pdc.remove(dataVersionKey);
         for (StatType stat : StatType.values()) {
             pdc.set(valueKeys.get(stat), PersistentDataType.DOUBLE, data.value(stat));
             pdc.set(normalizedKeys.get(stat), PersistentDataType.DOUBLE, data.normalized(stat));
