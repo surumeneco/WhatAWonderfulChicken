@@ -11,11 +11,22 @@ public enum Trait {
     CHIKARAKOBU("chikarakobu"),
     KIN_NO_TAMAGO("kin_no_tamago"),
     MIHARIBAN("mihariban"),
-    KUSE_MASHI("kuse_mashi");
+    KUSE_MASHI("kuse_mashi"),
+    OYOGI_JOUZU("oyogi_jouzu"),
+    YUKIGUNI_UMARE("yukiguni_umare");
 
     private final String key;
     Trait(String key) { this.key = key; }
     public String key() { return key; }
+
+    public int targetId() { return ordinal(); }
+
+    public static Trait fromTargetId(int targetId) {
+        if (targetId < 0 || targetId >= values().length) {
+            throw new IllegalArgumentException("Unknown trait target id: " + targetId);
+        }
+        return values()[targetId];
+    }
 
     public static Trait fromGenes(int first, int second) {
         int a = Math.min(first, second);
