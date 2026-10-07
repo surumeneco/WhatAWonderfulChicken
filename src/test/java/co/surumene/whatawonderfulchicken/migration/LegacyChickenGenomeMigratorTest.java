@@ -3,6 +3,8 @@ package co.surumene.whatawonderfulchicken.migration;
 import co.surumene.whatawonderfulchicken.data.*;
 import co.surumene.whatawonderfulchicken.genome.*;
 import co.surumene.wgl.api.DecodeResult;
+import co.surumene.wgl.api.DecodedGene;
+import co.surumene.wgl.api.GenomeAddress;
 import co.surumene.wgl.core.EngineConfig;
 import co.surumene.wgl.core.WonderfulGenomeEngine;
 import org.junit.jupiter.api.Test;
@@ -50,6 +52,20 @@ final class LegacyChickenGenomeMigratorTest {
             assertEquals(1.20,
                     migrated.phenotypeSnapshot().normalizedAbilities().get(stat), 0.0);
         }
+    }
+
+    @Test
+    void laterGenerationMythicalMigrationDoesNotInjectDivineGenes() {
+        WonderfulChickenData legacy = legacy(1.20, 4, new Genetics(2, 2, 1, 1));
+        MigrationResult migrated = migrator.migrate(legacy, 0L, 2026100704L);
+
+        DecodeResult<WonderfulChickenDecodedPhenotype> decoded =
+                engine.decode(profile, migrated.genome());
+        assertFalse(decoded.decodedGenome().physicalGenes().stream()
+                .filter(DecodedGene::addressValid)
+                .anyMatch(gene -> new GenomeAddress(0x05, 0x00).equals(gene.address())));
+        assertTrue(decoded.phenotype().extraordinaryContributions().values().stream()
+                .anyMatch(v -> v > 0.0));
     }
 
     @Test
