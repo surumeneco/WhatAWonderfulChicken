@@ -12,7 +12,12 @@ public enum Nature {
     ISOGINBO("isoginbo", StatType.GROUND_SPEED, StatType.JUMP_STRENGTH),
     KUISHINBO("kuishinbo", StatType.MAX_HEALTH, null),
     TOBASHIYA("tobashiya", StatType.AIR_SPEED, StatType.STAMINA),
-    JIKKURI("jikkuri", StatType.STAMINA, StatType.AIR_SPEED);
+    JIKKURI("jikkuri", StatType.STAMINA, StatType.AIR_SPEED),
+    GANBARIYA("ganbariya", StatType.GROUND_SPEED, StatType.STAMINA_RECOVERY),
+    DOSSHIRI("dosshiri", StatType.MAX_HEALTH, StatType.AIR_SPEED),
+    NOBINOBI("nobinobi", StatType.AIR_SPEED, StatType.ASCENT_SPEED),
+    GENKIMONO("genkimono", StatType.STAMINA_RECOVERY, StatType.AIR_SPEED),
+    CHAKKARI("chakkari", StatType.STEP_HEIGHT, null);
 
     private final String key;
     private final StatType positive;
