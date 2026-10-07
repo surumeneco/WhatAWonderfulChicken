@@ -43,17 +43,19 @@ public final class TraitController implements Runnable {
         Set<UUID> active = new HashSet<>();
         for (Chicken chicken : chickens.loadedChickens()) {
             active.add(chicken.getUniqueId());
-            Trait trait = store.read(chicken).trait();
-            if (trait == null) continue;
-            switch (trait) {
-                case HINOTORI -> apply(chicken, PotionEffectType.FIRE_RESISTANCE);
-                case WATAGE -> apply(chicken, PotionEffectType.SLOW_FALLING);
-                case FUKUTSU -> apply(chicken, PotionEffectType.REGENERATION);
-                case SAIKUTSU_OUEN -> applyHaste(chicken);
-                case YOME -> applyRider(chicken, PotionEffectType.NIGHT_VISION);
-                case CHIKARAKOBU -> applyRider(chicken, PotionEffectType.STRENGTH);
-                case MIHARIBAN -> alert(chicken);
-                default -> { /* Egg laying and genetics are handled at their respective events. */ }
+            var data = store.read(chicken);
+            for (Trait trait : Trait.values()) {
+                if (!data.hasTrait(trait)) continue;
+                switch (trait) {
+                    case HINOTORI -> apply(chicken, PotionEffectType.FIRE_RESISTANCE);
+                    case WATAGE -> apply(chicken, PotionEffectType.SLOW_FALLING);
+                    case FUKUTSU -> apply(chicken, PotionEffectType.REGENERATION);
+                    case SAIKUTSU_OUEN -> applyHaste(chicken);
+                    case YOME -> applyRider(chicken, PotionEffectType.NIGHT_VISION);
+                    case CHIKARAKOBU -> applyRider(chicken, PotionEffectType.STRENGTH);
+                    case MIHARIBAN -> alert(chicken);
+                    default -> { /* Egg laying and genetics are handled at their respective events. */ }
+                }
             }
         }
         lastAlert.keySet().retainAll(active);

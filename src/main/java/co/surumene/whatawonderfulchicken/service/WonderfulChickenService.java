@@ -161,8 +161,8 @@ public final class WonderfulChickenService {
         WonderfulChickenData a = store.load(parentA);
         WonderfulChickenData b = store.load(parentB);
         var random = ThreadLocalRandom.current();
-        double mutationMultiplier = (a.trait() == Trait.HATENKO ? 2.0 : 1.0)
-                * (b.trait() == Trait.HATENKO ? 2.0 : 1.0);
+        double mutationMultiplier = (a.hasTrait(Trait.HATENKO) ? 2.0 : 1.0)
+                * (b.hasTrait(Trait.HATENKO) ? 2.0 : 1.0);
         WonderfulChickenData child = new WonderfulChickenData();
         child.genetics(Genetics.breed(a.genetics(), b.genetics(),
                 Math.min(1.0, config.geneticMutationRate() * mutationMultiplier), random));
@@ -170,11 +170,11 @@ public final class WonderfulChickenService {
         // Guaranteed direct slots have priority over the single independent stat mutation.
         Map<StatType, Double> guaranteed = new EnumMap<>(StatType.class);
         List<StatType> eligible = new ArrayList<>(List.of(StatType.values()));
-        if (a.trait() == Trait.JIKIDEN) {
+        if (a.hasTrait(Trait.JIKIDEN)) {
             StatType chosen = eligible.remove(random.nextInt(eligible.size()));
             guaranteed.put(chosen, a.normalized(chosen));
         }
-        if (b.trait() == Trait.JIKIDEN) {
+        if (b.hasTrait(Trait.JIKIDEN)) {
             StatType chosen = eligible.remove(random.nextInt(eligible.size()));
             guaranteed.put(chosen, b.normalized(chosen));
         }
