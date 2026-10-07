@@ -117,7 +117,7 @@ public final class LegacyChickenGenomeMigrator {
         FounderTarget target = new FounderTarget(
                 synthesisOrigin,
                 abilities,
-                personalityTarget(legacy.nature()),
+                personalityTarget(legacy.genetics(), legacy.nature()),
                 migratedTraits(legacy.trait(), random),
                 naturalPriors.developmentFactors());
 
@@ -127,11 +127,34 @@ public final class LegacyChickenGenomeMigrator {
                 extraordinary && legacy.generation() == 0);
     }
 
-    private static EnumMap<PersonalityFactor, Double> personalityTarget(Nature nature) {
+    private static EnumMap<PersonalityFactor, Double> personalityTarget(
+            co.surumene.whatawonderfulchicken.data.Genetics genetics,
+            Nature nature) {
+        Objects.requireNonNull(nature, "nature");
+
+        if (genetics != null) {
+            Nature newMeaning = natureForLegacyPair(genetics.natureA(), genetics.natureB());
+            if (newMeaning == nature) {
+                EnumMap<PersonalityFactor, Double> preserved =
+                        new EnumMap<>(PersonalityFactor.class);
+                for (PersonalityFactor factor : PersonalityFactor.values()) {
+                    preserved.put(factor, 0.45);
+                }
+                PersonalityFactor first = legacyPersonalityFactor(genetics.natureA());
+                PersonalityFactor second = legacyPersonalityFactor(genetics.natureB());
+                if (first == second) {
+                    dominant(preserved, first);
+                } else {
+                    pair(preserved, first, second);
+                }
+                return preserved;
+            }
+        }
+
         EnumMap<PersonalityFactor, Double> scores = new EnumMap<>(PersonalityFactor.class);
         for (PersonalityFactor factor : PersonalityFactor.values()) scores.put(factor, 0.45);
 
-        switch (Objects.requireNonNull(nature, "nature")) {
+        switch (nature) {
             case MAJIME -> {
                 for (PersonalityFactor factor : PersonalityFactor.values()) scores.put(factor, 0.50);
             }
@@ -153,6 +176,40 @@ public final class LegacyChickenGenomeMigrator {
             case CHAKKARI -> dominant(scores, PersonalityFactor.NEUTRAL);
         }
         return scores;
+    }
+
+    private static PersonalityFactor legacyPersonalityFactor(int index) {
+        return switch (index) {
+            case 0 -> PersonalityFactor.LEG_POWER;
+            case 1 -> PersonalityFactor.FLIGHT;
+            case 2 -> PersonalityFactor.FLAPPING;
+            case 3 -> PersonalityFactor.ENDURANCE;
+            case 4 -> PersonalityFactor.NUTRITION;
+            default -> throw new IllegalArgumentException("legacy nature factor must be 0..4");
+        };
+    }
+
+    private static Nature natureForLegacyPair(int first, int second) {
+        int a = Math.min(first, second);
+        int b = Math.max(first, second);
+        return switch (a * 5 + b) {
+            case 0 -> Nature.ISOGINBO;
+            case 1 -> Nature.SEKASEKA;
+            case 2 -> Nature.HANEKKAERI;
+            case 3 -> Nature.GANBARIYA;
+            case 4 -> Nature.DOSSHIRI;
+            case 6 -> Nature.UWA_NO_SORA;
+            case 7 -> Nature.TOBASHIYA;
+            case 8 -> Nature.JIKKURI;
+            case 9 -> Nature.NOBINOBI;
+            case 12 -> Nature.AWATENBO;
+            case 13 -> Nature.NEBARIZUYOI;
+            case 14 -> Nature.GENKIMONO;
+            case 18 -> Nature.TAMEKOMIYA;
+            case 19 -> Nature.KOMAME;
+            case 24 -> Nature.KUISHINBO;
+            default -> throw new IllegalArgumentException("legacy nature factor pair is invalid");
+        };
     }
 
     private static void dominant(
