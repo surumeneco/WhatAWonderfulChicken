@@ -1,21 +1,53 @@
 name: build
+
 on:
   push:
     branches: [ main, develop, 'feature/**' ]
   pull_request:
     branches: [ main, develop ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout WWC
+        uses: actions/checkout@v5
+        with:
+          path: WhatAWonderfulChicken
+
+      - name: Checkout WGL develop
+        uses: actions/checkout@v5
+        with:
+          repository: surumeneco/WonderfulGenomeLib
+          ref: develop
+          path: WonderfulGenomeLib
+
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '25'
+
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew build --no-daemon
+        with:
+          gradle-version: '9.1.0'
+
+      - name: Verify WGL
+        working-directory: WonderfulGenomeLib
+        run: gradle clean build --no-daemon
+
+      - name: Build WWC against WGL
+        working-directory: WhatAWonderfulChicken
+        run: gradle clean build --no-daemon
+
       - uses: actions/upload-artifact@v4
         with:
           name: WhatAWonderfulChicken
-          path: build/libs/WhatAWonderfulChicken-*.jar
+          path: WhatAWonderfulChicken/build/libs/WhatAWonderfulChicken-*.jar
