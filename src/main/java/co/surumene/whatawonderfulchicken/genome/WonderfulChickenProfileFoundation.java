@@ -33,8 +33,18 @@ public final class WonderfulChickenProfileFoundation {
     private WonderfulChickenProfileFoundation() {}
 
     public static ProfileDescriptor descriptor(WonderfulChickenGenomeSettings settings) {
+        return descriptor(settings, WonderfulChickenSynthesisSettings.defaults());
+    }
+
+    public static ProfileDescriptor descriptor(
+            WonderfulChickenGenomeSettings settings,
+            WonderfulChickenSynthesisSettings synthesisSettings) {
         Objects.requireNonNull(settings, "settings");
-        return new ProfileDescriptor(PROFILE_ID, PROFILE_VERSION, semanticFingerprint(settings));
+        Objects.requireNonNull(synthesisSettings, "synthesisSettings");
+        return new ProfileDescriptor(
+                PROFILE_ID,
+                PROFILE_VERSION,
+                semanticFingerprint(settings, synthesisSettings));
     }
 
     public static BackboneDefinition backbone(WonderfulChickenGenomeSettings settings) {
@@ -60,7 +70,9 @@ public final class WonderfulChickenProfileFoundation {
                 new StandardGenomeSafetyPolicyV1());
     }
 
-    private static byte[] semanticFingerprint(WonderfulChickenGenomeSettings settings) {
+    private static byte[] semanticFingerprint(
+            WonderfulChickenGenomeSettings settings,
+            WonderfulChickenSynthesisSettings synthesisSettings) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
@@ -85,6 +97,7 @@ public final class WonderfulChickenProfileFoundation {
                 buffer.putLong(Double.doubleToLongBits(value));
                 digest.update(buffer.array());
             }
+            digest.update(synthesisSettings.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
             return digest.digest();
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 is unavailable", e);
