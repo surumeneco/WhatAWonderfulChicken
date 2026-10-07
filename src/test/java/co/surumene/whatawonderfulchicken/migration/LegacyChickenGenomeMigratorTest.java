@@ -55,6 +55,19 @@ final class LegacyChickenGenomeMigratorTest {
     }
 
     @Test
+    void repeatedMigrationWithSameSeedIsDeterministic() {
+        WonderfulChickenData a = legacy(0.72, 2, new Genetics(0, 2, 3, 4));
+        WonderfulChickenData b = legacy(0.72, 2, new Genetics(0, 2, 3, 4));
+
+        MigrationResult first = migrator.migrate(a, 55L, 2026100705L);
+        MigrationResult second = migrator.migrate(b, 55L, 2026100705L);
+
+        assertArrayEquals(engine.encode(first.genome()), engine.encode(second.genome()));
+        assertEquals(first.phenotypeSnapshot(), second.phenotypeSnapshot());
+        assertEquals(first.adultBiologicalTime(), second.adultBiologicalTime());
+    }
+
+    @Test
     void laterGenerationMythicalMigrationDoesNotInjectDivineGenes() {
         WonderfulChickenData legacy = legacy(1.20, 4, new Genetics(2, 2, 1, 1));
         MigrationResult migrated = migrator.migrate(legacy, 0L, 2026100704L);
