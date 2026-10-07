@@ -100,7 +100,7 @@ public final class WonderfulChickenGenomeProfile implements GenomeProfile<Wonder
         EnumMap<StatType, Double> baseAbilities = new EnumMap<>(StatType.class);
         EnumMap<StatType, Double> extraordinary = new EnumMap<>(StatType.class);
         for (StatType stat : StatType.values()) {
-            int targetId = stat.ordinal();
+            int targetId = stat.targetId();
             baseAbilities.put(
                     stat,
                     decodedGenome.aggregate(new GenomeAddress(0x00, targetId)).score());
@@ -223,7 +223,7 @@ public final class WonderfulChickenGenomeProfile implements GenomeProfile<Wonder
         List<InjuryPhenotype> injuries = new ArrayList<>();
 
         for (StatType stat : StatType.values()) {
-            GenomeAddress address = new GenomeAddress(0x02, stat.ordinal());
+            GenomeAddress address = new GenomeAddress(0x02, stat.targetId());
             List<EffectiveContribution> contributions = decodedGenome.aggregate(address).contributions();
             if (contributions.isEmpty()) {
                 continue;
