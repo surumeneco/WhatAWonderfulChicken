@@ -65,6 +65,24 @@ class ConfigCompatibilityTest {
     }
 
     @Test
+    void chickenTrapConfigurationAcceptsLegacyDefaultsAndRejectsInvalidValues() {
+        YamlConfiguration existing = legacyConfig();
+        YamlConfiguration bundled = defaults();
+        assertTrue(ConfigService.validateConfiguration(existing, bundled).valid());
+
+        existing.set("chicken-trap.spawn-chance", 1.1);
+        assertTrue(ConfigService.validateConfiguration(existing, bundled).errors().stream()
+                .anyMatch(error -> error.contains("chicken-trap.spawn-chance")));
+        existing.set("chicken-trap.spawn-chance", 0.01);
+
+        existing.set("chicken-trap.activation-radius-blocks", 0.0);
+        assertTrue(ConfigService.validateConfiguration(existing, bundled).errors().stream()
+                .anyMatch(error -> error.contains("chicken-trap.activation-radius-blocks")));
+        existing.set("chicken-trap.activation-radius-blocks", 10.0);
+        assertTrue(ConfigService.validateConfiguration(existing, bundled).valid());
+    }
+
+    @Test
     void explicitlyInvalidValuesNeverFallBackSilently() {
         YamlConfiguration old = legacyConfig();
         YamlConfiguration bundled = defaults();
