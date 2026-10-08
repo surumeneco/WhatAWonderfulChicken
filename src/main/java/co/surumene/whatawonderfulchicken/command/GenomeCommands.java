@@ -201,6 +201,7 @@ public final class GenomeCommands {
             chickens.initialize(chicken,data);
             displays.rebuild(chicken);
         } catch(RuntimeException exception) {
+            chickens.unregisterLoaded(chicken);
             chicken.remove();
             throw exception;
         }
