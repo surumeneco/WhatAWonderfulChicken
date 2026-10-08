@@ -74,6 +74,10 @@ public final class ChickenTrapRuntime implements Runnable {
         tracked.add(entity.getUniqueId());
     }
 
+    public boolean isTrapMount(Chicken chicken) {
+        return chicken != null && states.hasRole(chicken, ChickenTrapStateStore.MOUNT);
+    }
+
     public void markTimeSkip(World world) {
         skipped.add(world.getUID());
     }
