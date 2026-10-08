@@ -189,6 +189,7 @@ public final class ChickenTrapRuntime implements Runnable {
         Skeleton skeleton = location.getWorld().spawn(location, Skeleton.class,
                 CreatureSpawnEvent.SpawnReason.CUSTOM);
         configureSkeleton(skeleton);
+        skeleton.setAI(false);
         states.mark(skeleton, ChickenTrapStateStore.ARMED, expiry);
         states.graceUntil(skeleton, System.currentTimeMillis() + ChickenTrapPolicy.GRACE_MILLIS);
         tracked.add(skeleton.getUniqueId());
@@ -237,6 +238,7 @@ public final class ChickenTrapRuntime implements Runnable {
             return;
         }
         windExplosion(location);
+        initial.setAI(true);
         Chicken first = null;
         Chicken second = null;
         Skeleton secondRider = null;
