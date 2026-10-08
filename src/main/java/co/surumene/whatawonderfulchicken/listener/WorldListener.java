@@ -4,6 +4,8 @@ import co.surumene.whatawonderfulchicken.WhatAWonderfulChickenPlugin;
 import co.surumene.whatawonderfulchicken.display.DisplayService;
 import co.surumene.whatawonderfulchicken.config.ConfigService;
 import co.surumene.whatawonderfulchicken.data.Trait;
+import co.surumene.whatawonderfulchicken.runtime.TraitRuntimeModifiers;
+import org.bukkit.event.entity.EntityDamageEvent;
 import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent;
 import com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent;
 import org.bukkit.Bukkit;
@@ -129,11 +131,29 @@ public final class WorldListener implements Listener {
         if (!(event.getEntity() instanceof Chicken chicken) || !store.isWonderful(chicken)) return;
         // All three vanilla egg colors are naturally laid by chicken variants.
         if (!isChickenEgg(event.getItemDrop().getItemStack().getType())) return;
-        if (!store.read(chicken).hasTrait(Trait.KIN_NO_TAMAGO)) return;
-        if (ThreadLocalRandom.current().nextDouble() >= config.eggGoldChance()) return;
+        var data = store.read(chicken);
+        if (!data.hasTrait(Trait.KIN_NO_TAMAGO)) return;
+        double chance = TraitRuntimeModifiers.specialEggChance(
+                config.eggGoldChance(),
+                data.phenotypeSnapshot() == null
+                        ? java.util.List.of()
+                        : data.phenotypeSnapshot().expressedTraits());
+        if (ThreadLocalRandom.current().nextDouble() >= chance) return;
         Material result = ThreadLocalRandom.current().nextDouble() < config.eggNetheriteChance()
                 ? Material.NETHERITE_SCRAP : Material.RAW_GOLD;
         event.getItemDrop().setItemStack(org.bukkit.inventory.ItemStack.of(result));
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onDamage(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Chicken chicken) || !store.isWonderful(chicken)) return;
+        var data = store.read(chicken);
+        if ((event.getCause() == EntityDamageEvent.DamageCause.DROWNING
+                    && data.hasTrait(Trait.OYOGI_JOUZU))
+                || (event.getCause() == EntityDamageEvent.DamageCause.FREEZE
+                    && data.hasTrait(Trait.YUKIGUNI_UMARE))) {
+            event.setCancelled(true);
+        }
     }
 
     static boolean isChickenEgg(Material item) {

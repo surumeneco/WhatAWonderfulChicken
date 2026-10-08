@@ -20,6 +20,11 @@ import co.surumene.whatawonderfulchicken.task.FollowController;
 import co.surumene.whatawonderfulchicken.task.IntegrityController;
 import co.surumene.whatawonderfulchicken.task.RidingController;
 import co.surumene.whatawonderfulchicken.task.TraitController;
+import co.surumene.whatawonderfulchicken.runtime.BiologicalClock;
+import co.surumene.whatawonderfulchicken.runtime.BiologicalClockListener;
+import co.surumene.whatawonderfulchicken.runtime.YamlBiologicalClockStateStore;
+import org.bukkit.World;
+import java.io.File;
 import co.surumene.wgl.plugin.WonderfulGenomeLibService;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.Bukkit;
@@ -40,6 +45,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
     private RidingController riding;
     private TraitController traits;
     private BedrockCompatibility bedrock;
+    private BiologicalClock biologicalClock;
 
     @Override
     public void onEnable() {
@@ -57,6 +63,12 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
             return;
         }
         configService.persistMissingDefaults();
+
+        World clockWorld = requireClockWorld(configService.ageClockWorld());
+        biologicalClock = BiologicalClock.start(
+                clockWorld.getName(), clockWorld::getFullTime,
+                new YamlBiologicalClockStateStore(
+                        new File(getDataFolder(), "biological-clock.yml"), getLogger()));
 
         profileRegistry = new WglProfileRegistryGateway(genomeLib, this);
         genomeProfile = new WonderfulChickenGenomeProfile(
@@ -79,6 +91,8 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
 
         WorldListener worldListener = new WorldListener(this, chickens, store, displays, inventories, configService);
         getServer().getPluginManager().registerEvents(worldListener, this);
+        getServer().getPluginManager().registerEvents(
+                new BiologicalClockListener(biologicalClock, getLogger()), this);
         getServer().getPluginManager().registerEvents(new InteractionListener(this, chickens, store, configService, messageService, inventories, displays, riding), this);
         getServer().getPluginManager().registerEvents(new InventoryListener(inventories), this);
 
@@ -101,6 +115,14 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         if (displays != null) displays.removeAll();
         if (bedrock != null) bedrock.shutdown();
         if (profileRegistry != null) profileRegistry.unregisterOwner();
+        if (biologicalClock != null) {
+            try {
+                biologicalClock.persist();
+            } catch (RuntimeException error) {
+                getLogger().warning("Could not persist biological clock state: " + error.getMessage());
+            }
+            biologicalClock = null;
+        }
         genomeProfile = null;
         profileRegistry = null;
         genomeLib = null;
@@ -120,6 +142,28 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
             throw new IllegalStateException("Wonderful Chicken genome profile is not available");
         }
         return profile;
+    }
+
+    public BiologicalClock biologicalClock() {
+        if (biologicalClock == null) {
+            throw new IllegalStateException("WWC biological clock is unavailable");
+        }
+        return biologicalClock;
+    }
+
+    public void reconfigureBiologicalClock() {
+        World next = requireClockWorld(configService.ageClockWorld());
+        if (!biologicalClock().worldName().equals(next.getName())) {
+            biologicalClock().reconfigure(next.getName(), next::getFullTime);
+        }
+    }
+
+    private World requireClockWorld(String name) {
+        World world = Bukkit.getWorld(name);
+        if (world == null) {
+            throw new IllegalArgumentException("WWC biological clock world is unavailable: " + name);
+        }
+        return world;
     }
 
     private BedrockCompatibility createBedrockCompatibility() {

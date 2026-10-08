@@ -93,6 +93,12 @@ class YamlKeyMergerTest {
         assertEquals(0.2, persisted.getDouble("nature.adjustment"), 1e-9);
         assertTrue(Files.readString(file).contains("operator note"));
         assertTrue(Files.readString(file).contains("custom adjustment"));
+        assertEquals(defaults.getComments("runtime.age.clock-world"),
+                persisted.getComments("runtime.age.clock-world"),
+                "New runtime clock key must retain explanatory comments");
+        assertEquals(defaults.getComments("runtime.age"),
+                persisted.getComments("runtime.age"),
+                "New runtime age section must retain its bundled comments");
     }
 
     @Test

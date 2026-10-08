@@ -89,3 +89,26 @@ storage:
   persist-current-stamina: true
 commands:
   info-max-results: 10
+# 既存Genome / Phenotype Snapshotには遡及せず、現在実効値にのみ反映されるruntime設定です。
+runtime:
+  age:
+    # 生物学的時刻の基準ワールド。存在するワールド名を指定します。
+    # 別ワールドへの変更時は時間差を吸収して連続する日齢を保ちます。
+    clock-world: world
+    # 成体化後の成長・全盛・老化期間。単位: Minecraft game day (24000 tick)。
+    # 0以上。値を大きくするとそれぞれの段階が長くなります。reload後の計算から反映されます。
+    base-growth-game-days: 672.0
+    base-peak-duration-game-days: 2880.0
+    base-aging-duration-game-days: 4320.0
+    # 年齢補正の能力別感受性。0で年齢の影響なし。正の値が大きいほど影響が増えます。
+    # 怪我の重症度やGenomeの基礎能力値は変更しません。
+    sensitivity:
+      max-health: 0.7
+      size: 0.0
+      ground-speed: 1.0
+      air-speed: 0.8
+      ascent-speed: 1.0
+      jump-strength: 1.0
+      step-height: 0.4
+      stamina: 0.7
+      stamina-recovery: 0.5

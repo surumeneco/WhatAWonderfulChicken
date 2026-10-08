@@ -2,6 +2,8 @@ package co.surumene.whatawonderfulchicken.task;
 
 import co.surumene.whatawonderfulchicken.config.ConfigService;
 import co.surumene.whatawonderfulchicken.data.Trait;
+import co.surumene.whatawonderfulchicken.runtime.TraitRuntimeModifiers;
+import java.util.List;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
 import org.bukkit.Bukkit;
@@ -44,15 +46,19 @@ public final class TraitController implements Runnable {
         for (Chicken chicken : chickens.loadedChickens()) {
             active.add(chicken.getUniqueId());
             var data = store.read(chicken);
+            var expressed = data.phenotypeSnapshot() == null
+                    ? List.<co.surumene.whatawonderfulchicken.data.ExpressedTrait>of()
+                    : data.phenotypeSnapshot().expressedTraits();
             for (Trait trait : Trait.values()) {
                 if (!data.hasTrait(trait)) continue;
+                int amplifier = TraitRuntimeModifiers.potionAmplifier(expressed, trait);
                 switch (trait) {
-                    case HINOTORI -> apply(chicken, PotionEffectType.FIRE_RESISTANCE);
-                    case WATAGE -> apply(chicken, PotionEffectType.SLOW_FALLING);
-                    case FUKUTSU -> apply(chicken, PotionEffectType.REGENERATION);
-                    case SAIKUTSU_OUEN -> applyHaste(chicken);
-                    case YOME -> applyRider(chicken, PotionEffectType.NIGHT_VISION);
-                    case CHIKARAKOBU -> applyRider(chicken, PotionEffectType.STRENGTH);
+                    case HINOTORI -> apply(chicken, PotionEffectType.FIRE_RESISTANCE, 0);
+                    case WATAGE -> apply(chicken, PotionEffectType.SLOW_FALLING, 0);
+                    case FUKUTSU -> apply(chicken, PotionEffectType.REGENERATION, amplifier);
+                    case SAIKUTSU_OUEN -> applyHaste(chicken, amplifier);
+                    case YOME -> applyRider(chicken, PotionEffectType.NIGHT_VISION, 0);
+                    case CHIKARAKOBU -> applyRider(chicken, PotionEffectType.STRENGTH, amplifier);
                     case MIHARIBAN -> alert(chicken);
                     default -> { /* Egg laying and genetics are handled at their respective events. */ }
                 }
@@ -61,31 +67,32 @@ public final class TraitController implements Runnable {
         lastAlert.keySet().retainAll(active);
     }
 
-    private void applyHaste(Chicken chicken) {
+    private void applyHaste(Chicken chicken, int amplifier) {
         double radius = config.hasteRadius();
         double squared = radius * radius;
         for (Player player : chicken.getWorld().getPlayers()) {
             if (player.getLocation().distanceSquared(chicken.getLocation()) <= squared) {
-                apply(player, PotionEffectType.HASTE);
+                apply(player, PotionEffectType.HASTE, amplifier);
             }
         }
     }
 
-    private void applyRider(Chicken chicken, PotionEffectType type) {
+    private void applyRider(Chicken chicken, PotionEffectType type, int amplifier) {
         for (Entity passenger : chicken.getPassengers()) {
-            if (passenger instanceof Player player) apply(player, type);
+            if (passenger instanceof Player player) apply(player, type, amplifier);
         }
     }
 
-    private void apply(org.bukkit.entity.LivingEntity entity, PotionEffectType type) {
+    private void apply(org.bukkit.entity.LivingEntity entity, PotionEffectType type, int amplifier) {
         PotionEffect current = entity.getPotionEffect(type);
         // Vanilla night vision flashes below 10 seconds; refresh before entering that window.
         // On dismount the effect expires naturally, without removing another source's potion.
         int duration = type == PotionEffectType.NIGHT_VISION ? 240 : EFFECT_TICKS;
         int threshold = type == PotionEffectType.NIGHT_VISION ? 220 : EFFECT_REFRESH_THRESHOLD;
-        // Respect external stronger or longer-lasting effects. Do not add amplifiers.
-        if (current != null && (current.getAmplifier() > 0 || current.getDuration() > threshold)) return;
-        entity.addPotionEffect(new PotionEffect(type, duration, 0, true, false, false));
+        // Respect other mechanics' stronger effects; stronger WWC expression may upgrade a weaker one.
+        if (current != null && (current.getAmplifier() > amplifier
+                || (current.getAmplifier() == amplifier && current.getDuration() > threshold))) return;
+        entity.addPotionEffect(new PotionEffect(type, duration, amplifier, true, false, false));
     }
 
     private void alert(Chicken chicken) {

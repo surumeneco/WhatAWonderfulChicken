@@ -18,6 +18,9 @@ import co.surumene.whatawonderfulchicken.genome.PhenotypeOrigin;
 import co.surumene.whatawonderfulchicken.genome.WonderfulChickenDecodedPhenotype;
 import co.surumene.whatawonderfulchicken.migration.LegacyChickenGenomeMigrator;
 import co.surumene.whatawonderfulchicken.migration.MigrationResult;
+import co.surumene.whatawonderfulchicken.runtime.AdultAge;
+import co.surumene.whatawonderfulchicken.runtime.AgeCurve;
+import co.surumene.whatawonderfulchicken.runtime.AgeInjuryModifier;
 import co.surumene.wgl.api.DecodeResult;
 import co.surumene.wgl.api.SynthesisResult;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -323,7 +326,37 @@ public final class WonderfulChickenService {
     }
 
     public double effective(WonderfulChickenData data, StatType stat) {
-        return data.effective(stat, config.natureAdjustment());
+        if (!data.hasGenomeModel() || data.adultBiologicalTime() == 0L) {
+            // Immature chickens do not progress through the adult curve.
+            return data.effective(stat, config.natureAdjustment());
+        }
+        var curve = AgeCurve.from(
+                data.phenotypeSnapshot().developmentFactors(),
+                config.ageGrowthDays(), config.agePeakDays(), config.ageAgingDays());
+        double age = AdultAge.days(
+                data.adultBiologicalTime(), plugin.biologicalClock().currentTime());
+        double normalized = AgeInjuryModifier.adjust(
+                stat, data.normalized(stat), age, curve,
+                data.phenotypeSnapshot().injuries(),
+                config.ageSensitivity(stat)).effectiveNormalized();
+        double value = store.toValue(stat, normalized);
+        double adjustment = config.natureAdjustment()
+                * (data.hasTrait(Trait.KUSE_MASHI) ? 1.5 : 1.0);
+        double effective = value * data.nature().multiplier(stat, adjustment);
+        return stat == StatType.MAX_HEALTH
+                ? Math.max(1.0, Math.round(effective)) : effective;
+    }
+
+    public double adultAgeDays(WonderfulChickenData data) {
+        return AdultAge.days(
+                data.adultBiologicalTime(), plugin.biologicalClock().currentTime());
+    }
+
+    private void initializeAdultAge(Chicken chicken, WonderfulChickenData data) {
+        long start = AdultAge.start(
+                chicken.isAdult(), data.adultBiologicalTime(),
+                plugin.biologicalClock().currentTime());
+        if (start != data.adultBiologicalTime()) data.adultBiologicalTime(start);
     }
 
     public void initialize(Chicken chicken, WonderfulChickenData data) {
@@ -331,6 +364,7 @@ public final class WonderfulChickenService {
         if (!data.hasGenomeModel()) {
             migrateGenomeModel(chicken, data);
         }
+        initializeAdultAge(chicken, data);
         store.save(chicken, data);
         loaded.put(chicken.getUniqueId(), chicken);
         projectAttributes(chicken);
@@ -372,13 +406,24 @@ public final class WonderfulChickenService {
     public void projectAttributes(Chicken chicken) {
         if (!store.isWonderful(chicken)) return;
         WonderfulChickenData data = store.read(chicken);
+        if (chicken.isAdult() && data.adultBiologicalTime() == 0L) {
+            // One-time transition from baby (or legacy v2.0 snapshot) to adult.
+            data = store.load(chicken);
+            initializeAdultAge(chicken, data);
+            store.save(chicken, data);
+        }
         double effectiveHealth = effective(data, StatType.MAX_HEALTH);
         setAttribute(chicken, Attribute.MAX_HEALTH, effectiveHealth);
         setAttribute(chicken, Attribute.SCALE, effective(data, StatType.SIZE));
-        setAttribute(chicken, Attribute.STEP_HEIGHT, data.value(StatType.STEP_HEIGHT));
+        setAttribute(chicken, Attribute.STEP_HEIGHT, effective(data, StatType.STEP_HEIGHT));
         setAttribute(chicken, Attribute.JUMP_STRENGTH, jumpVelocityForHeight(effective(data, StatType.JUMP_STRENGTH)));
         setAttribute(chicken, Attribute.MOVEMENT_SPEED, Math.max(0.001, effective(data, StatType.GROUND_SPEED) / MOVEMENT_ATTRIBUTE_BLOCKS_PER_SECOND));
         if (chicken.getHealth() > effectiveHealth) chicken.setHealth(effectiveHealth);
+        double effectiveStamina = effective(data, StatType.STAMINA);
+        if (data.currentStamina() > effectiveStamina) {
+            // Keep the persisted current pool at or below the aging-adjusted capacity.
+            store.setCurrentStamina(chicken, effectiveStamina);
+        }
         ItemStack head = data.headItem();
         if (chicken.getEquipment() != null) {
             if (!Objects.equals(chicken.getEquipment().getHelmet(), head)) chicken.getEquipment().setHelmet(head);
