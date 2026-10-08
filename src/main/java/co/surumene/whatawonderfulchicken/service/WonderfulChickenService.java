@@ -347,6 +347,11 @@ public final class WonderfulChickenService {
                 ? Math.max(1.0, Math.round(effective)) : effective;
     }
 
+    public double adultAgeDays(WonderfulChickenData data) {
+        return AdultAge.days(
+                data.adultBiologicalTime(), plugin.biologicalClock().currentTime());
+    }
+
     private void initializeAdultAge(Chicken chicken, WonderfulChickenData data) {
         long start = AdultAge.start(
                 chicken.isAdult(), data.adultBiologicalTime(),
