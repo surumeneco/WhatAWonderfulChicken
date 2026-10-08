@@ -22,6 +22,7 @@ import io.papermc.paper.command.brigadier.argument.resolvers.selector.EntitySele
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Chicken;
@@ -30,6 +31,7 @@ import org.bukkit.entity.Player;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 public final class GenomeCommands {
     private final WhatAWonderfulChickenPlugin plugin;
@@ -111,6 +113,7 @@ public final class GenomeCommands {
                         "染色体長 A/B: "+raw.chromosomeLengths(),NamedTextColor.GRAY));
                 sendCopyable(sender,"A(bits)",raw.haplotypeA());
                 sendCopyable(sender,"B(bits)",raw.haplotypeB());
+                sendCopyable(sender,"Entity source", "chicken_"+chicken.getUniqueId());
                 String source=GenomeParentSourceToken.encode(
                         engine,new BreedingParentSource.DiploidParent(data.genome()));
                 sendCopyable(sender,"Parent source (WGLP)",source);
@@ -147,9 +150,9 @@ public final class GenomeCommands {
         CommandSender sender=context.getSource().getSender();
         try {
             GenomeEngine engine=plugin.genomeLib().engine();
-            BreedingParentSource a=GenomeParentSourceToken.decode(
+            BreedingParentSource a=resolveParentSource(
                     engine,StringArgumentType.getString(context,"sourceA"));
-            BreedingParentSource b=GenomeParentSourceToken.decode(
+            BreedingParentSource b=resolveParentSource(
                     engine,StringArgumentType.getString(context,"sourceB"));
             WonderfulChickenBreedingOutcome outcome=
                     new WonderfulChickenBreedingService(
@@ -166,6 +169,24 @@ public final class GenomeCommands {
             error(sender,detail(exception));
             return 0;
         }
+    }
+
+    private BreedingParentSource resolveParentSource(
+            GenomeEngine engine, String token) {
+        if(token.startsWith("chicken_")) {
+            UUID uuid=UUID.fromString(token.substring("chicken_".length()));
+            Entity entity=Bukkit.getEntity(uuid);
+            if(!(entity instanceof Chicken chicken) || !store.isWonderful(chicken)) {
+                throw new IllegalArgumentException("Wonderful Chickenが見つかりません: "+uuid);
+            }
+            chickens.registerLoaded(chicken);
+            WonderfulChickenData data=store.load(chicken);
+            if(!data.hasGenomeModel()) {
+                throw new IllegalArgumentException("親個体にGenomeがありません: "+uuid);
+            }
+            return new BreedingParentSource.DiploidParent(data.genome());
+        }
+        return GenomeParentSourceToken.decode(engine,token);
     }
 
     private int spawnPrepared(
