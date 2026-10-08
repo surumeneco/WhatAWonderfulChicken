@@ -9,6 +9,12 @@ import co.surumene.whatawonderfulchicken.util.ChickenDisplayName;
 import co.surumene.whatawonderfulchicken.data.Rank;
 import co.surumene.whatawonderfulchicken.data.StatType;
 import co.surumene.whatawonderfulchicken.data.WonderfulChickenData;
+import co.surumene.whatawonderfulchicken.breeding.WonderfulChickenBreedingOutcome;
+import co.surumene.whatawonderfulchicken.breeding.WonderfulChickenBreedingService;
+import co.surumene.whatawonderfulchicken.genome.PhenotypeOrigin;
+import co.surumene.wgl.api.BreedingParentSource;
+import co.surumene.wgl.api.DecodeResult;
+import co.surumene.wgl.api.DiploidGenome;
 import co.surumene.whatawonderfulchicken.display.DisplayService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
@@ -70,6 +76,7 @@ public final class CommandService {
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal("wwc");
         root.then(summonNode());
         root.then(infoNode());
+        root.then(genomeNode());
         root.then(modifyNode());
         root.then(configNode());
         root.then(Commands.literal("reload")
@@ -82,8 +89,30 @@ public final class CommandService {
         return Commands.literal("summon")
                 .requires(source -> source.getSender().hasPermission("wwc.command.summon"))
                 .executes(ctx -> summon(ctx, ""))
+                .then(Commands.literal("genome")
+                        .then(Commands.argument("format", StringArgumentType.word())
+                                .suggests((ctx, builder) -> {
+                                    for (String value : List.of("text", "bits", "hex", "dna")) {
+                                        builder.suggest(value);
+                                    }
+                                    return builder.buildFuture();
+                                })
+                                .then(Commands.argument("haplotypes", StringArgumentType.greedyString())
+                                        .executes(this::summonGenome))))
+                .then(Commands.literal("offspring")
+                        .then(Commands.literal("parent")
+                                .then(Commands.argument("parents", StringArgumentType.greedyString())
+                                        .executes(this::summonOffspring))))
                 .then(Commands.argument("arguments", StringArgumentType.greedyString())
                         .executes(ctx -> summon(ctx, StringArgumentType.getString(ctx, "arguments"))));
+    }
+
+    private LiteralArgumentBuilder<CommandSourceStack> genomeNode() {
+        return Commands.literal("genome")
+                .requires(source -> source.getSender().hasPermission("wwc.command.genome"))
+                .then(Commands.literal("get")
+                        .then(Commands.argument("targets", ArgumentTypes.entities())
+                                .executes(this::genomeGet)));
     }
 
     private LiteralArgumentBuilder<CommandSourceStack> infoNode() {
@@ -172,6 +201,140 @@ public final class CommandService {
             sender.sendMessage(messages.text(sender, "error.summon", ex.getMessage()));
             return 0;
         }
+    }
+
+    private int summonGenome(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        try {
+            GenomeInputParser.Format format = GenomeInputParser.Format.parse(
+                    StringArgumentType.getString(ctx, "format"));
+            List<String> parts = GenomeCommandArguments.parse(
+                    StringArgumentType.getString(ctx, "haplotypes"));
+            var engine = plugin.genomeLib().engine();
+            DiploidGenome genome = GenomeAdminCodec.parseGenome(
+                    format,
+                    parts.get(0),
+                    parts.size() == 2 ? parts.get(1) : null,
+                    engine.sequenceCodec());
+
+            var decoded = engine.decode(plugin.genomeProfile(), genome);
+            var snapshot = decoded.phenotype().toSnapshot(
+                    decoded.identity(), PhenotypeOrigin.ADMIN);
+
+            return spawnPreparedGenome(ctx, genome, snapshot);
+        } catch (RuntimeException error) {
+            sender.sendMessage(Component.text(
+                    "Genome召喚に失敗しました: " + safeGenomeError(error),
+                    NamedTextColor.RED));
+            return 0;
+        }
+    }
+
+    private int summonOffspring(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        try {
+            GenomeParentSourceArgument.Pair parts = GenomeParentSourceArgument.splitPair(
+                    StringArgumentType.getString(ctx, "parents"));
+            var engine = plugin.genomeLib().engine();
+            BreedingParentSource parentA = GenomeParentSourceArgument.parse(parts.first(), engine);
+            BreedingParentSource parentB = GenomeParentSourceArgument.parse(parts.second(), engine);
+            WonderfulChickenBreedingService breeding = new WonderfulChickenBreedingService(
+                    () -> plugin.genomeLib().engine(), plugin::genomeProfile);
+            WonderfulChickenBreedingOutcome outcome = breeding.breedSources(
+                    parentA, parentB, java.util.concurrent.ThreadLocalRandom.current().nextLong());
+            if (outcome instanceof WonderfulChickenBreedingOutcome.Fallback failure) {
+                sender.sendMessage(Component.text(
+                        "繁殖に失敗したため召喚しません: " + failure.detail(),
+                        NamedTextColor.RED));
+                return 0;
+            }
+            WonderfulChickenBreedingOutcome.Success success =
+                    (WonderfulChickenBreedingOutcome.Success) outcome;
+            return spawnPreparedGenome(ctx, success.genome(), success.phenotypeSnapshot());
+        } catch (RuntimeException error) {
+            sender.sendMessage(Component.text(
+                    "Genome繁殖召喚に失敗しました: " + safeGenomeError(error),
+                    NamedTextColor.RED));
+            return 0;
+        }
+    }
+
+    private int spawnPreparedGenome(
+            CommandContext<CommandSourceStack> ctx,
+            DiploidGenome genome,
+            co.surumene.whatawonderfulchicken.data.PhenotypeSnapshot snapshot) {
+        CommandSender sender = ctx.getSource().getSender();
+        Location location = ctx.getSource().getLocation();
+        World world = location.getWorld();
+        if (world == null) throw new IllegalArgumentException("world is not available");
+
+        // Complete validation and phenotype materialization before creating the entity.
+        WonderfulChickenData data = chickens.createGenomeData(genome, snapshot);
+        Chicken chicken = world.spawn(location, Chicken.class);
+        try {
+            chickens.initialize(chicken, data);
+            displays.rebuild(chicken);
+        } catch (RuntimeException error) {
+            chicken.remove();
+            throw error;
+        }
+        sender.sendMessage(Component.text(
+                "Wonderful ChickenをGenomeから生成しました: " + chicken.getUniqueId(),
+                NamedTextColor.GREEN));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int genomeGet(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        try {
+            EntitySelectorArgumentResolver resolver =
+                    ctx.getArgument("targets", EntitySelectorArgumentResolver.class);
+            List<Chicken> targets = resolver.resolve(ctx.getSource()).stream()
+                    .filter(Chicken.class::isInstance)
+                    .map(Chicken.class::cast)
+                    .filter(store::isWonderful)
+                    .toList();
+            if (targets.isEmpty() || targets.size() > config.infoMaxResults()) {
+                sender.sendMessage(Component.text(
+                        targets.isEmpty() ? "Wonderful Chickenが見つかりません"
+                                : "対象個体が多すぎます", NamedTextColor.RED));
+                return 0;
+            }
+            var engine = plugin.genomeLib().engine();
+            for (Chicken chicken : targets) {
+                chickens.registerLoaded(chicken);
+                WonderfulChickenData data = store.load(chicken);
+                if (!data.hasGenomeModel()) {
+                    throw new IllegalStateException("Genomeが保存されていません: "
+                            + chicken.getUniqueId());
+                }
+                GenomeAdminCodec.RawBitsView raw =
+                        GenomeAdminCodec.rawBits(data.genome());
+                sender.sendMessage(Component.text(
+                        "◆ WWC Genome " + chicken.getUniqueId()
+                                + " / format=" + data.genome().genomeFormatVersion(),
+                        NamedTextColor.GOLD));
+                sender.sendMessage(Component.text(
+                        "Lengths A/B: " + raw.chromosomeLengths(), NamedTextColor.GRAY));
+                sender.sendMessage(Component.text("A(bits): " + raw.haplotypeA()));
+                sender.sendMessage(Component.text("B(bits): " + raw.haplotypeB()));
+                sender.sendMessage(Component.text("Source: " + GenomeParentSourceArgument.encode(
+                        new BreedingParentSource.DiploidParent(data.genome()), engine)));
+            }
+            return targets.size();
+        } catch (Exception error) {
+            sender.sendMessage(Component.text(
+                    "Genome取得に失敗しました: " + safeGenomeError(error),
+                    NamedTextColor.RED));
+            return 0;
+        }
+    }
+
+    private static String safeGenomeError(Throwable error) {
+        String message = error.getMessage();
+        return message == null || message.isBlank()
+                ? error.getClass().getSimpleName()
+                : error.getClass().getSimpleName() + ": " + message;
     }
 
     private int infoNearest(CommandContext<CommandSourceStack> ctx) {

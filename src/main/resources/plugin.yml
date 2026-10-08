@@ -10,6 +10,8 @@ softdepend: [Geyser-Spigot]
 permissions:
   wwc.command.summon:
     default: op
+  wwc.command.genome:
+    default: op
   wwc.command.info:
     default: op
   wwc.command.modify:
