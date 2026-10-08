@@ -72,6 +72,10 @@ public final class InteractionListener implements Listener {
             mountedProxy = true;
         }
 
+        if (plugin.chickenTrap() != null && plugin.chickenTrap().isTrapMount(chicken)) {
+            event.setCancelled(true);
+            return;
+        }
         if (player.isSneaking()) return;
         ItemStack hand = player.getInventory().getItemInMainHand();
 

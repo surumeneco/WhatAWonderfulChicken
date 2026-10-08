@@ -77,6 +77,8 @@ public final class ConfigService {
         validateProbability(config, defaults, "breeding.direct-inheritance-rate", errors);
         validateProbability(config, defaults, "breeding.stat-mutation-rate", errors);
         validateProbability(config, defaults, "breeding.genetic-mutation-rate", errors);
+        validateProbability(config, defaults, "chicken-trap.spawn-chance", errors);
+        positive(config, defaults, "chicken-trap.activation-radius-blocks", errors);
         validateProbability(config, defaults, "traits.egg-gold-chance", errors);
         validateProbability(config, defaults, "traits.egg-netherite-conditional-chance", errors);
         double adjustment = numberSetting(config, defaults, "nature.adjustment");
@@ -216,6 +218,10 @@ public final class ConfigService {
     public double alertRadius() { return config().getDouble("traits.alert-radius", 20.0); }
     public int alertMinInterval() { return config().getInt("traits.alert-min-interval-ticks", 10); }
     public int alertMaxInterval() { return config().getInt("traits.alert-max-interval-ticks", 80); }
+    public double chickenTrapChance() { return config().getDouble("chicken-trap.spawn-chance", 0.01); }
+    public double chickenTrapActivationRadius() {
+        return config().getDouble("chicken-trap.activation-radius-blocks", 10.0);
+    }
     public double eggGoldChance() { return config().getDouble("traits.egg-gold-chance", 0.05); }
     public double eggNetheriteChance() { return config().getDouble("traits.egg-netherite-conditional-chance", 0.01); }
     public double staminaConsumptionPerSecond() { return config().getDouble("flight.stamina-consumption-per-second", 1.0); }

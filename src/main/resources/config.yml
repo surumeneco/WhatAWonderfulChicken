@@ -169,3 +169,11 @@ runtime:
       step-height: 0.4
       stamina: 0.7
       stamina-recovery: 0.5
+
+# チキントラップは新月かつ晴天のゲーム内時刻18000に一度だけ抽選します。
+# 時刻スキップでは抽選せず、23000に到達すれば残存個体は消滅します。
+chicken-trap:
+  # 0.01 = 1%。範囲 0.0～1.0。reload後の次の抽選から反映します。
+  spawn-chance: 0.01
+  # 待機中のSkeletonが近づくプレイヤーに反応する半径。単位:block、0より大きい値。
+  activation-radius-blocks: 10.0
