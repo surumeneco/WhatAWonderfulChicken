@@ -45,13 +45,15 @@ final class GenomeInputParserTest {
     }
 
     @Test
-    void ignoresSeventhAndLaterChromosomeSections() {
-        List<BitSequence> chromosomes = GenomeInputParser.parseHaplotype(
-                GenomeInputParser.Format.TEXT,
-                "a,b,c,d,e,f,ignored,also-ignored",
-                null);
-        assertEquals(6, chromosomes.size());
-        assertEquals("f", new String(chromosomes.get(5).packedBits(), StandardCharsets.UTF_8));
+    void rejectsSeventhChromosomeInsteadOfSilentlyTruncatingGenome() {
+        assertThrows(IllegalArgumentException.class,
+                () -> GenomeInputParser.parseHaplotype(
+                        GenomeInputParser.Format.TEXT,
+                        "a,b,c,d,e,f,unexpected", null));
+        assertThrows(IllegalArgumentException.class,
+                () -> GenomeInputParser.parseHaplotype(
+                        GenomeInputParser.Format.BITS,
+                        "1,0,1,0,1,0,", null));
     }
 
     @Test
