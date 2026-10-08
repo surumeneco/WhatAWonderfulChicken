@@ -55,6 +55,9 @@ build/libs/WhatAWonderfulChicken-2.0.0.jar
 ```text
 /wwc summon [x y z] [<wwc-data>] [<vanilla-nbt>]
 /wwc info [<entity selector>]
+/wwc genome get <entity selector>
+/wwc summon genome <text|bits|hex|dna> <haplotypeA> [haplotypeB]
+/wwc summon offspring parent <sourceA> parent <sourceB>
 /wwc modify <entity selector> <set|add> <field> <value>
 /wwc config get <path>
 /wwc config set <path> <value>
@@ -66,6 +69,27 @@ build/libs/WhatAWonderfulChicken-2.0.0.jar
 ```
 
 `info` と `modify` はPaper 26.2のBrigadier Entity Selector引数を使用するため、`@e[...]`、UUID指定、クライアント標準のEntity候補補完を利用できます。
+
+### 2.0.0 Genome管理コマンド
+
+`/wwc genome get <entity selector>` は保存済み二倍体Genomeの染色体ごとのビット長、
+A/B各半数体のraw bits、WGL型付きParent Source tokenを表示します。閲覧は `wwc.command.genome` 権限（初期設定はOP）で制御します。
+
+`/wwc summon genome <text|bits|hex|dna> <haplotypeA> [haplotypeB]` は
+Genomeを**そのまま注入**します。6染色体はカンマ区切りで明示するか、
+未指定境界を `9:8:7:6:5:4` で配分します。B省略時はAを複製します。
+この直接召喚にはChicken Backbone互換判定や繁殖処理を要求しません。
+
+`/wwc summon offspring parent <sourceA> parent <sourceB>` は
+WGLの型付きParent Sourceを2つ受け取って繁殖させます。
+sourceは `diploid:<base64url>` または `gamete:<base64url>` です。
+このバイト列はWGL `encodeParentSource(...)` の結果をBase64 URL-safe（paddingなし）
+で符号化したものです。`genome get` が出力する `Source:` は
+`diploid:`形式であり、そのままコピーできます。
+`gamete:` は既に確定した半数体をWGLの `Gamete` として符号化します。
+二倍体・gamete混在も可。双方のChicken Backbone適合判定後にWGL繁殖を実行し、
+失敗なら召喚しません。直接召喚・管理者繁殖の新規個体は祖先不明の管理個体として生成します。
+長いGenome文字列はゲーム内チャットの入力上限に収まらない場合があります。
 
 ### summon のWWCデータ例
 
