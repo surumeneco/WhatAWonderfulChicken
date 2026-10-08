@@ -419,6 +419,11 @@ public final class WonderfulChickenService {
         setAttribute(chicken, Attribute.JUMP_STRENGTH, jumpVelocityForHeight(effective(data, StatType.JUMP_STRENGTH)));
         setAttribute(chicken, Attribute.MOVEMENT_SPEED, Math.max(0.001, effective(data, StatType.GROUND_SPEED) / MOVEMENT_ATTRIBUTE_BLOCKS_PER_SECOND));
         if (chicken.getHealth() > effectiveHealth) chicken.setHealth(effectiveHealth);
+        double effectiveStamina = effective(data, StatType.STAMINA);
+        if (data.currentStamina() > effectiveStamina) {
+            // Keep the persisted current pool at or below the aging-adjusted capacity.
+            store.setCurrentStamina(chicken, effectiveStamina);
+        }
         ItemStack head = data.headItem();
         if (chicken.getEquipment() != null) {
             if (!Objects.equals(chicken.getEquipment().getHelmet(), head)) chicken.getEquipment().setHelmet(head);
