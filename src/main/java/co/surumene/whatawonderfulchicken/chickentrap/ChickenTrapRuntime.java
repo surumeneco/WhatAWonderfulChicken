@@ -309,9 +309,8 @@ public final class ChickenTrapRuntime implements Runnable {
             int interval = skeleton.getWorld().getDifficulty() == org.bukkit.Difficulty.HARD ? 20 : 40;
             if (ChickenTrapPolicy.extendedBowRange(distanceSquared)
                     && skeleton.hasLineOfSight(target)
-                    && skeleton.getTicksLived() % interval == 0
-                    && skeleton instanceof com.destroystokyo.paper.entity.RangedEntity ranged) {
-                ranged.rangedAttack(target, 1.0F);
+                    && skeleton.getTicksLived() % interval == 0) {
+                skeleton.rangedAttack(target, 1.0F);
             }
             if (distanceSquared > 225.0 && distanceSquared < 1024.0)
                 chicken.getPathfinder().moveTo(target.getLocation(), 1.2);
