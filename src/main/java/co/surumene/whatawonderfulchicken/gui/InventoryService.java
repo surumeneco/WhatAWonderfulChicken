@@ -332,7 +332,7 @@ public final class InventoryService {
         for (StatType stat : StatType.values()) {
             String display = config.statDisplay(stat);
             if (display.equals("none")) continue;
-            String label = messages.text(viewer.locale(), "stat." + stat.key());
+            String label = statLabel(viewer, data, stat);
             String value = formatValue(stat, data.value(stat));
             String rank = messages.rank(viewer.locale(), Rank.fromNormalized(data.normalized(stat)).key());
             String line = switch (display) {
@@ -345,6 +345,21 @@ public final class InventoryService {
         meta.lore(lore);
         item.setItemMeta(meta);
         return item;
+    }
+
+    private boolean injured(WonderfulChickenData data, StatType stat) {
+        var phenotype = data.phenotypeSnapshot();
+        return phenotype != null && ChickenGuiPresentation.activeInjury(
+                phenotype.injuries(), stat, data.adultBiologicalTime(),
+                plugin.biologicalClock().currentTime());
+    }
+
+    private String statLabel(Player viewer, WonderfulChickenData data, StatType stat) {
+        String label = messages.text(viewer.locale(), "stat." + stat.key());
+        String arrow = ChickenGuiPresentation.natureArrow(data.nature(), stat);
+        if (!arrow.isEmpty()) label += " " + arrow;
+        if (injured(data, stat)) label += " " + messages.text(viewer.locale(), "gui.injury_mark");
+        return label;
     }
 
     private ItemStack pedigreeItem(Player viewer, WonderfulChickenData data) {
@@ -389,7 +404,7 @@ public final class InventoryService {
                 String display = config.statDisplay(stat);
                 if (display.equals("none")) continue;
 
-                String label = messages.text(player.locale(), "stat." + stat.key());
+                String label = statLabel(player, data, stat);
                 String value = formatValue(stat, data.value(stat));
                 Rank rank = Rank.fromNormalized(data.normalized(stat));
                 String rankText = messages.rank(player.locale(), rank.key());
