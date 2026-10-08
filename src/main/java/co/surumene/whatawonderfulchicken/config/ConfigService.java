@@ -95,6 +95,19 @@ public final class ConfigService {
         if (minAlert < 10 || maxAlert < minAlert) errors.add("traits.alert interval must satisfy 10 <= min <= max");
         if (integerSetting(config, defaults, "road.check-interval-ticks") < 1) errors.add("road.check-interval-ticks must be >= 1");
         positive(config, defaults, "follow.teleport-distance", errors);
+        Object clockWorld = config.isSet("runtime.age.clock-world")
+                ? config.get("runtime.age.clock-world")
+                : defaults.get("runtime.age.clock-world");
+        if (!(clockWorld instanceof String name) || name.isBlank()) {
+            errors.add("runtime.age.clock-world must be a nonempty world name");
+        }
+        nonNegative(config, defaults, "runtime.age.base-growth-game-days", errors);
+        nonNegative(config, defaults, "runtime.age.base-peak-duration-game-days", errors);
+        nonNegative(config, defaults, "runtime.age.base-aging-duration-game-days", errors);
+        for (StatType stat : StatType.values()) {
+            nonNegative(config, defaults,
+                    "runtime.age.sensitivity." + stat.configName(), errors);
+        }
         if (integerSetting(config, defaults, "commands.info-max-results") < 1) errors.add("commands.info-max-results must be >= 1");
         for (String block : config.getStringList("road.blocks")) {
             if (Material.matchMaterial(block) == null) errors.add("Unknown road block: " + block);
@@ -206,6 +219,14 @@ public final class ConfigService {
     public double followTeleportDistance() { return config().getDouble("follow.teleport-distance", 16.0); }
     public boolean persistCurrentStamina() { return config().getBoolean("storage.persist-current-stamina", true); }
     public int infoMaxResults() { return config().getInt("commands.info-max-results", 10); }
+    public String ageClockWorld() { return config().getString("runtime.age.clock-world", "world"); }
+    public double ageGrowthDays() { return config().getDouble("runtime.age.base-growth-game-days", 672.0); }
+    public double agePeakDays() { return config().getDouble("runtime.age.base-peak-duration-game-days", 2880.0); }
+    public double ageAgingDays() { return config().getDouble("runtime.age.base-aging-duration-game-days", 4320.0); }
+    public double ageSensitivity(StatType stat) {
+        return config().getDouble("runtime.age.sensitivity." + stat.configName(),
+                co.surumene.whatawonderfulchicken.runtime.AgeInjuryModifier.ageSensitivity(stat));
+    }
 
     public Set<Material> roadBlocks() {
         if (cachedRoadBlocks != null) return cachedRoadBlocks;
