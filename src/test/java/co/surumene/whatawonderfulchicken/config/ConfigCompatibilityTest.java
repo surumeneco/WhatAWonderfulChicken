@@ -65,6 +65,45 @@ class ConfigCompatibilityTest {
     }
 
     @Test
+    void operatorConfigExplainsAllParameterGroups() {
+        YamlConfiguration config = defaults();
+        for (String path : java.util.List.of(
+                "stats.range-change-policy",
+                "stats.max-health",
+                "stats.size",
+                "stats.ground-speed",
+                "stats.air-speed",
+                "stats.ascent-speed",
+                "stats.jump-strength",
+                "stats.step-height",
+                "stats.stamina",
+                "stats.stamina-recovery",
+                "nature.adjustment",
+                "natural-spawn.chance",
+                "natural-spawn.max-normalized",
+                "natural-spawn.distribution",
+                "breeding.stat-mutation-rate",
+                "breeding.genetic-mutation-rate",
+                "breeding.direct-inheritance-rate",
+                "breeding.gaussian",
+                "traits.haste-radius",
+                "traits.alert-radius",
+                "traits.alert-min-interval-ticks",
+                "traits.egg-gold-chance",
+                "flight",
+                "feeding",
+                "road",
+                "follow",
+                "storage",
+                "commands",
+                "runtime.age.clock-world",
+                "runtime.age.sensitivity")) {
+            assertFalse(config.getComments(path).isEmpty(),
+                    "Bundled config is missing an operator-facing explanation for " + path);
+        }
+    }
+
+    @Test
     void explicitlyInvalidValuesNeverFallBackSilently() {
         YamlConfiguration old = legacyConfig();
         YamlConfiguration bundled = defaults();
