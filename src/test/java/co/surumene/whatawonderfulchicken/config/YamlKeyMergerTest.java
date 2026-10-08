@@ -68,8 +68,8 @@ class YamlKeyMergerTest {
             YamlConfiguration persisted = YamlConfiguration.loadConfiguration(file);
             assertEquals("Custom title", persisted.getString("gui.title"));
             assertEquals("Preserve this", persisted.getString("custom.message"));
-            assertEquals(defaults.getString("nature.majime.description"),
-                    persisted.getString("nature.majime.description"));
+            assertFalse(defaults.contains("nature.majime.description"),
+                    "Personality descriptions are obsolete in distributed language files");
             assertEquals(defaults.getString("trait.kin_no_tamago.description"),
                     persisted.getString("trait.kin_no_tamago.description"));
             assertEquals(defaults.getString("gui.ancestor_genetics"),
@@ -79,6 +79,24 @@ class YamlKeyMergerTest {
             assertEquals(0, YamlKeyMerger.mergeAndSave(persisted, defaults, file));
             assertEquals(firstSave, Files.readString(file.toPath()),
                     "Already-upgraded language file must not be rewritten");
+        }
+    }
+
+    @Test
+    void distributedLanguagesCoverEveryCurrentNatureAndTrait() {
+        for (String name : new String[]{"ja_jp.yml", "en_us.yml"}) {
+            YamlConfiguration language = resource("/lang/" + name);
+            for (var nature : co.surumene.whatawonderfulchicken.data.Nature.values()) {
+                String base = "nature." + nature.key();
+                assertNotNull(language.getString(base + ".name"), name + ": " + base);
+                assertFalse(language.contains(base + ".description"),
+                        "Personality flavor descriptions are no longer published");
+            }
+            for (var trait : co.surumene.whatawonderfulchicken.data.Trait.values()) {
+                String base = "trait." + trait.key();
+                assertNotNull(language.getString(base + ".name"), name + ": " + base);
+                assertNotNull(language.getString(base + ".description"), name + ": " + base);
+            }
         }
     }
 

@@ -98,40 +98,38 @@ rank:
 nature:
   majime:
     name: "まじめ"
-    description: "自分のできることを精一杯頑張る。"
   sekaseka:
     name: "せかせか"
-    description: "飛ぶよりも走るのが大好き。"
   uwa_no_sora:
     name: "うわのそら"
-    description: "ぼーっとしているが、空では活き活き。"
   awatenbo:
     name: "あわてんぼ"
-    description: "上がったり下がったり忙しいヤツ。"
   nebarizuyoi:
     name: "ねばりづよい"
-    description: "上がるのはゆっくりだけど長く続くタイプ。"
   komame:
     name: "こまめ"
-    description: "長い道でも少しずつ飛んでいく。"
   tamekomiya:
     name: "ためこみや"
-    description: "一気にやってのんびり休む。"
   hanekkaeri:
     name: "はねっかえり"
-    description: "走るよりジャンプが好き。"
   isoginbo:
     name: "いそぎんぼ"
-    description: "壁にはぶつかるけど駆け抜けていく。"
   kuishinbo:
     name: "くいしんぼ"
-    description: "体が大きくて丈夫。"
   tobashiya:
     name: "とばしや"
-    description: "血気盛んで短期決戦が好き。"
   jikkuri:
     name: "じっくり"
-    description: "少しずつ着実に進むタイプ。"
+  ganbariya:
+    name: "がんばりや"
+  dosshiri:
+    name: "どっしり"
+  nobinobi:
+    name: "のびのび"
+  genkimono:
+    name: "げんきもの"
+  chakkari:
+    name: "ちゃっかり"
 
 trait:
   jikiden:
@@ -167,3 +165,9 @@ trait:
   kuse_mashi:
     name: "クセ増し"
     description: "性格のクセが強くなる。"
+  oyogi_jouzu:
+    name: "泳ぎ上手"
+    description: "水中でも溺れない。"
+  yukiguni_umare:
+    name: "雪国生まれ"
+    description: "凍える寒さの影響を受けない。"

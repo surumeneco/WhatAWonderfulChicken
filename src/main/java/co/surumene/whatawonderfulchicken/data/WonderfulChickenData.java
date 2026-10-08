@@ -62,8 +62,9 @@ public final class WonderfulChickenData {
                 : genetics == null ? Nature.MAJIME : genetics.nature();
     }
     public Trait trait() {
-        if (phenotypeSnapshot != null && !phenotypeSnapshot.expressedTraits().isEmpty()) {
-            return phenotypeSnapshot.expressedTraits().getFirst().trait();
+        if (phenotypeSnapshot != null) {
+            return phenotypeSnapshot.expressedTraits().isEmpty()
+                    ? null : phenotypeSnapshot.expressedTraits().getFirst().trait();
         }
         return genetics == null ? null : genetics.trait();
     }

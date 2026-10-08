@@ -98,40 +98,38 @@ rank:
 nature:
   majime:
     name: "Earnest"
-    description: "Always does their best with what they have."
   sekaseka:
     name: "Restless"
-    description: "Loves running more than flying."
   uwa_no_sora:
     name: "Daydreamer"
-    description: "Lost in thought, but comes alive in the sky."
   awatenbo:
     name: "Scatterbrain"
-    description: "Always rushing up and down."
   nebarizuyoi:
     name: "Persevering"
-    description: "Slow to climb, but keeps at it."
   komame:
     name: "Diligent"
-    description: "Takes even long journeys one short flight at a time."
   tamekomiya:
     name: "Hoarder"
-    description: "Does it all at once, then enjoys a long rest."
   hanekkaeri:
     name: "Bouncy"
-    description: "Loves jumping more than running."
   isoginbo:
     name: "Speedster"
-    description: "Might bump into walls, but keeps racing ahead."
   kuishinbo:
     name: "Glutton"
-    description: "Big-bodied and sturdy."
   tobashiya:
     name: "Daredevil"
-    description: "Hot-blooded and fond of quick battles."
   jikkuri:
     name: "Methodical"
-    description: "Makes slow but steady progress."
+  ganbariya:
+    name: "Determined"
+  dosshiri:
+    name: "Steadfast"
+  nobinobi:
+    name: "Carefree"
+  genkimono:
+    name: "Energetic"
+  chakkari:
+    name: "Clever"
 
 trait:
   jikiden:
@@ -167,3 +165,9 @@ trait:
   kuse_mashi:
     name: "Extra Quirky"
     description: "Makes its nature's quirks stronger."
+  oyogi_jouzu:
+    name: "Good Swimmer"
+    description: "Immune to drowning damage."
+  yukiguni_umare:
+    name: "Snowborn"
+    description: "Immune to freezing damage."

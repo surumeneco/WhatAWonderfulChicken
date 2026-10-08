@@ -35,6 +35,26 @@ final class WonderfulChickenDataGenomeTest {
     }
 
     @Test
+    void decodedNoTraitDoesNotResurrectLegacyTrait() {
+        WonderfulChickenData data = new WonderfulChickenData();
+        data.genetics(new Genetics(0, 0, 0, 0));
+        PhenotypeSnapshot original = snapshot();
+        data.phenotypeSnapshot(new PhenotypeSnapshot(
+                original.decoderIdentity(),
+                original.normalizedAbilities(),
+                original.personalityFactors(),
+                original.personality(),
+                List.of(),
+                original.developmentFactors(),
+                original.injuries(),
+                original.divineLineageTotalScore(),
+                original.divineLineageExpressed()));
+
+        assertNull(data.trait());
+        assertFalse(data.hasTrait(Trait.YOME));
+    }
+
+    @Test
     void rejectsNegativeAdultBiologicalTime() {
         WonderfulChickenData data = new WonderfulChickenData();
         assertThrows(IllegalArgumentException.class, () -> data.adultBiologicalTime(-1L));
