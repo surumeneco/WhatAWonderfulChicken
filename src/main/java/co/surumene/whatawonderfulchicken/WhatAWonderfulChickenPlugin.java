@@ -1,6 +1,8 @@
 package co.surumene.whatawonderfulchicken;
 
 import co.surumene.whatawonderfulchicken.command.CommandService;
+import co.surumene.whatawonderfulchicken.chickentrap.ChickenTrapRuntime;
+import co.surumene.whatawonderfulchicken.chickentrap.ChickenTrapListener;
 import co.surumene.whatawonderfulchicken.compat.BedrockCompatibility;
 import co.surumene.whatawonderfulchicken.compat.GeyserBedrockCompatibility;
 import co.surumene.whatawonderfulchicken.config.ConfigService;
@@ -46,6 +48,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
     private TraitController traits;
     private BedrockCompatibility bedrock;
     private BiologicalClock biologicalClock;
+    private ChickenTrapRuntime chickenTrap;
 
     @Override
     public void onEnable() {
@@ -84,6 +87,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         inventories = new InventoryService(this, chickens, store, configService, messageService, displays);
         riding = new RidingController(chickens, store, configService, bedrock);
         traits = new TraitController(chickens, store, configService);
+        chickenTrap = new ChickenTrapRuntime(this, configService, chickens, store, displays);
 
         CommandService commands = new CommandService(this, chickens, store, configService, messageService, displays);
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
@@ -91,14 +95,17 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
 
         WorldListener worldListener = new WorldListener(this, chickens, store, displays, inventories, configService);
         getServer().getPluginManager().registerEvents(worldListener, this);
+        getServer().getPluginManager().registerEvents(new ChickenTrapListener(chickenTrap), this);
         getServer().getPluginManager().registerEvents(
                 new BiologicalClockListener(biologicalClock, getLogger()), this);
         getServer().getPluginManager().registerEvents(new InteractionListener(this, chickens, store, configService, messageService, inventories, displays, riding), this);
         getServer().getPluginManager().registerEvents(new InventoryListener(inventories), this);
 
+        chickenTrap.restoreLoaded();
         chickens.scanLoadedWorlds();
         displays.rebuildAllLoaded();
 
+        Bukkit.getScheduler().runTaskTimer(this, chickenTrap, 1L, 1L);
         Bukkit.getScheduler().runTaskTimer(this, riding, 1L, 1L);
         Bukkit.getScheduler().runTaskTimer(this, traits, 10L, 10L);
         Bukkit.getScheduler().runTaskTimer(this, new FollowController(this, chickens, store, configService), 5L, 5L);
