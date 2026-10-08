@@ -11,6 +11,8 @@ import co.surumene.whatawonderfulchicken.data.Trait;
 import co.surumene.whatawonderfulchicken.data.PedigreeData;
 import co.surumene.whatawonderfulchicken.data.StatType;
 import co.surumene.whatawonderfulchicken.data.WonderfulChickenData;
+import co.surumene.whatawonderfulchicken.data.PhenotypeSnapshot;
+import co.surumene.wgl.api.DiploidGenome;
 import co.surumene.whatawonderfulchicken.founder.FounderGenomeSynthesis;
 import co.surumene.whatawonderfulchicken.founder.FounderOrigin;
 import co.surumene.whatawonderfulchicken.founder.WonderfulChickenFounderSynthesizer;
@@ -119,6 +121,33 @@ public final class WonderfulChickenService {
 
     public boolean rollNaturalConversion() {
         return ThreadLocalRandom.current().nextDouble() < config.naturalChance();
+    }
+
+    /**
+     * Apply an already materialized Genome and immutable Phenotype Snapshot.
+     * No Founder re-synthesis, implicit breeding, or Backbone compatibility
+     * check belongs to this administrative creation path.
+     */
+    public WonderfulChickenData createGenomeData(
+            DiploidGenome genome,
+            PhenotypeSnapshot snapshot) {
+        java.util.Objects.requireNonNull(genome, "genome");
+        java.util.Objects.requireNonNull(snapshot, "snapshot");
+        WonderfulChickenData data = new WonderfulChickenData();
+        data.genome(genome);
+        data.phenotypeSnapshot(snapshot);
+        for (StatType stat : StatType.values()) {
+            double normalized = snapshot.normalizedAbilities().get(stat);
+            data.normalized(stat, normalized);
+            data.value(stat, store.toValue(stat, normalized));
+        }
+        data.currentStamina(data.effective(StatType.STAMINA, config.natureAdjustment()));
+        data.adultBiologicalTime(0L);
+        data.bloodlineId(UUID.randomUUID().toString());
+        data.generation(0);
+        data.pedigree(PedigreeData.EMPTY);
+        data.genetics(Genetics.random());
+        return data;
     }
 
     public WonderfulChickenData createNaturalData() {
