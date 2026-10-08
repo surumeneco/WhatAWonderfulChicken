@@ -34,7 +34,14 @@ public final class ConfigService {
     public FileConfiguration config() { return plugin.getConfig(); }
 
     public ValidationResult validate(ConfigurationSection config) {
-        return validateConfiguration(config, defaults);
+        ValidationResult result = validateConfiguration(config, defaults);
+        if (!result.valid()) return result;
+        String name = config.getString("runtime.age.clock-world",
+                defaults.getString("runtime.age.clock-world", "world"));
+        if (org.bukkit.Bukkit.getWorld(name) == null) {
+            return ValidationResult.error("runtime.age.clock-world does not exist: " + name);
+        }
+        return result;
     }
 
     static ValidationResult validateConfiguration(ConfigurationSection config, ConfigurationSection defaults) {

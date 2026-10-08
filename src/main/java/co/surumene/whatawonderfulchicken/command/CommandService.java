@@ -283,6 +283,7 @@ public final class CommandService {
             ctx.getSource().getSender().sendMessage(messages.text(ctx.getSource().getSender(), "error.invalid_config", String.join("; ", result.errors())));
             return 0;
         }
+        plugin.reconfigureBiologicalClock();
         messages.reload();
         chickens.resyncAllLoaded();
         displays.rebuildAllLoaded();
