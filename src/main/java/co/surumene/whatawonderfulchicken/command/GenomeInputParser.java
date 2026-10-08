@@ -82,7 +82,8 @@ public final class GenomeInputParser {
                 result.add(current.toString());
                 current.setLength(0);
                 if (result.size() == 6) {
-                    return List.copyOf(result);
+                    throw new IllegalArgumentException(
+                            "a haplotype must contain exactly six chromosome sections");
                 }
                 continue;
             }
