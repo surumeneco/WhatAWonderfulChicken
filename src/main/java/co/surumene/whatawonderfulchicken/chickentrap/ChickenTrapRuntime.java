@@ -277,6 +277,13 @@ public final class ChickenTrapRuntime implements Runnable {
             if (secondRider != null) secondRider.remove();
             if (first != null) first.remove();
             if (second != null) second.remove();
+            if (initial.isValid()) {
+                states.clear(initial);
+                states.mark(initial, ChickenTrapStateStore.ARMED, expiry);
+                states.graceUntil(initial, System.currentTimeMillis() + ChickenTrapPolicy.GRACE_MILLIS);
+                initial.setAI(false);
+                tracked.add(initial.getUniqueId());
+            }
             plugin.getLogger().warning("Chicken Trap activation failed: " + error);
         }
     }
