@@ -24,6 +24,13 @@ final class ChickenTrapPolicyTest {
         assertFalse(ChickenTrapPolicy.dawnCrossed(23_000L,23_001L));
         assertFalse(ChickenTrapPolicy.dawnCrossed(23_000L,22_999L));
     }
+    @Test void extendedBowRangeOnlySupplementsVanillaBowGoal() {
+        assertFalse(ChickenTrapPolicy.extendedBowRange(15.0 * 15.0));
+        assertTrue(ChickenTrapPolicy.extendedBowRange(16.0 * 16.0));
+        assertTrue(ChickenTrapPolicy.extendedBowRange(20.0 * 20.0));
+        assertFalse(ChickenTrapPolicy.extendedBowRange(20.01 * 20.01));
+        assertFalse(ChickenTrapPolicy.extendedBowRange(Double.NaN));
+    }
     @Test void chanceBoundariesAndUniformDiskSampling() {
         assertFalse(ChickenTrapPolicy.roll(0.01,0.01));
         assertTrue(ChickenTrapPolicy.roll(0.009,0.01));
