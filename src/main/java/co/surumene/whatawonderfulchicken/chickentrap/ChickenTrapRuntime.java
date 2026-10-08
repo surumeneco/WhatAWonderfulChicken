@@ -141,7 +141,10 @@ public final class ChickenTrapRuntime implements Runnable {
             int y = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING) + 1;
             if (y >= world.getMaxHeight() - 18 || y <= world.getMinHeight()) continue;
             Location location = new Location(world, x + .5, y, z + .5);
-            if (location.getBlock().isPassable() && location.clone().add(0,1,0).getBlock().isPassable())
+            if (world.getWorldBorder().isInside(location)
+                    && location.getBlock().getLightFromSky() == 15
+                    && location.getBlock().isPassable()
+                    && location.clone().add(0, 1, 0).getBlock().isPassable())
                 return location;
         }
         return null;
