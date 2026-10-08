@@ -151,6 +151,10 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         return profile;
     }
 
+    public ChickenTrapRuntime chickenTrap() {
+        return chickenTrap;
+    }
+
     public BiologicalClock biologicalClock() {
         if (biologicalClock == null) {
             throw new IllegalStateException("WWC biological clock is unavailable");
