@@ -384,7 +384,7 @@ public final class InventoryService {
     private void appendTraits(List<Component> lines, Player viewer, WonderfulChickenData data) {
         var traits = data.phenotypeSnapshot() == null
                 ? ChickenGuiPresentation.legacyTraits(data.trait())
-                : ChickenGuiPresentation.traits(data.phenotypeSnapshot().expressedTraits(), data.trait());
+                : ChickenGuiPresentation.traits(data.phenotypeSnapshot().expressedTraits());
         if (traits.isEmpty()) {
             lines.add(Component.text(messages.text(viewer.locale(), "gui.trait",
                     messages.text(viewer.locale(), "gui.trait_none")), NamedTextColor.AQUA));

@@ -23,7 +23,7 @@ public final class ChickenGuiPresentation {
     }
 
     /** When a decoded phenotype exists its expressed trait list is authoritative, including empty. */
-    public static List<ExpressedTrait> traits(List<ExpressedTrait> decoded, Trait ignoredLegacy) {
+    public static List<ExpressedTrait> traits(List<ExpressedTrait> decoded) {
         return List.copyOf(Objects.requireNonNull(decoded, "decoded"));
     }
 

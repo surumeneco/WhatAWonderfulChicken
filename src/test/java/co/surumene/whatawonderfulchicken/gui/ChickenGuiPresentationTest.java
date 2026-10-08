@@ -24,13 +24,13 @@ final class ChickenGuiPresentationTest {
         assertEquals("↑", ChickenGuiPresentation.natureArrow(Nature.CHAKKARI, StatType.STEP_HEIGHT));
     }
     @Test void absenceAndTwoDifferentExpressedTraitsRemainRepresentable() {
-        assertTrue(ChickenGuiPresentation.traits(List.of(), Trait.FUKUTSU).isEmpty());
+        assertTrue(ChickenGuiPresentation.traits(List.of()).isEmpty());
         var two = List.of(new ExpressedTrait(Trait.FUKUTSU, TraitStrength.WEAK),
                 new ExpressedTrait(Trait.WATAGE, TraitStrength.WEAK));
-        assertEquals(two, ChickenGuiPresentation.traits(two, null));
+        assertEquals(two, ChickenGuiPresentation.traits(two));
         assertEquals(List.of(new ExpressedTrait(Trait.CHIKARAKOBU, TraitStrength.STRONG)),
                 ChickenGuiPresentation.traits(
-                        List.of(new ExpressedTrait(Trait.CHIKARAKOBU, TraitStrength.STRONG)), null));
+                        List.of(new ExpressedTrait(Trait.CHIKARAKOBU, TraitStrength.STRONG))));
     }
     @Test void legacyTraitIsRetainedOnlyWithoutGenomeSnapshot() {
         assertEquals(List.of(new ExpressedTrait(Trait.FUKUTSU, TraitStrength.WEAK)),
