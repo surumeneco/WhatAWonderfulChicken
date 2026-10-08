@@ -384,9 +384,7 @@ public final class InventoryService {
         if (!pedigreeOnly) {
             block = block.append(Component.newline()).append(Component.text(
                     messages.text(player.locale(), "gui.nature",
-                            messages.text(player.locale(), "nature." + data.nature().key() + ".name")), NamedTextColor.AQUA))
-                    .append(Component.newline()).append(Component.text("  " + messages.text(player.locale(),
-                            "nature." + data.nature().key() + ".description"), NamedTextColor.GRAY));
+                            messages.text(player.locale(), "nature." + data.nature().key() + ".name")), NamedTextColor.AQUA));
             for (StatType stat : StatType.values()) {
                 String display = config.statDisplay(stat);
                 if (display.equals("none")) continue;
