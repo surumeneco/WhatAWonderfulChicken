@@ -120,6 +120,16 @@ nature:
     name: "Daredevil"
   jikkuri:
     name: "Methodical"
+  ganbariya:
+    name: "Determined"
+  dosshiri:
+    name: "Steadfast"
+  nobinobi:
+    name: "Carefree"
+  genkimono:
+    name: "Energetic"
+  chakkari:
+    name: "Clever"
 
 trait:
   jikiden:
@@ -155,3 +165,9 @@ trait:
   kuse_mashi:
     name: "Extra Quirky"
     description: "Makes its nature's quirks stronger."
+  oyogi_jouzu:
+    name: "Good Swimmer"
+    description: "Immune to drowning damage."
+  yukiguni_umare:
+    name: "Snowborn"
+    description: "Immune to freezing damage."

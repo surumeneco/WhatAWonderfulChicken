@@ -120,6 +120,16 @@ nature:
     name: "とばしや"
   jikkuri:
     name: "じっくり"
+  ganbariya:
+    name: "がんばりや"
+  dosshiri:
+    name: "どっしり"
+  nobinobi:
+    name: "のびのび"
+  genkimono:
+    name: "げんきもの"
+  chakkari:
+    name: "ちゃっかり"
 
 trait:
   jikiden:
@@ -155,3 +165,9 @@ trait:
   kuse_mashi:
     name: "クセ増し"
     description: "性格のクセが強くなる。"
+  oyogi_jouzu:
+    name: "泳ぎ上手"
+    description: "水中でも溺れない。"
+  yukiguni_umare:
+    name: "雪国生まれ"
+    description: "凍える寒さの影響を受けない。"
