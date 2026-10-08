@@ -443,12 +443,12 @@ public final class InventoryService {
                 block = block.append(Component.newline()).append(line);
             }
         } else {
+            List<Component> traitLines = new ArrayList<>();
+            appendTraits(traitLines, player, data);
+            for (Component traitLine : traitLines) {
+                block = block.append(Component.newline()).append(traitLine);
+            }
             block = block.append(Component.newline())
-                    .append(Component.text(messages.text(player.locale(), "gui.trait",
-                            messages.text(player.locale(), "trait." + data.trait().key() + ".name")), NamedTextColor.AQUA))
-                    .append(Component.newline()).append(Component.text("  " + messages.text(player.locale(),
-                            "trait." + data.trait().key() + ".description"), NamedTextColor.GRAY))
-                    .append(Component.newline())
                     .append(Component.text(messages.text(player.locale(), "gui.pedigree_id",
                             chickens.displayBloodlineId(data.bloodlineId())), NamedTextColor.AQUA))
                     .append(Component.newline())
