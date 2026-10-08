@@ -289,9 +289,18 @@ public final class ChickenTrapRuntime implements Runnable {
             target = nearestPlayer(skeleton, 20.0);
             if (target instanceof Player player) skeleton.setTarget(player);
         }
-        if (target != null && skeleton.getLocation().distanceSquared(target.getLocation()) > 225.0
-                && skeleton.getLocation().distanceSquared(target.getLocation()) < 1024.0) {
-            chicken.getPathfinder().moveTo(target.getLocation(), 1.2);
+        if (target != null) {
+            double distanceSquared = skeleton.getLocation().distanceSquared(target.getLocation());
+            // Preserve vanilla bow AI within its standard range; only supplement 15-20 blocks.
+            int interval = skeleton.getWorld().getDifficulty() == org.bukkit.Difficulty.HARD ? 20 : 40;
+            if (ChickenTrapPolicy.extendedBowRange(distanceSquared)
+                    && skeleton.hasLineOfSight(target)
+                    && skeleton.getTicksLived() % interval == 0
+                    && skeleton instanceof com.destroystokyo.paper.entity.RangedEntity ranged) {
+                ranged.rangedAttack(target, 1.0F);
+            }
+            if (distanceSquared > 225.0 && distanceSquared < 1024.0)
+                chicken.getPathfinder().moveTo(target.getLocation(), 1.2);
         }
     }
 
