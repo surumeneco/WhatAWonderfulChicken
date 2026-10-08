@@ -24,12 +24,7 @@ public final class ChickenTrapListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDirectHit(org.bukkit.event.entity.EntityDamageByEntityEvent e) {
         if (!(e.getEntity() instanceof org.bukkit.entity.Skeleton skeleton)) return;
-        org.bukkit.entity.Entity source = e.getDamager();
-        if (source instanceof org.bukkit.entity.Player
-                || source instanceof org.bukkit.entity.Projectile projectile
-                    && projectile.getShooter() instanceof org.bukkit.entity.Player) {
-            runtime.attackSkeleton(skeleton);
-        }
+        runtime.attackSkeleton(skeleton);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
