@@ -83,6 +83,24 @@ class YamlKeyMergerTest {
     }
 
     @Test
+    void distributedLanguagesCoverEveryCurrentNatureAndTrait() {
+        for (String name : new String[]{"ja_jp.yml", "en_us.yml"}) {
+            YamlConfiguration language = resource("/lang/" + name);
+            for (var nature : co.surumene.whatawonderfulchicken.data.Nature.values()) {
+                String base = "nature." + nature.key();
+                assertNotNull(language.getString(base + ".name"), name + ": " + base);
+                assertFalse(language.contains(base + ".description"),
+                        "Personality flavor descriptions are no longer published");
+            }
+            for (var trait : co.surumene.whatawonderfulchicken.data.Trait.values()) {
+                String base = "trait." + trait.key();
+                assertNotNull(language.getString(base + ".name"), name + ": " + base);
+                assertNotNull(language.getString(base + ".description"), name + ": " + base);
+            }
+        }
+    }
+
+    @Test
     void partialFileOnlyAddsMissingLeavesAndPreservesComments() throws Exception {
         Path file = directory.resolve("comments.yml");
         Files.writeString(file, "# operator note\nnature:\n  adjustment: 0.2 # custom adjustment\n");
