@@ -16,6 +16,13 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Skeleton;
 import org.bukkit.entity.WindCharge;
+import org.bukkit.entity.ItemDisplay;
+import org.bukkit.entity.Display;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.Transformation;
+import org.joml.Vector3f;
+import org.joml.Quaternionf;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.util.Vector;
 import java.util.ArrayList;
@@ -107,6 +114,16 @@ public final class ChickenTrapRuntime implements Runnable {
             if (entity instanceof Skeleton skeleton) {
                 if (ChickenTrapStateStore.ARMED.equals(role)) tickArmed(skeleton);
                 else if (ChickenTrapStateStore.RIDER.equals(role)) tickRider(skeleton);
+            } else if (entity instanceof ItemDisplay display
+                    && ChickenTrapStateStore.VISUAL.equals(role)) {
+                Entity charge = Bukkit.getEntity(states.partner(display));
+                if (charge instanceof WindCharge active && active.isValid()) {
+                    display.teleport(active.getLocation());
+                } else {
+                    states.clear(display);
+                    tracked.remove(display.getUniqueId());
+                    display.remove();
+                }
             }
         }
     }
@@ -138,6 +155,15 @@ public final class ChickenTrapRuntime implements Runnable {
         charge.setDirection(new Vector(0, -1, 0));
         charge.setVelocity(new Vector(0, -1.25, 0));
         charge.setPersistent(true);
+        ItemDisplay visual = world.spawn(charge.getLocation(), ItemDisplay.class,
+                CreatureSpawnEvent.SpawnReason.CUSTOM);
+        visual.setItemStack(ItemStack.of(Material.WIND_CHARGE));
+        visual.setBillboard(Display.Billboard.CENTER);
+        visual.setTransformation(new Transformation(new Vector3f(),
+                new Quaternionf(), new Vector3f(3.0f, 3.0f, 3.0f), new Quaternionf()));
+        states.mark(visual, ChickenTrapStateStore.VISUAL, expiry);
+        states.pair(visual, charge.getUniqueId());
+        tracked.add(visual.getUniqueId());
     }
 
     public void hitCharge(WindCharge charge) {
