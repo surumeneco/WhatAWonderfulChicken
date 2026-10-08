@@ -22,6 +22,11 @@ public final class ChickenTrapListener implements Listener {
     public void onTimeSkip(TimeSkipEvent event) { runtime.markTimeSkip(event.getWorld()); }
 
     @EventHandler(priority = EventPriority.MONITOR)
+    public void onEntityDeath(org.bukkit.event.entity.EntityDeathEvent e) {
+        runtime.died(e.getEntity());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onChunkLoad(ChunkLoadEvent event) {
         for (Entity entity : event.getChunk().getEntities()) runtime.register(entity);
     }
