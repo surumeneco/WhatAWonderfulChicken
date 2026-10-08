@@ -7,7 +7,7 @@ import java.util.Objects;
 
 /** An opaque WGLP typed parent-source binary container encoded as a command token. */
 public final class GenomeParentSourceToken {
-    private static final String PREFIX = "wglp:";
+    private static final String PREFIX = "wglp_";
     private static final int MAX_BYTES = 1048576;
     private GenomeParentSourceToken() {}
 
@@ -21,7 +21,7 @@ public final class GenomeParentSourceToken {
     public static BreedingParentSource decode(GenomeEngine engine, String token) {
         Objects.requireNonNull(engine, "engine");
         if(token == null || !token.startsWith(PREFIX)) {
-            throw new IllegalArgumentException("parent source must begin with wglp:");
+            throw new IllegalArgumentException("parent source must begin with wglp_");
         }
         String value=token.substring(PREFIX.length());
         if(value.isEmpty() || value.length() > 1398108 || !value.matches("[A-Za-z0-9_-]+")) {
