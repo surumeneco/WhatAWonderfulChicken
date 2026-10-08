@@ -225,9 +225,17 @@ public final class ChickenTrapRuntime implements Runnable {
         var location = initial.getLocation();
         var world = initial.getWorld();
         long expiry = states.expiry(initial);
-        // Both WGL syntheses must succeed before modifying the encounter.
-        var firstData = founders.generate();
-        var secondData = founders.generate();
+        // Reject failed WGL synthesis without corrupting an armed encounter or aborting scheduler ticks.
+        co.surumene.whatawonderfulchicken.data.WonderfulChickenData firstData;
+        co.surumene.whatawonderfulchicken.data.WonderfulChickenData secondData;
+        try {
+            firstData = founders.generate();
+            secondData = founders.generate();
+        } catch (RuntimeException failure) {
+            plugin.getLogger().warning("Chicken Trap founder synthesis failed: " + failure);
+            states.graceUntil(initial, System.currentTimeMillis() + 3_000L);
+            return;
+        }
         windExplosion(location);
         Chicken first = null;
         Chicken second = null;
