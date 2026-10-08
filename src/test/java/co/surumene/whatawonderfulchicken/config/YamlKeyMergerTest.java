@@ -68,8 +68,8 @@ class YamlKeyMergerTest {
             YamlConfiguration persisted = YamlConfiguration.loadConfiguration(file);
             assertEquals("Custom title", persisted.getString("gui.title"));
             assertEquals("Preserve this", persisted.getString("custom.message"));
-            assertEquals(defaults.getString("nature.majime.description"),
-                    persisted.getString("nature.majime.description"));
+            assertFalse(defaults.contains("nature.majime.description"),
+                    "Personality descriptions are obsolete in distributed language files");
             assertEquals(defaults.getString("trait.kin_no_tamago.description"),
                     persisted.getString("trait.kin_no_tamago.description"));
             assertEquals(defaults.getString("gui.ancestor_genetics"),
