@@ -17,7 +17,7 @@ final class GenomeParentSourceTokenTest {
                 engine.sequenceCodec());
         BreedingParentSource source=new BreedingParentSource.DiploidParent(genome);
         String token=GenomeParentSourceToken.encode(engine,source);
-        assertTrue(token.startsWith("wglp:"));
+        assertTrue(token.startsWith("wglp_"));
         assertEquals(source,GenomeParentSourceToken.decode(engine,token));
     }
 
@@ -31,12 +31,12 @@ final class GenomeParentSourceTokenTest {
 
     @Test void rejectsMalformedOrUnboundedPayload() {
         assertThrows(IllegalArgumentException.class,
-                ()->GenomeParentSourceToken.decode(engine,"wglp:???"));
+                ()->GenomeParentSourceToken.decode(engine,"wglp_???"));
         assertThrows(IllegalArgumentException.class,
                 ()->GenomeParentSourceToken.decode(engine,"other:ABC"));
         assertThrows(IllegalArgumentException.class,
                 ()->GenomeParentSourceToken.decode(engine,
-                    "wglp:"+Base64.getUrlEncoder().withoutPadding()
+                    "wglp_"+Base64.getUrlEncoder().withoutPadding()
                     .encodeToString(new byte[]{1,2,3,4})));
     }
 }
