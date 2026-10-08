@@ -329,8 +329,6 @@ public final class InventoryService {
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text(messages.text(viewer.locale(), "gui.nature",
                 messages.text(viewer.locale(), "nature." + data.nature().key() + ".name"))));
-        lore.add(Component.text("  " + messages.text(viewer.locale(),
-                "nature." + data.nature().key() + ".description"), NamedTextColor.GRAY));
         for (StatType stat : StatType.values()) {
             String display = config.statDisplay(stat);
             if (display.equals("none")) continue;
