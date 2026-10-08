@@ -55,6 +55,9 @@ build/libs/WhatAWonderfulChicken-2.0.0.jar
 ```text
 /wwc summon [x y z] [<wwc-data>] [<vanilla-nbt>]
 /wwc info [<entity selector>]
+/wwc genome get <entity selector>
+/wwc summon genome <text|bits|hex|dna> <haplotypeA> [haplotypeB]
+/wwc summon offspring parent <sourceA> parent <sourceB>
 /wwc modify <entity selector> <set|add> <field> <value>
 /wwc config get <path>
 /wwc config set <path> <value>
@@ -66,6 +69,16 @@ build/libs/WhatAWonderfulChicken-2.0.0.jar
 ```
 
 `info` と `modify` はPaper 26.2のBrigadier Entity Selector引数を使用するため、`@e[...]`、UUID指定、クライアント標準のEntity候補補完を利用できます。
+
+### 2.0.0 Genome管理
+
+`/wwc genome get` はGenomeの染色体長・bit列と親ソースを表示します。ゲーム内の表示行をクリックすると全文をコピーできます。
+
+`/wwc summon genome` は任意Genomeの直接注入です。Bを省略するとAを複製します。染色体境界はカンマで指定でき、省略箇所は `9:8:7:6:5:4` の比率で分割します。
+
+`/wwc summon offspring` のsourceには、既存Wonderful Chickenを指す `chicken_<UUID>`、またはWGLPをBase64URL形式にした `wglp_<payload>` を指定します。後者では完成済み二倍体とgameteを区別できます。Backbone非互換・繁殖失敗では召喚しません。
+
+`genome get` は `wwc.command.genome` 権限、召喚は `wwc.command.summon` 権限が必要です。
 
 ### summon のWWCデータ例
 

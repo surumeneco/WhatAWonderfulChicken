@@ -12,6 +12,8 @@ permissions:
     default: op
   wwc.command.info:
     default: op
+  wwc.command.genome:
+    default: op
   wwc.command.modify:
     default: op
   wwc.command.config:

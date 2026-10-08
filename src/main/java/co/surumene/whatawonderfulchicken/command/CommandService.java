@@ -69,6 +69,7 @@ public final class CommandService {
     public com.mojang.brigadier.tree.LiteralCommandNode<CommandSourceStack> build() {
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal("wwc");
         root.then(summonNode());
+        root.then(genomeCommands().genomeNode());
         root.then(infoNode());
         root.then(modifyNode());
         root.then(configNode());
@@ -82,8 +83,14 @@ public final class CommandService {
         return Commands.literal("summon")
                 .requires(source -> source.getSender().hasPermission("wwc.command.summon"))
                 .executes(ctx -> summon(ctx, ""))
+                .then(genomeCommands().summonGenomeNode())
+                .then(genomeCommands().summonOffspringNode())
                 .then(Commands.argument("arguments", StringArgumentType.greedyString())
                         .executes(ctx -> summon(ctx, StringArgumentType.getString(ctx, "arguments"))));
+    }
+
+    private GenomeCommands genomeCommands() {
+        return new GenomeCommands(plugin, chickens, store, config, displays);
     }
 
     private LiteralArgumentBuilder<CommandSourceStack> infoNode() {
