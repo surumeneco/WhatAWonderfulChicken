@@ -41,6 +41,10 @@ command:
 gui:
   nature_label: "Nature"
   trait_label: "Trait"
+  trait_none: "None"
+  trait_strong: "Strong"
+  trait_weak: "Weak"
+  injury_mark: "[Injured]"
   nature: "Nature: {0}"
   trait: "Trait: {0}"
   ancestor_genetics: "Nature: {0} / Trait: {1}"
