@@ -366,10 +366,7 @@ public final class InventoryService {
         ItemStack item = placeholder(Material.WRITABLE_BOOK, messages.text(viewer.locale(), "gui.pedigree"));
         ItemMeta meta = item.getItemMeta();
         List<Component> lore = new ArrayList<>();
-        lore.add(Component.text(messages.text(viewer.locale(), "gui.trait",
-                messages.text(viewer.locale(), "trait." + data.trait().key() + ".name"))));
-        lore.add(Component.text("  " + messages.text(viewer.locale(),
-                "trait." + data.trait().key() + ".description"), NamedTextColor.GRAY));
+        appendTraits(lore, viewer, data);
         lore.add(Component.text(messages.text(viewer.locale(), "gui.pedigree_id", chickens.displayBloodlineId(data.bloodlineId()))));
         lore.add(Component.text(messages.text(viewer.locale(), "gui.generation", data.generation())));
         PedigreeData p = data.pedigree();
@@ -382,6 +379,27 @@ public final class InventoryService {
         meta.lore(lore);
         item.setItemMeta(meta);
         return item;
+    }
+
+    private void appendTraits(List<Component> lines, Player viewer, WonderfulChickenData data) {
+        var traits = data.phenotypeSnapshot() == null
+                ? ChickenGuiPresentation.legacyTraits(data.trait())
+                : ChickenGuiPresentation.traits(data.phenotypeSnapshot().expressedTraits(), data.trait());
+        if (traits.isEmpty()) {
+            lines.add(Component.text(messages.text(viewer.locale(), "gui.trait",
+                    messages.text(viewer.locale(), "gui.trait_none")), NamedTextColor.AQUA));
+            return;
+        }
+        for (var trait : traits) {
+            String name = messages.text(viewer.locale(), "trait." + trait.trait().key() + ".name");
+            String strengthKey = trait.strength() == co.surumene.whatawonderfulchicken.data.TraitStrength.STRONG
+                    ? "gui.trait_strong" : "gui.trait_weak";
+            String strength = messages.text(viewer.locale(), strengthKey);
+            lines.add(Component.text(messages.text(viewer.locale(), "gui.trait",
+                    name + " (" + strength + ")"), NamedTextColor.AQUA));
+            lines.add(Component.text("  " + messages.text(viewer.locale(),
+                    "trait." + trait.trait().key() + ".description"), NamedTextColor.GRAY));
+        }
     }
 
     private void sendDetailedInfo(Player player, Chicken chicken, boolean pedigreeOnly) {
