@@ -22,6 +22,11 @@ public final class ChickenTrapPolicy {
                 > Math.floorDiv(previous - DAWN_TIME, DAY_TICKS);
     }
 
+    public static boolean extendedBowRange(double distanceSquared) {
+        return Double.isFinite(distanceSquared)
+                && distanceSquared > 225.0 && distanceSquared <= 400.0;
+    }
+
     public static boolean isNewMoon(long fullTime) {
         return Math.floorMod(Math.floorDiv(fullTime, DAY_TICKS), 8L) == 4L;
     }
