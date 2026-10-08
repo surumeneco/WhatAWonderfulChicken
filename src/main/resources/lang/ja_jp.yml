@@ -41,6 +41,10 @@ command:
 gui:
   nature_label: "性格"
   trait_label: "特性"
+  trait_none: "なし"
+  trait_strong: "強"
+  trait_weak: "弱"
+  injury_mark: "[負傷]"
   nature: "性格: {0}"
   trait: "特性: {0}"
   ancestor_genetics: "性格: {0} / 特性: {1}"
