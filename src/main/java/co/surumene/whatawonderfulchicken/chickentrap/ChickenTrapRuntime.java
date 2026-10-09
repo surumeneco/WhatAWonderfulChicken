@@ -68,7 +68,9 @@ public final class ChickenTrapRuntime implements Runnable {
     public void register(Entity entity) {
         if (states.role(entity) == null) return;
         if (entity.getWorld().getFullTime() >= states.expiry(entity)) {
-            expire(entity);
+            // Late chunk loads are cleanup only. The encounter's dawn burst was
+            // a world-time event, not an effect to replay when someone returns.
+            expire(entity, false);
             return;
         }
         tracked.add(entity.getUniqueId());
@@ -112,7 +114,7 @@ public final class ChickenTrapRuntime implements Runnable {
                 continue;
             }
             if (entity.getWorld().getFullTime() >= states.expiry(entity)) {
-                expire(entity);
+                expire(entity, true);
                 continue;
             }
             if (entity instanceof Skeleton skeleton) {
@@ -349,18 +351,35 @@ public final class ChickenTrapRuntime implements Runnable {
     private void expireWorld(World world) {
         for (Entity entity : new ArrayList<>(world.getEntities())) {
             if (states.role(entity) != null && world.getFullTime() >= states.expiry(entity))
-                expire(entity);
+                expire(entity, true);
         }
     }
 
-    private void expire(Entity entity) {
-        if (states.role(entity) == null) return;
+    /**
+     * A rider and its marked Chicken form one encounter unit at expiry.
+     * Clear both roles before removing either entity so death/load callbacks
+     * cannot release the Chicken or produce a second wind burst.
+     */
+    private void expire(Entity entity, boolean burst) {
+        String role = states.role(entity);
+        if (role == null) return;
         Location location = entity.getLocation();
+
+        UUID partnerId = states.partner(entity);
+        Entity partner = partnerId == null ? null : Bukkit.getEntity(partnerId);
+        if (partner != null && ChickenTrapPolicy.linkedMountPair(
+                role, states.role(partner),
+                entity.getUniqueId().equals(states.partner(partner)))) {
+            states.clear(partner);
+            tracked.remove(partner.getUniqueId());
+            partner.remove();
+        }
+
         states.clear(entity);
         tracked.remove(entity.getUniqueId());
         projectileDestinations.remove(entity.getUniqueId());
         entity.remove();
-        windExplosion(location);
+        if (burst && ChickenTrapPolicy.burstOnExpiry(role)) windExplosion(location);
     }
 
     private static void windExplosion(Location location) {
