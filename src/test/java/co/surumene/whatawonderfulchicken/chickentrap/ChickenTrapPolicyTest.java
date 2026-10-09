@@ -24,6 +24,22 @@ final class ChickenTrapPolicyTest {
         assertFalse(ChickenTrapPolicy.dawnCrossed(23_000L,23_001L));
         assertFalse(ChickenTrapPolicy.dawnCrossed(23_000L,22_999L));
     }
+    @Test void windBurstIsOnePerMountedPairAndVisualNeverBursts() {
+        assertTrue(ChickenTrapPolicy.linkedMountPair(
+                ChickenTrapStateStore.RIDER, ChickenTrapStateStore.MOUNT, true));
+        assertTrue(ChickenTrapPolicy.linkedMountPair(
+                ChickenTrapStateStore.MOUNT, ChickenTrapStateStore.RIDER, true));
+        assertFalse(ChickenTrapPolicy.linkedMountPair(
+                ChickenTrapStateStore.RIDER, ChickenTrapStateStore.MOUNT, false));
+        assertFalse(ChickenTrapPolicy.linkedMountPair(
+                ChickenTrapStateStore.ARMED, ChickenTrapStateStore.MOUNT, true));
+        assertFalse(ChickenTrapPolicy.burstOnExpiry(ChickenTrapStateStore.VISUAL));
+        assertTrue(ChickenTrapPolicy.burstOnExpiry(ChickenTrapStateStore.RIDER));
+        assertTrue(ChickenTrapPolicy.burstOnExpiry(ChickenTrapStateStore.MOUNT));
+        assertTrue(ChickenTrapPolicy.burstOnExpiry(ChickenTrapStateStore.ARMED));
+        assertTrue(ChickenTrapPolicy.burstOnExpiry(ChickenTrapStateStore.CHARGE));
+    }
+
     @Test void extendedBowRangeOnlySupplementsVanillaBowGoal() {
         assertFalse(ChickenTrapPolicy.extendedBowRange(15.0 * 15.0));
         assertTrue(ChickenTrapPolicy.extendedBowRange(16.0 * 16.0));
