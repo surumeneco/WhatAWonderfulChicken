@@ -45,6 +45,7 @@ public final class ChickenTrapRuntime implements Runnable {
     private final Map<UUID, Long> lastFullTimes = new HashMap<>();
     private final Set<UUID> skipped = new HashSet<>();
     private final Set<UUID> tracked = new HashSet<>();
+    private final Set<UUID> activating = new HashSet<>();
     private final Map<UUID, Location> projectileDestinations = new HashMap<>();
 
     public ChickenTrapRuntime(WhatAWonderfulChickenPlugin plugin, ConfigService config,
@@ -232,6 +233,9 @@ public final class ChickenTrapRuntime implements Runnable {
 
     private void activate(Skeleton initial) {
         if (!states.hasRole(initial, ChickenTrapStateStore.ARMED)) return;
+        // Prevent nested damage hooks from starting a second encounter during Wind Burst/spawn.
+        if (!activating.add(initial.getUniqueId())) return;
+        try {
         var location = initial.getLocation();
         var world = initial.getWorld();
         long expiry = states.expiry(initial);
@@ -290,6 +294,9 @@ public final class ChickenTrapRuntime implements Runnable {
                 tracked.add(initial.getUniqueId());
             }
             plugin.getLogger().warning("Chicken Trap activation failed: " + error);
+        }
+        } finally {
+            activating.remove(initial.getUniqueId());
         }
     }
 
