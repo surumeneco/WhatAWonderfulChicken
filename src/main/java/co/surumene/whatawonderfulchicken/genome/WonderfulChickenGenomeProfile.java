@@ -351,7 +351,8 @@ public final class WonderfulChickenGenomeProfile implements GenomeProfile<Wonder
                 divine);
     }
 
-    private Nature decodePersonality(EnumMap<PersonalityFactor, Double> scores) {
+    /** Package-visible for deterministic Founder distribution regression tests. */
+    Nature decodePersonality(EnumMap<PersonalityFactor, Double> scores) {
         double min = Double.POSITIVE_INFINITY;
         double max = Double.NEGATIVE_INFINITY;
         for (double score : scores.values()) {
