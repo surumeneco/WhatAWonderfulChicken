@@ -27,6 +27,20 @@ public final class ChickenTrapPolicy {
                 && distanceSquared > 225.0 && distanceSquared <= 400.0;
     }
 
+    /** A mounted encounter contains a rider and its Chicken; it expires with one burst. */
+    public static boolean linkedMountPair(String role, String partnerRole, boolean reciprocal) {
+        return reciprocal && (
+                ChickenTrapStateStore.RIDER.equals(role)
+                        && ChickenTrapStateStore.MOUNT.equals(partnerRole)
+                || ChickenTrapStateStore.MOUNT.equals(role)
+                        && ChickenTrapStateStore.RIDER.equals(partnerRole));
+    }
+
+    /** A client-facing ItemDisplay is not a second explosion source. */
+    public static boolean burstOnExpiry(String role) {
+        return role != null && !ChickenTrapStateStore.VISUAL.equals(role);
+    }
+
     public static boolean isNewMoon(long fullTime) {
         return Math.floorMod(Math.floorDiv(fullTime, DAY_TICKS), 8L) == 4L;
     }
