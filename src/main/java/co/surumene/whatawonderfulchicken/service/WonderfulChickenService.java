@@ -349,15 +349,27 @@ public final class WonderfulChickenService {
     }
 
     private AncestorSnapshot recoverAncestor(Chicken child, AncestorSnapshot snapshot, Set<UUID> visiting) {
-        if (snapshot == null || snapshot.genetics() != null) return snapshot;
+        if (snapshot == null
+                || (snapshot.genetics() != null && snapshot.personality() != null)) return snapshot;
         if (snapshot.bloodlineId() == null || snapshot.bloodlineId().isBlank()) return snapshot;
-        // The old snapshot stores only name, generation and bloodline ID. Locate a real loaded parent.
+        // Only backfill when a real loaded ancestor's persisted ID matches.
+        // Never infer a missing historical phenotype from shadow Genetics.
         for (org.bukkit.World world : Bukkit.getWorlds()) {
             for (Chicken possible : world.getEntitiesByClass(Chicken.class)) {
                 if (possible == child || !store.isWonderful(possible)) continue;
-                if (!snapshot.bloodlineId().equals(store.read(possible).bloodlineId())) continue;
-                Genetics genes = ensureGenetics(possible, visiting);
-                if (genes != null) return snapshot.withGenetics(genes);
+                WonderfulChickenData parentData = store.read(possible);
+                if (!snapshot.bloodlineId().equals(parentData.bloodlineId())) continue;
+                AncestorSnapshot verified = snapshot;
+                if (verified.genetics() == null) {
+                    Genetics genes = ensureGenetics(possible, visiting);
+                    if (genes != null) verified = verified.withGenetics(genes);
+                }
+                if (verified.personality() == null && parentData.phenotypeSnapshot() != null) {
+                    var phenotype = parentData.phenotypeSnapshot();
+                    verified = verified.withPhenotype(phenotype.personality(),
+                            phenotype.expressedTraits().stream().map(e -> e.trait()).toList());
+                }
+                return verified;
             }
         }
         return snapshot;
