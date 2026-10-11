@@ -138,7 +138,7 @@ public final class WorldListener implements Listener {
         }
     }
 
-    private static String safeMessage(RuntimeException error) {
+    private static String safeMessage(Exception error) {
         String message = error.getMessage();
         return message == null || message.isBlank()
                 ? error.getClass().getSimpleName()
