@@ -196,7 +196,7 @@ public final class WonderfulChickenService {
                 new BreedingParent(breedingDisplayName(parentA), a),
                 new BreedingParent(breedingDisplayName(parentB), b),
                 ThreadLocalRandom.current().nextLong());
-        return dataFromBreedingOutcome(parentA, parentB, a, b, outcome);
+        return dataFromBreedingOutcome(selfSnapshot(parentA, a), selfSnapshot(parentB, b), a, b, outcome);
     }
 
     /**
@@ -214,6 +214,8 @@ public final class WonderfulChickenService {
         var profile = plugin.genomeProfile();
         String nameA = breedingDisplayName(parentA);
         String nameB = breedingDisplayName(parentB);
+        AncestorSnapshot ancestryA = selfSnapshot(parentA, a);
+        AncestorSnapshot ancestryB = selfSnapshot(parentB, b);
         WonderfulChickenBreedingService calculator =
                 new WonderfulChickenBreedingService(() -> engine, () -> profile);
         long seed = ThreadLocalRandom.current().nextLong();
@@ -229,7 +231,7 @@ public final class WonderfulChickenService {
                         return;
                     }
                     try {
-                        onComplete.accept(dataFromBreedingOutcome(parentA, parentB, a, b, outcome));
+                        onComplete.accept(dataFromBreedingOutcome(ancestryA, ancestryB, a, b, outcome));
                     } catch (RuntimeException error) {
                         onFailure.accept(error);
                     }
@@ -238,7 +240,7 @@ public final class WonderfulChickenService {
     }
 
     private java.util.Optional<WonderfulChickenData> dataFromBreedingOutcome(
-            Chicken parentA, Chicken parentB,
+            AncestorSnapshot ancestryA, AncestorSnapshot ancestryB,
             WonderfulChickenData a, WonderfulChickenData b,
             WonderfulChickenBreedingOutcome outcome) {
         if (outcome instanceof WonderfulChickenBreedingOutcome.Fallback) {
@@ -265,7 +267,7 @@ public final class WonderfulChickenService {
         child.bloodlineId(UUID.randomUUID().toString());
         child.generation(Math.max(a.generation(), b.generation()) + 1);
         child.pedigree(new PedigreeData(
-                selfSnapshot(parentA, a), selfSnapshot(parentB, b),
+                ancestryA, ancestryB,
                 a.pedigree().parentA(), a.pedigree().parentB(),
                 b.pedigree().parentA(), b.pedigree().parentB()));
 
@@ -506,7 +508,12 @@ public final class WonderfulChickenService {
     public AncestorSnapshot selfSnapshot(Chicken chicken, WonderfulChickenData data) {
         String name = "";
         if (chicken.customName() != null) name = PlainTextComponentSerializer.plainText().serialize(chicken.customName());
-        return new AncestorSnapshot(name, data.generation(), data.bloodlineId(), data.genetics());
+        var phenotype = data.phenotypeSnapshot();
+        return new AncestorSnapshot(name, data.generation(), data.bloodlineId(),
+                data.genetics(),
+                phenotype == null ? null : phenotype.personality(),
+                phenotype == null ? java.util.List.of() :
+                    phenotype.expressedTraits().stream().map(entry -> entry.trait()).toList());
     }
 
     public WonderfulChickenStore store() { return store; }
