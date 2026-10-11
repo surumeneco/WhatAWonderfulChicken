@@ -138,6 +138,11 @@ public final class WonderfulChickenService {
                 new WonderfulChickenFounderSynthesizer(engine, plugin.genomeProfile());
         FounderGenomeSynthesis synthesis =
                 synthesizer.synthesize(FounderOrigin.NATURAL, ThreadLocalRandom.current().nextLong());
+        return dataFromFounderSynthesis(synthesis, FounderOrigin.NATURAL);
+    }
+
+    /** Apply only after the WGL CPU-heavy work has completed off-thread. */
+    public WonderfulChickenData dataFromFounderSynthesis(FounderGenomeSynthesis synthesis, FounderOrigin origin) {
         if (!(synthesis.result() instanceof SynthesisResult.Success success)) {
             SynthesisResult.Failure failure = (SynthesisResult.Failure) synthesis.result();
             throw new IllegalStateException(
@@ -145,10 +150,11 @@ public final class WonderfulChickenService {
                             + failure.reason() + " / " + failure.detail());
         }
 
-        DecodeResult<WonderfulChickenDecodedPhenotype> decoded =
-                engine.decode(plugin.genomeProfile(), success.genome());
-        var snapshot = decoded.phenotype().toSnapshot(
-                decoded.identity(), PhenotypeOrigin.NATURAL_FOUNDER);
+        DecodeResult<?> decoded = success.decoded();
+        WonderfulChickenDecodedPhenotype phenotype = (WonderfulChickenDecodedPhenotype) decoded.phenotype();
+        var snapshot = phenotype.toSnapshot(
+                decoded.identity(), origin == FounderOrigin.NATURAL
+                        ? PhenotypeOrigin.NATURAL_FOUNDER : PhenotypeOrigin.CHICKEN_TRAP_FOUNDER);
 
         WonderfulChickenData data = new WonderfulChickenData();
         for (StatType stat : StatType.values()) {
