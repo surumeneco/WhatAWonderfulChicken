@@ -157,7 +157,7 @@ public final class NaturalChickenGenerationCoordinator {
                         if (failed != null) onFailure.accept(failed);
                         else {
                             try { onComplete.accept(finished); }
-                            catch (RuntimeException error) { onFailure.accept(error); }
+                            catch (RuntimeException applyError) { onFailure.accept(applyError); }
                         }
                     });
                 } catch (IllegalStateException ignored) {
