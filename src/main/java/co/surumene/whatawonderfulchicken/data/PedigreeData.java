@@ -20,7 +20,7 @@ public record PedigreeData(
         try {
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             try (DataOutputStream out = new DataOutputStream(buffer)) {
-                out.writeInt(3);
+                out.writeInt(4);
                 write(out, parentA);
                 write(out, parentB);
                 write(out, grandparentAA);
@@ -38,7 +38,7 @@ public record PedigreeData(
         if (bytes == null || bytes.length == 0) return EMPTY;
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes))) {
             int version = in.readInt();
-            if (version != 1 && version != 2 && version != 3) return EMPTY;
+            if (version < 1 || version > 4) return EMPTY;
             return new PedigreeData(read(in, version), read(in, version), read(in, version),
                     read(in, version), read(in, version), read(in, version));
         } catch (IOException ex) {
