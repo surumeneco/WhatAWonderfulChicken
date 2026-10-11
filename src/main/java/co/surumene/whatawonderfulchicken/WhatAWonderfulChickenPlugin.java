@@ -142,6 +142,11 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         genomeLib = null;
     }
 
+    public NaturalChickenGenerationCoordinator naturalFounders() {
+        if (naturalFounders == null) throw new IllegalStateException("WWC founder worker unavailable");
+        return naturalFounders;
+    }
+
     public WonderfulGenomeLibService genomeLib() {
         WonderfulGenomeLibService service = genomeLib;
         if (service == null) {
