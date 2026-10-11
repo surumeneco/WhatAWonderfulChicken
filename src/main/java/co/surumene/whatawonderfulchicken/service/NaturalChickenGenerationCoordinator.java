@@ -71,6 +71,10 @@ public final class NaturalChickenGenerationCoordinator {
         return true;
     }
 
+    public boolean isSelected(Chicken chicken) {
+        return chicken.getPersistentDataContainer().has(deferredSeedKey, PersistentDataType.LONG);
+    }
+
     /** Resume a previously selected vanilla Chicken after reload. */
     public boolean resume(Chicken chicken) {
         Long seed = chicken.getPersistentDataContainer().get(deferredSeedKey, PersistentDataType.LONG);
