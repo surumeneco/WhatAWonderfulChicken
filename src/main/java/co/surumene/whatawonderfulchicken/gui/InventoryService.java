@@ -596,10 +596,16 @@ public final class InventoryService {
         String base = messages.text(viewer.locale(), "gui.ancestor_value",
                 name, snapshot.generation(), chickens.displayBloodlineId(snapshot.bloodlineId()));
         if (!includeGenetics) return base;
-        String natureName = snapshot.genetics() == null ? messages.text(viewer.locale(), "gui.ancestor_unknown")
-                : messages.text(viewer.locale(), "nature." + snapshot.genetics().nature().key() + ".name");
-        String traitName = snapshot.genetics() == null ? messages.text(viewer.locale(), "gui.ancestor_unknown")
-                : messages.text(viewer.locale(), "trait." + snapshot.genetics().trait().key() + ".name");
-        return base + " / " + messages.text(viewer.locale(), "gui.ancestor_genetics", natureName, traitName);
+        // Old shadow Genetics must not be displayed as the actual WGL phenotype.
+        if (snapshot.personality() == null) return base + " / " + messages.text(viewer.locale(), "gui.ancestor_unknown");
+        String personality = messages.text(viewer.locale(),
+                "nature." + snapshot.personality().key() + ".name");
+        String traits = snapshot.expressedTraits().isEmpty()
+                ? messages.text(viewer.locale(), "command.info_none")
+                : String.join(", ", snapshot.expressedTraits().stream()
+                        .map(trait -> messages.text(viewer.locale(), "trait." + trait.key() + ".name"))
+                        .toList());
+        return base + " / " + messages.text(viewer.locale(),
+                "gui.ancestor_genetics", personality, traits);
     }
 }
