@@ -166,7 +166,7 @@ public final class WonderfulChickenService {
         data.phenotypeSnapshot(snapshot);
         data.adultBiologicalTime(0L);
         data.currentStamina(data.value(StatType.STAMINA));
-        data.bloodlineId(UUID.randomUUID().toString());
+        data.bloodlineId(store.genomeMarker(data));
         data.generation(0);
         data.pedigree(PedigreeData.EMPTY);
         // Legacy genetics remain only as transition-era compatibility data.
@@ -264,7 +264,7 @@ public final class WonderfulChickenService {
 
         child.currentStamina(
                 child.effective(StatType.STAMINA, config.natureAdjustment()));
-        child.bloodlineId(UUID.randomUUID().toString());
+        child.bloodlineId(success.marker());
         child.generation(Math.max(a.generation(), b.generation()) + 1);
         child.pedigree(new PedigreeData(
                 ancestryA, ancestryB,
@@ -313,10 +313,17 @@ public final class WonderfulChickenService {
         PedigreeData original = data.pedigree();
         AncestorSnapshot parentA = recoverAncestor(child, original.parentA(), visiting);
         AncestorSnapshot parentB = recoverAncestor(child, original.parentB(), visiting);
-        if (parentA == original.parentA() && parentB == original.parentB()) return;
+        AncestorSnapshot grandparentAA = recoverAncestor(child, original.grandparentAA(), visiting);
+        AncestorSnapshot grandparentAB = recoverAncestor(child, original.grandparentAB(), visiting);
+        AncestorSnapshot grandparentBA = recoverAncestor(child, original.grandparentBA(), visiting);
+        AncestorSnapshot grandparentBB = recoverAncestor(child, original.grandparentBB(), visiting);
+        if (parentA == original.parentA() && parentB == original.parentB()
+                && grandparentAA == original.grandparentAA()
+                && grandparentAB == original.grandparentAB()
+                && grandparentBA == original.grandparentBA()
+                && grandparentBB == original.grandparentBB()) return;
         data.pedigree(new PedigreeData(parentA, parentB,
-                original.grandparentAA(), original.grandparentAB(),
-                original.grandparentBA(), original.grandparentBB()));
+                grandparentAA, grandparentAB, grandparentBA, grandparentBB));
         store.save(child, data);
     }
 
@@ -349,17 +356,17 @@ public final class WonderfulChickenService {
     }
 
     private AncestorSnapshot recoverAncestor(Chicken child, AncestorSnapshot snapshot, Set<UUID> visiting) {
-        if (snapshot == null
-                || (snapshot.genetics() != null && snapshot.personality() != null)) return snapshot;
-        if (snapshot.bloodlineId() == null || snapshot.bloodlineId().isBlank()) return snapshot;
+        if (snapshot == null || !WonderfulChickenStore.isLegacyLineageId(snapshot.bloodlineId())) {
+            return snapshot;
+        }
         // Only backfill when a real loaded ancestor's persisted ID matches.
         // Never infer a missing historical phenotype from shadow Genetics.
         for (org.bukkit.World world : Bukkit.getWorlds()) {
             for (Chicken possible : world.getEntitiesByClass(Chicken.class)) {
                 if (possible == child || !store.isWonderful(possible)) continue;
+                if (!snapshot.bloodlineId().equals(store.legacyBloodlineId(possible))) continue;
                 WonderfulChickenData parentData = store.read(possible);
-                if (!snapshot.bloodlineId().equals(parentData.bloodlineId())) continue;
-                AncestorSnapshot verified = snapshot;
+                AncestorSnapshot verified = snapshot.withBloodlineId(parentData.bloodlineId());
                 if (verified.genetics() == null) {
                     Genetics genes = ensureGenetics(possible, visiting);
                     if (genes != null) verified = verified.withGenetics(genes);
@@ -508,9 +515,11 @@ public final class WonderfulChickenService {
     }
 
     public String displayBloodlineId(String bloodlineId) {
-        if (bloodlineId == null || bloodlineId.isBlank()) return "-";
-        String compact = bloodlineId.replace("-", "");
-        return compact.substring(0, Math.min(8, compact.length()));
+        if (bloodlineId == null || bloodlineId.isBlank()) return "不明";
+        if (WonderfulChickenStore.isLegacyLineageId(bloodlineId)) {
+            return "旧ID:" + bloodlineId.substring(0, 8);
+        }
+        return bloodlineId;
     }
 
     public double jumpVelocityForHeight(double height) {
