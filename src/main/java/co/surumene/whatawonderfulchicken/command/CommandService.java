@@ -490,11 +490,18 @@ public final class CommandService {
         if (snapshot == null) return messages.text(sender, "gui.ancestor_none");
         String name = snapshot.name() == null || snapshot.name().isBlank()
                 ? messages.text(sender, "gui.ancestor_unnamed") : snapshot.name();
-        String nature = snapshot.genetics() == null ? messages.text(sender, "gui.ancestor_unknown")
-                : messages.text(sender, "nature." + snapshot.genetics().nature().key() + ".name");
-        String trait = snapshot.genetics() == null ? messages.text(sender, "gui.ancestor_unknown")
-                : messages.text(sender, "trait." + snapshot.genetics().trait().key() + ".name");
-        return name + " / " + messages.text(sender, "gui.ancestor_genetics", nature, trait);
+        String base = name + " / " + snapshot.generation() + " / "
+                + chickens.displayBloodlineId(snapshot.bloodlineId());
+        if (snapshot.personality() == null) return base + " / "
+                + messages.text(sender, "gui.ancestor_unknown");
+        String personality = messages.text(sender,
+                "nature." + snapshot.personality().key() + ".name");
+        String traits = snapshot.expressedTraits().isEmpty()
+                ? messages.text(sender, "command.info_none")
+                : String.join(", ", snapshot.expressedTraits().stream()
+                        .map(trait -> messages.text(sender, "trait." + trait.key() + ".name"))
+                        .toList());
+        return base + " / " + messages.text(sender, "gui.ancestor_genetics", personality, traits);
     }
 
     private Component infoLine(String label, String value, NamedTextColor valueColor) {
