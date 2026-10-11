@@ -12,6 +12,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import co.surumene.whatawonderfulchicken.gui.InventoryService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
+import co.surumene.whatawonderfulchicken.service.NaturalChickenGenerationCoordinator;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
 import org.bukkit.entity.Chicken;
 import org.bukkit.entity.Entity;
@@ -34,16 +35,19 @@ public final class WorldListener implements Listener {
     private final WhatAWonderfulChickenPlugin plugin;
     private final ConfigService config;
     private final WonderfulChickenService chickens;
+    private final NaturalChickenGenerationCoordinator naturalFounders;
     private final WonderfulChickenStore store;
     private final DisplayService displays;
     private final InventoryService inventories;
     private final Map<UUID, Chicken> pendingRestoration = new HashMap<>();
 
     public WorldListener(WhatAWonderfulChickenPlugin plugin, WonderfulChickenService chickens, WonderfulChickenStore store,
-                         DisplayService displays, InventoryService inventories, ConfigService config) {
+                         DisplayService displays, InventoryService inventories, ConfigService config,
+                         NaturalChickenGenerationCoordinator naturalFounders) {
         this.plugin = plugin;
         this.config = config;
         this.chickens = chickens;
+        this.naturalFounders = naturalFounders;
         this.store = store;
         this.displays = displays;
         this.inventories = inventories;
@@ -56,6 +60,7 @@ public final class WorldListener implements Listener {
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (!chicken.isValid()) return;
             if (!store.isWonderful(chicken)) {
+                naturalFounders.resume(chicken);
                 pendingRestoration.put(chicken.getUniqueId(), chicken);
                 return;
             }
@@ -67,7 +72,11 @@ public final class WorldListener implements Listener {
     /** One-second delayed check for chickens whose PDC was restored after their add event. */
     public void retryPendingRestoration() {
         for (Chicken chicken : pendingRestoration.values()) {
-            if (!chicken.isValid() || !store.isWonderful(chicken)) continue;
+            if (!chicken.isValid()) continue;
+            if (!store.isWonderful(chicken)) {
+                naturalFounders.resume(chicken);
+                continue;
+            }
             chickens.registerLoaded(chicken);
             displays.rebuild(chicken);
         }
@@ -77,6 +86,7 @@ public final class WorldListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityRemove(EntityRemoveFromWorldEvent event) {
         if (!(event.getEntity() instanceof Chicken chicken)) return;
+        naturalFounders.invalidate(chicken);
         pendingRestoration.remove(chicken.getUniqueId(), chicken);
         if (!store.isWonderful(chicken)) return;
         if (chickens.isSuperseded(chicken)) {
@@ -94,8 +104,7 @@ public final class WorldListener implements Listener {
         if (event.getSpawnReason() != CreatureSpawnEvent.SpawnReason.NATURAL) return;
         if (store.isWonderful(chicken)) return;
         if (chickens.rollNaturalConversion()) {
-            chickens.initialize(chicken, chickens.createNaturalData());
-            displays.rebuild(chicken);
+            naturalFounders.request(chicken, ThreadLocalRandom.current().nextLong());
         }
     }
 
@@ -113,10 +122,18 @@ public final class WorldListener implements Listener {
         }
 
         try {
-            chickens.createBredData(mother, father).ifPresent(data -> {
-                chickens.initialize(child, data);
-                displays.rebuild(child);
-            });
+            UUID childId = child.getUniqueId();
+            boolean queued = chickens.requestBredData(mother, father, result -> {
+                if (!child.isValid() || child.isDead()
+                        || !child.getUniqueId().equals(childId)
+                        || store.isWonderful(child)) return;
+                result.ifPresent(data -> {
+                    chickens.initialize(child, data);
+                    displays.rebuild(child);
+                });
+            }, error -> plugin.getLogger().warning("WWC async breeding failed for "
+                    + childId + ": " + safeMessage(error)));
+            if (!queued) plugin.getLogger().warning("WWC breeding worker full for " + childId);
         } catch (RuntimeException error) {
             plugin.getLogger().warning(
                     "Wonderful Chicken breeding failed unexpectedly for child "
@@ -126,7 +143,7 @@ public final class WorldListener implements Listener {
         }
     }
 
-    private static String safeMessage(RuntimeException error) {
+    private static String safeMessage(Exception error) {
         String message = error.getMessage();
         return message == null || message.isBlank()
                 ? error.getClass().getSimpleName()
@@ -175,9 +192,10 @@ public final class WorldListener implements Listener {
             if (store.isWonderful(chicken)) {
                 chickens.registerLoaded(chicken);
                 displays.rebuild(chicken);
+            } else if (naturalFounders.isSelected(chicken)) {
+                naturalFounders.resume(chicken);
             } else if (event.isNewChunk() && chickens.rollNaturalConversion()) {
-                chickens.initialize(chicken, chickens.createNaturalData());
-                displays.rebuild(chicken);
+                naturalFounders.request(chicken, ThreadLocalRandom.current().nextLong());
             }
         }
     }
@@ -185,7 +203,9 @@ public final class WorldListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onChunkUnload(ChunkUnloadEvent event) {
         for (Entity entity : event.getChunk().getEntities()) {
-            if (entity instanceof Chicken chicken && store.isWonderful(chicken)) {
+            if (entity instanceof Chicken chicken) {
+                naturalFounders.invalidate(chicken);
+                if (!store.isWonderful(chicken)) continue;
                 pendingRestoration.remove(chicken.getUniqueId(), chicken);
                 if (chickens.isSuperseded(chicken)) {
                     store.invalidate(chicken);
