@@ -196,7 +196,51 @@ public final class WonderfulChickenService {
                 new BreedingParent(breedingDisplayName(parentA), a),
                 new BreedingParent(breedingDisplayName(parentB), b),
                 ThreadLocalRandom.current().nextLong());
+        return dataFromBreedingOutcome(parentA, parentB, a, b, outcome);
+    }
 
+    /**
+     * Breed the immutable parent snapshots off-thread, then construct the
+     * child's Bukkit-specific pedigree/state on the main server thread.
+     */
+    public boolean requestBredData(
+            Chicken parentA, Chicken parentB,
+            java.util.function.Consumer<java.util.Optional<WonderfulChickenData>> onComplete,
+            java.util.function.Consumer<Exception> onFailure) {
+        WonderfulChickenData a = store.load(parentA);
+        WonderfulChickenData b = store.load(parentB);
+        if (!a.hasGenomeModel() || !b.hasGenomeModel()) return false;
+        var engine = plugin.genomeLib().engine();
+        var profile = plugin.genomeProfile();
+        String nameA = breedingDisplayName(parentA);
+        String nameB = breedingDisplayName(parentB);
+        WonderfulChickenBreedingService calculator =
+                new WonderfulChickenBreedingService(() -> engine, () -> profile);
+        long seed = ThreadLocalRandom.current().nextLong();
+        return plugin.naturalFounders().submitCalculation(
+                () -> calculator.breed(
+                        new BreedingParent(nameA, a),
+                        new BreedingParent(nameB, b), seed),
+                outcome -> {
+                    if (engine != plugin.genomeLib().engine()
+                            || profile != plugin.genomeProfile()) {
+                        onFailure.accept(new IllegalStateException(
+                                "WGL configuration changed during breeding"));
+                        return;
+                    }
+                    try {
+                        onComplete.accept(dataFromBreedingOutcome(parentA, parentB, a, b, outcome));
+                    } catch (RuntimeException error) {
+                        onFailure.accept(error);
+                    }
+                },
+                onFailure);
+    }
+
+    private java.util.Optional<WonderfulChickenData> dataFromBreedingOutcome(
+            Chicken parentA, Chicken parentB,
+            WonderfulChickenData a, WonderfulChickenData b,
+            WonderfulChickenBreedingOutcome outcome) {
         if (outcome instanceof WonderfulChickenBreedingOutcome.Fallback) {
             return java.util.Optional.empty();
         }
