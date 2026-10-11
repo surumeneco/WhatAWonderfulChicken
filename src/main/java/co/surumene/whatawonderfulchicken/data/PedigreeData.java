@@ -58,6 +58,7 @@ public record PedigreeData(
         if (snapshot.personality() != null) out.writeUTF(snapshot.personality().name());
         out.writeByte(snapshot.expressedTraits().size());
         for (Trait trait : snapshot.expressedTraits()) out.writeUTF(trait.name());
+        out.writeBoolean(snapshot.divineLineageExpressed());
     }
 
     private static AncestorSnapshot read(DataInputStream in, int version) throws IOException {
