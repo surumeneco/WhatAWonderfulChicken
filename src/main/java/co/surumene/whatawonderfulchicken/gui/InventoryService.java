@@ -329,22 +329,65 @@ public final class InventoryService {
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text(messages.text(viewer.locale(), "gui.nature",
                 messages.text(viewer.locale(), "nature." + data.nature().key() + ".name"))));
+        lore.add(ageLine(viewer, data));
         for (StatType stat : StatType.values()) {
             String display = config.statDisplay(stat);
             if (display.equals("none")) continue;
-            String label = statLabel(viewer, data, stat);
-            String value = formatValue(stat, data.value(stat));
-            String rank = messages.rank(viewer.locale(), Rank.fromNormalized(data.normalized(stat)).key());
-            String line = switch (display) {
-                case "value" -> label + ": " + value;
-                case "rank" -> label + ": " + rank;
-                default -> label + ": " + value + " (" + rank + ")";
-            };
-            lore.add(Component.text(line));
+            lore.add(statLine(viewer, data, stat, display));
         }
+        lore.add(Component.text(messages.text(viewer.locale(), "gui.click_detail"), NamedTextColor.DARK_GRAY));
         meta.lore(lore);
         item.setItemMeta(meta);
         return item;
+    }
+
+    /** Shared between the inventory tooltip and click-to-chat player view. */
+    private Component statLine(Player viewer, WonderfulChickenData data,
+                               StatType stat, String display) {
+        String name = statLabel(viewer, data, stat);
+        Rank base = Rank.fromNormalized(data.normalized(stat));
+        Rank current = Rank.fromNormalized(store.toNormalized(
+                stat, chickens.effective(data, stat)));
+        String rank = messages.rank(viewer.locale(), base.key());
+        String value = formatValue(stat, data.value(stat));
+        Component line = Component.text(name + ": ",
+                injured(data, stat) ? NamedTextColor.RED : NamedTextColor.GRAY);
+        if ("value".equals(display)) {
+            return line.append(Component.text(value, NamedTextColor.WHITE));
+        }
+        if ("both".equals(display)) {
+            line = line.append(Component.text(value + " (", NamedTextColor.WHITE));
+        }
+        line = line.append(Component.text(rank, rankColor(base))
+                .decorate(TextDecoration.BOLD));
+        if (current != base) {
+            line = line.append(Component.text(" → ", NamedTextColor.DARK_GRAY))
+                    .append(Component.text(messages.rank(viewer.locale(), current.key()),
+                            rankColor(current)).decorate(TextDecoration.BOLD));
+        }
+        return "both".equals(display)
+                ? line.append(Component.text(")", NamedTextColor.WHITE)) : line;
+    }
+
+    private Component ageLine(Player viewer, WonderfulChickenData data) {
+        if (data.adultBiologicalTime() == 0L) {
+            return Component.text(messages.text(viewer.locale(), "gui.age_immature"),
+                    NamedTextColor.GRAY);
+        }
+        double days = chickens.adultAgeDays(data);
+        String stage = "gui.stage_adult";
+        if (data.phenotypeSnapshot() != null) {
+            var curve = co.surumene.whatawonderfulchicken.runtime.AgeCurve.from(
+                    data.phenotypeSnapshot().developmentFactors(),
+                    config.ageGrowthDays(), config.agePeakDays(), config.ageAgingDays());
+            stage = days < curve.growthEndGameDay() ? "gui.stage_growing"
+                    : days < curve.agingStartGameDay() ? "gui.stage_prime"
+                    : days < curve.elderGameDay() ? "gui.stage_aging"
+                    : "gui.stage_elder";
+        }
+        return Component.text(messages.text(viewer.locale(), "gui.age",
+                String.format(Locale.ROOT, "%.1f", days),
+                messages.text(viewer.locale(), stage)), NamedTextColor.GRAY);
     }
 
     private boolean injured(WonderfulChickenData data, StatType stat) {
@@ -367,6 +410,9 @@ public final class InventoryService {
         ItemMeta meta = item.getItemMeta();
         List<Component> lore = new ArrayList<>();
         appendTraits(lore, viewer, data);
+        if (data.phenotypeSnapshot() != null && data.phenotypeSnapshot().divineLineageExpressed()) {
+            lore.add(Component.text(messages.text(viewer.locale(), "gui.divine_lineage"), NamedTextColor.LIGHT_PURPLE));
+        }
         lore.add(Component.text(messages.text(viewer.locale(), "gui.pedigree_id", chickens.displayBloodlineId(data.bloodlineId()))));
         lore.add(Component.text(messages.text(viewer.locale(), "gui.generation", data.generation())));
         PedigreeData p = data.pedigree();
@@ -376,6 +422,7 @@ public final class InventoryService {
         addAncestor(lore, viewer, "gui.grandparent_ab", p.grandparentAB());
         addAncestor(lore, viewer, "gui.grandparent_ba", p.grandparentBA());
         addAncestor(lore, viewer, "gui.grandparent_bb", p.grandparentBB());
+        lore.add(Component.text(messages.text(viewer.locale(), "gui.click_detail"), NamedTextColor.DARK_GRAY));
         meta.lore(lore);
         item.setItemMeta(meta);
         return item;
@@ -385,21 +432,14 @@ public final class InventoryService {
         var traits = data.phenotypeSnapshot() == null
                 ? ChickenGuiPresentation.legacyTraits(data.trait())
                 : ChickenGuiPresentation.traits(data.phenotypeSnapshot().expressedTraits());
-        if (traits.isEmpty()) {
-            lines.add(Component.text(messages.text(viewer.locale(), "gui.trait",
-                    messages.text(viewer.locale(), "gui.trait_none")), NamedTextColor.AQUA));
-            return;
-        }
-        for (var trait : traits) {
-            String name = messages.text(viewer.locale(), "trait." + trait.trait().key() + ".name");
-            String strengthKey = trait.strength() == co.surumene.whatawonderfulchicken.data.TraitStrength.STRONG
-                    ? "gui.trait_strong" : "gui.trait_weak";
-            String strength = messages.text(viewer.locale(), strengthKey);
-            lines.add(Component.text(messages.text(viewer.locale(), "gui.trait",
-                    name + " (" + strength + ")"), NamedTextColor.AQUA));
-            lines.add(Component.text("  " + messages.text(viewer.locale(),
-                    "trait." + trait.trait().key() + ".description"), NamedTextColor.GRAY));
-        }
+        String names = traits.isEmpty()
+                ? messages.text(viewer.locale(), "gui.trait_none")
+                : String.join(" / ", traits.stream()
+                        .map(t -> messages.text(viewer.locale(),
+                                "trait." + t.trait().key() + ".name"))
+                        .toList());
+        lines.add(Component.text(messages.text(viewer.locale(), "gui.trait", names),
+                NamedTextColor.AQUA));
     }
 
     private void sendDetailedInfo(Player player, Chicken chicken, boolean pedigreeOnly) {
@@ -409,44 +449,31 @@ public final class InventoryService {
                 .append(Component.text(
                         messages.text(player.locale(), pedigreeOnly ? "gui.pedigree" : "gui.info"),
                         NamedTextColor.YELLOW).decorate(TextDecoration.BOLD));
-        if (ChickenDisplayName.hasCustomName(chicken)) {
-            block = block.append(Component.text(" — ", NamedTextColor.GRAY))
-                    .append(ChickenDisplayName.resolve(chicken, Component.empty()));
-        }
+        block = block.append(Component.text(" — ", NamedTextColor.GRAY))
+                .append(ChickenDisplayName.resolve(chicken,
+                        Component.text(messages.text(player.locale(), "gui.title"), NamedTextColor.YELLOW)));
 
         if (!pedigreeOnly) {
             block = block.append(Component.newline()).append(Component.text(
                     messages.text(player.locale(), "gui.nature",
                             messages.text(player.locale(), "nature." + data.nature().key() + ".name")), NamedTextColor.AQUA));
+            block = block.append(Component.newline()).append(ageLine(player, data));
             for (StatType stat : StatType.values()) {
                 String display = config.statDisplay(stat);
                 if (display.equals("none")) continue;
 
-                String label = statLabel(player, data, stat);
-                String value = formatValue(stat, data.value(stat));
-                Rank rank = Rank.fromNormalized(data.normalized(stat));
-                String rankText = messages.rank(player.locale(), rank.key());
-
-                Component line = Component.text("  " + label + ": ", NamedTextColor.GRAY);
-                switch (display) {
-                    case "value" -> line = line.append(Component.text(value, NamedTextColor.WHITE));
-                    case "rank" -> line = line.append(
-                            Component.text(rankText, rankColor(rank)).decorate(TextDecoration.BOLD));
-                    case "both" -> line = line
-                            .append(Component.text(value, NamedTextColor.WHITE))
-                            .append(Component.text(" (" + rankText + ")", rankColor(rank))
-                                    .decorate(TextDecoration.BOLD));
-                    default -> {
-                        continue;
-                    }
-                }
-                block = block.append(Component.newline()).append(line);
+                block = block.append(Component.newline())
+                        .append(statLine(player, data, stat, display));
             }
         } else {
             List<Component> traitLines = new ArrayList<>();
             appendTraits(traitLines, player, data);
             for (Component traitLine : traitLines) {
                 block = block.append(Component.newline()).append(traitLine);
+            }
+            if (data.phenotypeSnapshot() != null && data.phenotypeSnapshot().divineLineageExpressed()) {
+                block = block.append(Component.newline()).append(Component.text(
+                        messages.text(player.locale(), "gui.divine_lineage"), NamedTextColor.LIGHT_PURPLE));
             }
             block = block.append(Component.newline())
                     .append(Component.text(messages.text(player.locale(), "gui.pedigree_id",
@@ -605,7 +632,10 @@ public final class InventoryService {
                 : String.join(", ", snapshot.expressedTraits().stream()
                         .map(trait -> messages.text(viewer.locale(), "trait." + trait.key() + ".name"))
                         .toList());
-        return base + " / " + messages.text(viewer.locale(),
+        String lineage = base + " / " + messages.text(viewer.locale(),
                 "gui.ancestor_genetics", personality, traits);
+        return snapshot.divineLineageExpressed()
+                ? lineage + " / " + messages.text(viewer.locale(), "gui.divine_lineage")
+                : lineage;
     }
 }

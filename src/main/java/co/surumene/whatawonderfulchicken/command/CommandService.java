@@ -510,7 +510,9 @@ public final class CommandService {
                 : String.join(", ", snapshot.expressedTraits().stream()
                         .map(trait -> messages.text(sender, "trait." + trait.key() + ".name"))
                         .toList());
-        return base + " / " + messages.text(sender, "gui.ancestor_genetics", personality, traits);
+        String result = base + " / " + messages.text(sender, "gui.ancestor_genetics", personality, traits);
+        return snapshot.divineLineageExpressed()
+                ? result + " / " + messages.text(sender, "gui.divine_lineage") : result;
     }
 
     private Component infoLine(String label, String value, NamedTextColor valueColor) {

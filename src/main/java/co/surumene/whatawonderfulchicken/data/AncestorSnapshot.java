@@ -8,26 +8,40 @@ import java.util.List;
  */
 public record AncestorSnapshot(
         String name, int generation, String bloodlineId, Genetics genetics,
-        Nature personality, List<Trait> expressedTraits) {
+        Nature personality, List<Trait> expressedTraits,
+        boolean divineLineageExpressed) {
 
     public AncestorSnapshot {
         expressedTraits = List.copyOf(expressedTraits == null ? List.of() : expressedTraits);
     }
 
     public AncestorSnapshot(String name, int generation, String bloodlineId, Genetics genetics) {
-        this(name, generation, bloodlineId, genetics, null, List.of());
+        this(name, generation, bloodlineId, genetics, null, List.of(), false);
     }
 
     public AncestorSnapshot(String name, int generation, String bloodlineId) {
-        this(name, generation, bloodlineId, null, null, List.of());
+        this(name, generation, bloodlineId, null, null, List.of(), false);
+    }
+
+    public AncestorSnapshot(String name, int generation, String bloodlineId,
+                            Genetics genetics, Nature personality, List<Trait> traits) {
+        this(name, generation, bloodlineId, genetics, personality, traits, false);
+    }
+
+    public AncestorSnapshot withBloodlineId(String marker) {
+        return new AncestorSnapshot(name, generation, marker, genetics, personality, expressedTraits, divineLineageExpressed);
     }
 
     public AncestorSnapshot withPhenotype(Nature nature, List<Trait> traits) {
-        return new AncestorSnapshot(name, generation, bloodlineId, genetics, nature, traits);
+        return withPhenotype(nature, traits, false);
+    }
+
+    public AncestorSnapshot withPhenotype(Nature nature, List<Trait> traits, boolean divine) {
+        return new AncestorSnapshot(name, generation, bloodlineId, genetics, nature, traits, divine);
     }
 
     public AncestorSnapshot withGenetics(Genetics genes) {
         return new AncestorSnapshot(name, generation, bloodlineId,
-                genes, personality, expressedTraits);
+                genes, personality, expressedTraits, divineLineageExpressed);
     }
 }

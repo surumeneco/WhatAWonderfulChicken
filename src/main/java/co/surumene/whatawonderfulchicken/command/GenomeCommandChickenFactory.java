@@ -32,7 +32,7 @@ public final class GenomeCommandChickenFactory {
         data.genetics(Genetics.random());
         data.pedigree(PedigreeData.EMPTY);
         data.generation(0);
-        data.bloodlineId(UUID.randomUUID().toString());
+        data.bloodlineId(store.genomeMarker(data));
         for(StatType stat:StatType.values()){
             double normalized=snapshot.normalizedAbilities().get(stat);
             data.normalized(stat,normalized);
