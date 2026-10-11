@@ -16,8 +16,6 @@ import co.surumene.whatawonderfulchicken.founder.FounderOrigin;
 import co.surumene.whatawonderfulchicken.founder.WonderfulChickenFounderSynthesizer;
 import co.surumene.whatawonderfulchicken.genome.PhenotypeOrigin;
 import co.surumene.whatawonderfulchicken.genome.WonderfulChickenDecodedPhenotype;
-import co.surumene.whatawonderfulchicken.migration.LegacyChickenGenomeMigrator;
-import co.surumene.whatawonderfulchicken.migration.MigrationResult;
 import co.surumene.whatawonderfulchicken.runtime.AdultAge;
 import co.surumene.whatawonderfulchicken.runtime.AgeCurve;
 import co.surumene.whatawonderfulchicken.runtime.AgeInjuryModifier;
@@ -50,11 +48,13 @@ public final class WonderfulChickenService {
     private final ConfigService config;
     private final WonderfulChickenStore store;
     private final Map<UUID, Chicken> loaded = new HashMap<>();
+    private final LegacyGenomeMigrationCoordinator migrations;
 
     public WonderfulChickenService(WhatAWonderfulChickenPlugin plugin, ConfigService config, WonderfulChickenStore store) {
         this.plugin = plugin;
         this.config = config;
         this.store = store;
+        this.migrations = new LegacyGenomeMigrationCoordinator(plugin, this, store);
     }
 
     public boolean isWonderful(Entity entity) {
@@ -67,8 +67,8 @@ public final class WonderfulChickenService {
         if (previous == chicken) return false;
         if (previous != null) store.invalidate(previous);
         store.invalidate(chicken);
-        ensureGenomeModel(chicken);
         synchronizeRangePolicy(chicken);
+        migrations.request(chicken);
         WonderfulChickenData data = store.load(chicken);
         if (!config.persistCurrentStamina()) {
             data.currentStamina(data.value(StatType.STAMINA));
@@ -91,6 +91,7 @@ public final class WonderfulChickenService {
     }
 
     public void unregisterLoaded(Chicken chicken) {
+        migrations.invalidate(chicken);
         loaded.remove(chicken.getUniqueId(), chicken);
         store.invalidate(chicken);
     }
@@ -164,11 +165,14 @@ public final class WonderfulChickenService {
     public java.util.Optional<WonderfulChickenData> createBredData(
             Chicken parentA,
             Chicken parentB) {
-        ensureGenomeModel(parentA);
-        ensureGenomeModel(parentB);
+        migrations.request(parentA);
+        migrations.request(parentB);
 
         WonderfulChickenData a = store.load(parentA);
         WonderfulChickenData b = store.load(parentB);
+        if (!a.hasGenomeModel() || !b.hasGenomeModel()) {
+            return java.util.Optional.empty();
+        }
 
         WonderfulChickenBreedingService breeding =
                 new WonderfulChickenBreedingService(
@@ -300,29 +304,16 @@ public final class WonderfulChickenService {
         return snapshot;
     }
 
-    private void ensureGenomeModel(Chicken chicken) {
-        WonderfulChickenData data = store.load(chicken);
-        if (data.hasGenomeModel()) return;
-        migrateGenomeModel(chicken, data);
-        store.save(chicken, data);
+    public boolean isRegistered(Chicken chicken) {
+        return loaded.get(chicken.getUniqueId()) == chicken;
     }
 
-    private void migrateGenomeModel(Chicken chicken, WonderfulChickenData data) {
-        long seed = migrationSeed(chicken.getUniqueId());
-        LegacyChickenGenomeMigrator migrator =
-                new LegacyChickenGenomeMigrator(
-                        plugin.genomeLib().engine(),
-                        plugin.genomeProfile());
-        MigrationResult migrated = migrator.migrate(data, 0L, seed);
-        data.genome(migrated.genome());
-        data.phenotypeSnapshot(migrated.phenotypeSnapshot());
-        data.adultBiologicalTime(migrated.adultBiologicalTime());
+    public void retryLegacyMigrations() {
+        migrations.retryLoaded();
     }
 
-    private static long migrationSeed(UUID entityId) {
-        return entityId.getMostSignificantBits()
-                ^ Long.rotateLeft(entityId.getLeastSignificantBits(), 17)
-                ^ 0x5757435F56325F31L;
+    public void shutdown() {
+        migrations.shutdown();
     }
 
     public double effective(WonderfulChickenData data, StatType stat) {
@@ -361,12 +352,10 @@ public final class WonderfulChickenService {
 
     public void initialize(Chicken chicken, WonderfulChickenData data) {
         if (data.genetics() == null) data.genetics(Genetics.random());
-        if (!data.hasGenomeModel()) {
-            migrateGenomeModel(chicken, data);
-        }
         initializeAdultAge(chicken, data);
         store.save(chicken, data);
         loaded.put(chicken.getUniqueId(), chicken);
+        migrations.request(chicken);
         projectAttributes(chicken);
         chicken.setHealth(effective(data, StatType.MAX_HEALTH));
         synchronizeBehaviorState(chicken, data);
