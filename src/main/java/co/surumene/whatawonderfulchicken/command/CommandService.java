@@ -396,18 +396,18 @@ public final class CommandService {
             Component block = Component.text("◆ ", NamedTextColor.GOLD)
                     .append(header)
                     .append(Component.newline())
-                    .append(infoLine(messages.text(sender, "command.info_uuid"), chicken.getUniqueId().toString(), NamedTextColor.GRAY))
+                    .append(infoLine("[基本] " + messages.text(sender, "command.info_uuid"), chicken.getUniqueId().toString(), NamedTextColor.GRAY))
                     .append(Component.newline())
-                    .append(infoLine(messages.text(sender, "command.info_bloodline"),
+                    .append(infoLine("[血統] " + messages.text(sender, "command.info_bloodline"),
                             chickens.displayBloodlineId(data.bloodlineId()), NamedTextColor.AQUA))
                     .append(Component.newline())
                     .append(infoLine(messages.text(sender, "command.info_generation"),
                             Integer.toString(data.generation()), NamedTextColor.AQUA))
                     .append(Component.newline())
-                    .append(infoLine(messages.text(sender, "command.info_behavior"),
+                    .append(infoLine("[行動] " + messages.text(sender, "command.info_behavior"),
                             messages.text(sender, "behavior." + data.behaviorMode().name().toLowerCase(Locale.ROOT)), NamedTextColor.GREEN))
                     .append(Component.newline())
-                    .append(infoLine(messages.text(sender, "gui.nature_label"),
+                    .append(infoLine("[性格・特性] " + messages.text(sender, "gui.nature_label"),
                             messages.text(sender, "nature." + data.nature().key() + ".name"), NamedTextColor.GREEN))
                     .append(Component.newline())
                     .append(infoLine(messages.text(sender, "gui.trait_label"),
@@ -415,11 +415,20 @@ public final class CommandService {
             block = block.append(Component.newline()).append(infoLine(
                     messages.text(sender, "gui.parent_a"), ancestorSummary(sender, data.pedigree().parentA()), NamedTextColor.AQUA))
                     .append(Component.newline()).append(infoLine(
-                            messages.text(sender, "gui.parent_b"), ancestorSummary(sender, data.pedigree().parentB()), NamedTextColor.AQUA));
+                            messages.text(sender, "gui.parent_b"), ancestorSummary(sender, data.pedigree().parentB()), NamedTextColor.AQUA))
+                    .append(Component.newline()).append(infoLine("祖父母A-A",
+                            ancestorSummary(sender, data.pedigree().grandparentAA()), NamedTextColor.AQUA))
+                    .append(Component.newline()).append(infoLine("祖父母A-B",
+                            ancestorSummary(sender, data.pedigree().grandparentAB()), NamedTextColor.AQUA))
+                    .append(Component.newline()).append(infoLine("祖父母B-A",
+                            ancestorSummary(sender, data.pedigree().grandparentBA()), NamedTextColor.AQUA))
+                    .append(Component.newline()).append(infoLine("祖父母B-B",
+                            ancestorSummary(sender, data.pedigree().grandparentBB()), NamedTextColor.AQUA));
 
             for (StatType stat : StatType.values()) {
                 Rank rank = Rank.fromNormalized(data.normalized(stat));
-                Component line = Component.text("  " + messages.text(sender, "stat." + stat.key()) + ": ", NamedTextColor.GRAY)
+                Component line = Component.text((stat == StatType.values()[0] ? "[能力] " : "  ")
+                        + messages.text(sender, "stat." + stat.key()) + ": ", NamedTextColor.GRAY)
                         .append(Component.text(formatInfoValue(stat, data.value(stat)), NamedTextColor.WHITE))
                         .append(Component.text("  " + messages.text(sender, "command.info_effective") + "="
                                 + formatInfoValue(stat, chickens.effective(data, stat)), NamedTextColor.AQUA))
@@ -435,12 +444,12 @@ public final class CommandService {
                     ? String.format(Locale.ROOT, "%.2f", chickens.adultAgeDays(data))
                     : messages.text(sender, "command.info_immature");
             block = block.append(Component.newline()).append(
-                    infoLine(messages.text(sender, "command.info_adult_age"),
+                    infoLine("[年齢] " + messages.text(sender, "command.info_adult_age"),
                             ageText, NamedTextColor.GREEN));
             if (snapshot != null) {
                 if (snapshot.injuries().isEmpty()) {
                     block = block.append(Component.newline()).append(infoLine(
-                            messages.text(sender, "command.info_injuries"),
+                            "[怪我] " + messages.text(sender, "command.info_injuries"),
                             messages.text(sender, "command.info_none"), NamedTextColor.GRAY));
                 } else {
                     for (var injury : snapshot.injuries()) {
