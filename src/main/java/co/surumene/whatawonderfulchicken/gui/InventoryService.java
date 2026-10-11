@@ -341,6 +341,55 @@ public final class InventoryService {
         return item;
     }
 
+    /** Shared between the inventory tooltip and click-to-chat player view. */
+    private Component statLine(Player viewer, WonderfulChickenData data,
+                               StatType stat, String display) {
+        String name = statLabel(viewer, data, stat);
+        Rank base = Rank.fromNormalized(data.normalized(stat));
+        Rank current = Rank.fromNormalized(store.toNormalized(
+                stat, chickens.effective(data, stat)));
+        String rank = messages.rank(viewer.locale(), base.key());
+        String value = formatValue(stat, data.value(stat));
+        Component line = Component.text(name + ": ",
+                injured(data, stat) ? NamedTextColor.RED : NamedTextColor.GRAY);
+        if ("value".equals(display)) {
+            return line.append(Component.text(value, NamedTextColor.WHITE));
+        }
+        if ("both".equals(display)) {
+            line = line.append(Component.text(value + " (", NamedTextColor.WHITE));
+        }
+        line = line.append(Component.text(rank, rankColor(base))
+                .decorate(TextDecoration.BOLD));
+        if (current != base) {
+            line = line.append(Component.text(" → ", NamedTextColor.DARK_GRAY))
+                    .append(Component.text(messages.rank(viewer.locale(), current.key()),
+                            rankColor(current)).decorate(TextDecoration.BOLD));
+        }
+        return "both".equals(display)
+                ? line.append(Component.text(")", NamedTextColor.WHITE)) : line;
+    }
+
+    private Component ageLine(Player viewer, WonderfulChickenData data) {
+        if (data.adultBiologicalTime() == 0L) {
+            return Component.text(messages.text(viewer.locale(), "gui.age_immature"),
+                    NamedTextColor.GRAY);
+        }
+        double days = chickens.adultAgeDays(data);
+        String stage = "gui.stage_adult";
+        if (data.phenotypeSnapshot() != null) {
+            var curve = co.surumene.whatawonderfulchicken.runtime.AgeCurve.from(
+                    data.phenotypeSnapshot().developmentFactors(),
+                    config.ageGrowthDays(), config.agePeakDays(), config.ageAgingDays());
+            stage = days < curve.growthEndGameDay() ? "gui.stage_growing"
+                    : days < curve.agingStartGameDay() ? "gui.stage_prime"
+                    : days < curve.elderGameDay() ? "gui.stage_aging"
+                    : "gui.stage_elder";
+        }
+        return Component.text(messages.text(viewer.locale(), "gui.age",
+                String.format(Locale.ROOT, "%.1f", days),
+                messages.text(viewer.locale(), stage)), NamedTextColor.GRAY);
+    }
+
     private boolean injured(WonderfulChickenData data, StatType stat) {
         var phenotype = data.phenotypeSnapshot();
         return phenotype != null && ChickenGuiPresentation.activeInjury(
@@ -419,25 +468,8 @@ public final class InventoryService {
                 String display = config.statDisplay(stat);
                 if (display.equals("none")) continue;
 
-                String label = statLabel(player, data, stat);
-                String value = formatValue(stat, data.value(stat));
-                Rank rank = Rank.fromNormalized(data.normalized(stat));
-                String rankText = messages.rank(player.locale(), rank.key());
-
-                Component line = Component.text("  " + label + ": ", NamedTextColor.GRAY);
-                switch (display) {
-                    case "value" -> line = line.append(Component.text(value, NamedTextColor.WHITE));
-                    case "rank" -> line = line.append(
-                            Component.text(rankText, rankColor(rank)).decorate(TextDecoration.BOLD));
-                    case "both" -> line = line
-                            .append(Component.text(value, NamedTextColor.WHITE))
-                            .append(Component.text(" (" + rankText + ")", rankColor(rank))
-                                    .decorate(TextDecoration.BOLD));
-                    default -> {
-                        continue;
-                    }
-                }
-                block = block.append(Component.newline()).append(line);
+                block = block.append(Component.newline())
+                        .append(statLine(player, data, stat, display));
             }
         } else {
             List<Component> traitLines = new ArrayList<>();
