@@ -117,10 +117,18 @@ public final class WorldListener implements Listener {
         }
 
         try {
-            chickens.createBredData(mother, father).ifPresent(data -> {
-                chickens.initialize(child, data);
-                displays.rebuild(child);
-            });
+            UUID childId = child.getUniqueId();
+            boolean queued = chickens.requestBredData(mother, father, result -> {
+                if (!child.isValid() || child.isDead()
+                        || !child.getUniqueId().equals(childId)
+                        || store.isWonderful(child)) return;
+                result.ifPresent(data -> {
+                    chickens.initialize(child, data);
+                    displays.rebuild(child);
+                });
+            }, error -> plugin.getLogger().warning("WWC async breeding failed for "
+                    + childId + ": " + safeMessage(error)));
+            if (!queued) plugin.getLogger().warning("WWC breeding worker full for " + childId);
         } catch (RuntimeException error) {
             plugin.getLogger().warning(
                     "Wonderful Chicken breeding failed unexpectedly for child "
