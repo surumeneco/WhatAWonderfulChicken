@@ -374,7 +374,8 @@ public final class WonderfulChickenService {
                 if (verified.personality() == null && parentData.phenotypeSnapshot() != null) {
                     var phenotype = parentData.phenotypeSnapshot();
                     verified = verified.withPhenotype(phenotype.personality(),
-                            phenotype.expressedTraits().stream().map(e -> e.trait()).toList());
+                            phenotype.expressedTraits().stream().map(e -> e.trait()).toList(),
+                            phenotype.divineLineageExpressed());
                 }
                 return verified;
             }
@@ -534,7 +535,8 @@ public final class WonderfulChickenService {
                 data.genetics(),
                 phenotype == null ? null : phenotype.personality(),
                 phenotype == null ? java.util.List.of() :
-                    phenotype.expressedTraits().stream().map(entry -> entry.trait()).toList());
+                    phenotype.expressedTraits().stream().map(entry -> entry.trait()).toList(),
+                phenotype != null && phenotype.divineLineageExpressed());
     }
 
     public WonderfulChickenStore store() { return store; }
