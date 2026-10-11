@@ -22,6 +22,10 @@ public record AncestorSnapshot(
         this(name, generation, bloodlineId, null, null, List.of());
     }
 
+    public AncestorSnapshot withBloodlineId(String marker) {
+        return new AncestorSnapshot(name, generation, marker, genetics, personality, expressedTraits);
+    }
+
     public AncestorSnapshot withPhenotype(Nature nature, List<Trait> traits) {
         return new AncestorSnapshot(name, generation, bloodlineId, genetics, nature, traits);
     }
