@@ -50,7 +50,7 @@ public final class NaturalChickenGenerationCoordinator {
     }
 
     public boolean request(Chicken chicken, long seed) {
-        if (closed || !chicken.isValid() || store.isWonderful(chicken)) return false;
+        if (closed || store.isWonderful(chicken)) return false;
         UUID uuid = chicken.getUniqueId();
         if (pending.containsKey(uuid)) return false;
         if (pending.size() >= 128) {
