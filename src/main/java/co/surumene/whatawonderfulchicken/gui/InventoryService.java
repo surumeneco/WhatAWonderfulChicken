@@ -477,6 +477,10 @@ public final class InventoryService {
             for (Component traitLine : traitLines) {
                 block = block.append(Component.newline()).append(traitLine);
             }
+            if (data.phenotypeSnapshot() != null && data.phenotypeSnapshot().divineLineageExpressed()) {
+                block = block.append(Component.newline()).append(Component.text(
+                        messages.text(player.locale(), "gui.divine_lineage"), NamedTextColor.LIGHT_PURPLE));
+            }
             block = block.append(Component.newline())
                     .append(Component.text(messages.text(player.locale(), "gui.pedigree_id",
                             chickens.displayBloodlineId(data.bloodlineId())), NamedTextColor.AQUA))
