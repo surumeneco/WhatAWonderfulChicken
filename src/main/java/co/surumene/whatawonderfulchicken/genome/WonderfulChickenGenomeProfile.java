@@ -11,6 +11,9 @@ import co.surumene.whatawonderfulchicken.data.TraitStrength;
 import co.surumene.whatawonderfulchicken.founder.WonderfulChickenSynthesisTarget;
 import co.surumene.wgl.api.AddressAggregate;
 import co.surumene.wgl.api.BackboneDefinition;
+import co.surumene.wgl.api.BitSequence;
+import co.surumene.wgl.api.ChromosomeTemplate;
+import co.surumene.wgl.api.AnchorSeed;
 import co.surumene.wgl.api.DecodedGene;
 import co.surumene.wgl.api.DecodedGenome;
 import co.surumene.wgl.api.DecodedHomologyBlock;
@@ -86,6 +89,35 @@ public final class WonderfulChickenGenomeProfile implements GenomeProfile<Wonder
     @Override
     public ProfileDescriptor descriptor() {
         return descriptor;
+    }
+
+    @Override
+    public BitSequence founderTemplateBits(
+            int chromosomeIndex,
+            int haplotypeIndex,
+            ChromosomeTemplate template,
+            GenomeRandom random) {
+        Objects.requireNonNull(template, "template");
+        Objects.requireNonNull(random, "random");
+
+        BitSequence varied = template.templateBits();
+        if (template.markerLocus() == null) {
+            return varied;
+        }
+
+        varied = varyFounderMarkerAnchor(
+                varied, template.markerLocus().first(), random.nextInt(49));
+        varied = varyFounderMarkerAnchor(
+                varied, template.markerLocus().second(), random.nextInt(49));
+        return varied;
+    }
+
+    private static BitSequence varyFounderMarkerAnchor(
+            BitSequence bits, AnchorSeed anchor, int choice) {
+        if (choice < 0 || choice > 48) {
+            throw new IllegalArgumentException("marker variation choice must be in [0,48]");
+        }
+        return choice == 0 ? bits : bits.flip(anchor.position() + choice - 1);
     }
 
     @Override
