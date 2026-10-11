@@ -41,6 +41,16 @@ public final class ChickenTrapRuntime implements Runnable {
     private final WonderfulChickenService chickens;
     private final DisplayService displays;
     private final ChickenTrapFounderFactory founders;
+    private final java.util.concurrent.ThreadPoolExecutor founderWorker =
+            new java.util.concurrent.ThreadPoolExecutor(1, 1, 0L,
+                    java.util.concurrent.TimeUnit.MILLISECONDS,
+                    new java.util.concurrent.ArrayBlockingQueue<>(8),
+                    task -> {
+                        Thread thread = new Thread(task, "wwc-trap-founder");
+                        thread.setDaemon(true);
+                        return thread;
+                    }, new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
+    private volatile boolean shuttingDown;
     private final ChickenTrapStateStore states;
     private final Map<UUID, Long> lastFullTimes = new HashMap<>();
     private final Set<UUID> skipped = new HashSet<>();
@@ -57,6 +67,12 @@ public final class ChickenTrapRuntime implements Runnable {
         this.displays = displays;
         this.states = new ChickenTrapStateStore(plugin);
         this.founders = new ChickenTrapFounderFactory(plugin, store, config);
+    }
+
+    public void shutdown() {
+        shuttingDown = true;
+        founderWorker.shutdownNow();
+        activating.clear();
     }
 
     public void restoreLoaded() {
@@ -233,68 +249,115 @@ public final class ChickenTrapRuntime implements Runnable {
 
     private void activate(Skeleton initial) {
         if (!states.hasRole(initial, ChickenTrapStateStore.ARMED)) return;
-        // Prevent nested damage hooks from starting a second encounter during Wind Burst/spawn.
         if (!activating.add(initial.getUniqueId())) return;
+        var engine = plugin.genomeLib().engine();
+        var profile = plugin.genomeProfile();
+        long seedA = ThreadLocalRandom.current().nextLong();
+        long seedB = ThreadLocalRandom.current().nextLong();
         try {
-        var location = initial.getLocation();
-        var world = initial.getWorld();
-        long expiry = states.expiry(initial);
-        // Reject failed WGL synthesis without corrupting an armed encounter or aborting scheduler ticks.
-        co.surumene.whatawonderfulchicken.data.WonderfulChickenData firstData;
-        co.surumene.whatawonderfulchicken.data.WonderfulChickenData secondData;
-        try {
-            firstData = founders.generate();
-            secondData = founders.generate();
-        } catch (RuntimeException failure) {
-            plugin.getLogger().warning("Chicken Trap founder synthesis failed: " + failure);
+            founderWorker.execute(() -> {
+                co.surumene.whatawonderfulchicken.founder.FounderGenomeSynthesis first = null;
+                co.surumene.whatawonderfulchicken.founder.FounderGenomeSynthesis second = null;
+                RuntimeException failure = null;
+                try {
+                    var synthesizer = new co.surumene.whatawonderfulchicken.founder.WonderfulChickenFounderSynthesizer(engine, profile);
+                    first = synthesizer.synthesize(co.surumene.whatawonderfulchicken.founder.FounderOrigin.CHICKEN_TRAP, seedA);
+                    second = synthesizer.synthesize(co.surumene.whatawonderfulchicken.founder.FounderOrigin.CHICKEN_TRAP, seedB);
+                } catch (RuntimeException error) {
+                    failure = error;
+                }
+                var readyA = first;
+                var readyB = second;
+                var failed = failure;
+                if (shuttingDown) return;
+                try {
+                    Bukkit.getScheduler().runTask(plugin,
+                            () -> finishActivation(initial, engine, profile, readyA, readyB, failed));
+                } catch (IllegalStateException ignored) {
+                    // Server is disabling this plugin.
+                }
+            });
+        } catch (java.util.concurrent.RejectedExecutionException rejected) {
+            activating.remove(initial.getUniqueId());
             states.graceUntil(initial, System.currentTimeMillis() + 3_000L);
-            return;
         }
-        windExplosion(location);
-        initial.setAI(true);
-        Chicken first = null;
-        Chicken second = null;
-        Skeleton secondRider = null;
-        try {
-            first = world.spawn(location.clone().add(-1,0,0), Chicken.class,
-                    CreatureSpawnEvent.SpawnReason.CUSTOM);
-            second = world.spawn(location.clone().add(1,0,0), Chicken.class,
-                    CreatureSpawnEvent.SpawnReason.CUSTOM);
-            first.setAdult();
-            second.setAdult();
-            chickens.initialize(first, firstData);
-            chickens.initialize(second, secondData);
-            displays.rebuild(first);
-            displays.rebuild(second);
-            secondRider = world.spawn(location.clone().add(1,0,0), Skeleton.class,
-                    CreatureSpawnEvent.SpawnReason.CUSTOM);
-            configureSkeleton(secondRider);
-            if (!first.addPassenger(initial) || !second.addPassenger(secondRider))
-                throw new IllegalStateException("Could not mount trap skeletons");
+    }
 
-            states.mark(initial, ChickenTrapStateStore.RIDER, expiry);
-            states.mark(secondRider, ChickenTrapStateStore.RIDER, expiry);
-            states.mark(first, ChickenTrapStateStore.MOUNT, expiry);
-            states.mark(second, ChickenTrapStateStore.MOUNT, expiry);
-            states.pair(initial, first.getUniqueId());
-            states.pair(secondRider, second.getUniqueId());
-            states.pair(first, initial.getUniqueId());
-            states.pair(second, secondRider.getUniqueId());
-            tracked.addAll(List.of(initial.getUniqueId(),secondRider.getUniqueId(),
-                    first.getUniqueId(),second.getUniqueId()));
-        } catch (RuntimeException error) {
-            if (secondRider != null) secondRider.remove();
-            if (first != null) first.remove();
-            if (second != null) second.remove();
-            if (initial.isValid()) {
-                states.clear(initial);
-                states.mark(initial, ChickenTrapStateStore.ARMED, expiry);
-                states.graceUntil(initial, System.currentTimeMillis() + ChickenTrapPolicy.GRACE_MILLIS);
-                initial.setAI(false);
-                tracked.add(initial.getUniqueId());
+    private void finishActivation(
+            Skeleton initial, co.surumene.wgl.api.GenomeEngine engine,
+            co.surumene.whatawonderfulchicken.genome.WonderfulChickenGenomeProfile profile,
+            co.surumene.whatawonderfulchicken.founder.FounderGenomeSynthesis readyA,
+            co.surumene.whatawonderfulchicken.founder.FounderGenomeSynthesis readyB,
+            RuntimeException failure) {
+        try {
+            if (shuttingDown || !plugin.isEnabled() || !initial.isValid() || initial.isDead()
+                    || !states.hasRole(initial, ChickenTrapStateStore.ARMED)
+                    || plugin.genomeLib().engine() != engine
+                    || plugin.genomeProfile() != profile) return;
+            if (failure != null) {
+                plugin.getLogger().warning("Chicken Trap founder synthesis failed: " + failure);
+                states.graceUntil(initial, System.currentTimeMillis() + 3_000L);
+                return;
             }
-            plugin.getLogger().warning("Chicken Trap activation failed: " + error);
-        }
+
+            co.surumene.whatawonderfulchicken.data.WonderfulChickenData firstData, secondData;
+            try {
+                firstData = founders.fromSynthesis(readyA);
+                secondData = founders.fromSynthesis(readyB);
+            } catch (RuntimeException error) {
+                plugin.getLogger().warning("Chicken Trap founder validation failed: " + error);
+                states.graceUntil(initial, System.currentTimeMillis() + 3_000L);
+                return;
+            }
+
+            Location location = initial.getLocation();
+            World world = initial.getWorld();
+            long expiry = states.expiry(initial);
+            windExplosion(location);
+            initial.setAI(true);
+            Chicken first = null;
+            Chicken second = null;
+            Skeleton secondRider = null;
+            try {
+                first = world.spawn(location.clone().add(-1,0,0), Chicken.class,
+                        CreatureSpawnEvent.SpawnReason.CUSTOM);
+                second = world.spawn(location.clone().add(1,0,0), Chicken.class,
+                        CreatureSpawnEvent.SpawnReason.CUSTOM);
+                first.setAdult();
+                second.setAdult();
+                chickens.initialize(first, firstData);
+                chickens.initialize(second, secondData);
+                displays.rebuild(first);
+                displays.rebuild(second);
+                secondRider = world.spawn(location.clone().add(1,0,0), Skeleton.class,
+                        CreatureSpawnEvent.SpawnReason.CUSTOM);
+                configureSkeleton(secondRider);
+                if (!first.addPassenger(initial) || !second.addPassenger(secondRider))
+                    throw new IllegalStateException("Could not mount trap skeletons");
+
+                states.mark(initial, ChickenTrapStateStore.RIDER, expiry);
+                states.mark(secondRider, ChickenTrapStateStore.RIDER, expiry);
+                states.mark(first, ChickenTrapStateStore.MOUNT, expiry);
+                states.mark(second, ChickenTrapStateStore.MOUNT, expiry);
+                states.pair(initial, first.getUniqueId());
+                states.pair(secondRider, second.getUniqueId());
+                states.pair(first, initial.getUniqueId());
+                states.pair(second, secondRider.getUniqueId());
+                tracked.addAll(List.of(initial.getUniqueId(),secondRider.getUniqueId(),
+                        first.getUniqueId(),second.getUniqueId()));
+            } catch (RuntimeException error) {
+                if (secondRider != null) secondRider.remove();
+                if (first != null) first.remove();
+                if (second != null) second.remove();
+                if (initial.isValid()) {
+                    states.clear(initial);
+                    states.mark(initial, ChickenTrapStateStore.ARMED, expiry);
+                    states.graceUntil(initial, System.currentTimeMillis() + ChickenTrapPolicy.GRACE_MILLIS);
+                    initial.setAI(false);
+                    tracked.add(initial.getUniqueId());
+                }
+                plugin.getLogger().warning("Chicken Trap activation failed: " + error);
+            }
         } finally {
             activating.remove(initial.getUniqueId());
         }
