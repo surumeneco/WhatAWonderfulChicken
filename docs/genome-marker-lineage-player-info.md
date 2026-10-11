@@ -2,6 +2,8 @@
 
 ## Identity
 - Current physical Genome determines the visible pedigree marker using WGL Marker Scheme V1, matching WWW. The formatted marker is a **non-unique visualization** and cannot be used as an entity identifier, lookup key, or storage primary key.
+- For every newly synthesized founder (natural spawn, `/wwc summon`, Chicken Trap, or legacy migration synthesis), independently select each of the two marker anchors on each chromosome and haplotype from 49 equally likely variants: the canonical 48-bit anchor, or exactly one of its 48 bits flipped. This mirrors WWW and preserves at most two bits of distance between independently generated anchors at the same locus. Other anchors remain canonical, and WGL Marker Scheme V1 itself is unchanged.
+- Existing saved Genome data is never rewritten to invent initial marker differences. Recomputed markers remain faithful to stored physical alleles; marker collisions remain possible.
 - Entity UUID (Bukkit) continues to identify individual entities. New founder, migrated and bred chickens never receive a random UUID-shaped lineage *display* ID.
 - Existing legacy UUID-shaped lineage IDs are retained only as migration aliases for references in pre-existing offspring pedigree snapshots. Before replacing a legacy entity's saved lineage field, move the UUID into a dedicated legacy alias PDC key; preserve it during subsequent saves.
 - Existing pedigree references may contain old UUID-shaped IDs. When the real ancestor is loaded and its legacy alias matches, upgrade that snapshot's displayed lineage to the Genome marker; do not invent a marker for an unloaded/unresolvable ancestor. Explicitly label unresolved legacy IDs.
