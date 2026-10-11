@@ -55,8 +55,7 @@ public final class WonderfulChickenStore {
         this.plugin = plugin;
         this.config = config;
         this.payloadFiles = new GenomePayloadFiles(
-                java.util.Objects.requireNonNull(Bukkit.getWorld(config.ageClockWorld()),
-                        "WWC configured clock world is not loaded").getWorldFolder().toPath()
+                Bukkit.getWorlds().getFirst().getWorldFolder().toPath()
                         .resolve("data").resolve("wonderful").resolve("wwc").resolve("genomes"));
         this.markerKey = key("type");
         this.dataVersionKey = key("data_version");
