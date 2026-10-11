@@ -121,6 +121,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (naturalFounders != null) naturalFounders.shutdown();
+        if (chickenTrap != null) chickenTrap.shutdown();
         if (chickens != null) chickens.shutdown();
         if (inventories != null) inventories.closeAll();
         if (riding != null) riding.shutdown();
