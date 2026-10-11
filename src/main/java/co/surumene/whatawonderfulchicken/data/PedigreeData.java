@@ -74,7 +74,8 @@ public record PedigreeData(
         if (count > 2) throw new IOException("Invalid ancestor trait count");
         java.util.List<Trait> traits = new java.util.ArrayList<>(count);
         for (int i = 0; i < count; i++) traits.add(Trait.valueOf(in.readUTF()));
+        boolean divine = version >= 4 && in.readBoolean();
         return new AncestorSnapshot(name, generation, bloodline,
-                genes, personality, traits);
+                genes, personality, traits, divine);
     }
 }
