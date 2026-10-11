@@ -10,6 +10,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PedigreeDataTest {
     @Test
+    void roundTripsRealParentNatureAndTraitList() {
+        var first = new AncestorSnapshot("parent", 2, "lineage", null,
+                Nature.values()[0], java.util.List.of(Trait.values()[0]));
+        var saved = new PedigreeData(first, null, null, null, null, null);
+        var restored = PedigreeData.deserialize(saved.serialize()).parentA();
+        assertEquals(first.personality(), restored.personality());
+        assertEquals(first.expressedTraits(), restored.expressedTraits());
+    }
+
+    @Test
     void roundTripGenotypesAndUnknownAncestors() {
         Genetics genes = new Genetics(3, 4, 1, 2);
         AncestorSnapshot a = new AncestorSnapshot("parent", 2, "bloodline-a", genes);
