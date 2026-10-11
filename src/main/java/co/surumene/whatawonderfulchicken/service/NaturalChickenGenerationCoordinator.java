@@ -64,6 +64,54 @@ public final class NaturalChickenGenerationCoordinator {
         return true;
     }
 
+    /**
+     * Administrative founder requests do not create a placeholder entity.
+     * Completion (or failure) is reported on the Bukkit thread.
+     */
+    public boolean submitFounder(
+            FounderOrigin origin, long seed,
+            java.util.function.Consumer<co.surumene.whatawonderfulchicken.data.WonderfulChickenData> onComplete,
+            java.util.function.Consumer<Exception> onFailure) {
+        if (closed) return false;
+        GenomeEngine engine = plugin.genomeLib().engine();
+        WonderfulChickenGenomeProfile profile = plugin.genomeProfile();
+        try {
+            worker.execute(() -> {
+                FounderGenomeSynthesis result = null;
+                Exception failure = null;
+                try {
+                    result = new WonderfulChickenFounderSynthesizer(engine, profile)
+                            .synthesize(origin, seed);
+                } catch (RuntimeException error) {
+                    failure = error;
+                }
+                FounderGenomeSynthesis completed = result;
+                Exception error = failure;
+                if (closed) return;
+                try {
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        if (closed || !plugin.isEnabled()) return;
+                        if (error != null) {
+                            onFailure.accept(error);
+                        } else if (engine != plugin.genomeLib().engine()
+                                || profile != plugin.genomeProfile()) {
+                            onFailure.accept(new IllegalStateException("WGL configuration changed during calculation"));
+                        } else {
+                            try {
+                                onComplete.accept(chickens.dataFromFounderSynthesis(completed, origin));
+                            } catch (RuntimeException conversionError) {
+                                onFailure.accept(conversionError);
+                            }
+                        }
+                    });
+                } catch (IllegalStateException ignored) {}
+            });
+            return true;
+        } catch (RejectedExecutionException full) {
+            return false;
+        }
+    }
+
     /** Called once per server tick; never waits for genome synthesis. */
     public void tick() {
         if (closed || waiting.isEmpty() || worker.getQueue().remainingCapacity() == 0) return;
