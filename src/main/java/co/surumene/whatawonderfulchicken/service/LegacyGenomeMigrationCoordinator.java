@@ -69,10 +69,10 @@ final class LegacyGenomeMigrationCoordinator {
         // replace the engine instance while an existing calculation is running.
         GenomeEngine engine = plugin.genomeLib().engine();
         WonderfulChickenGenomeProfile profile = plugin.genomeProfile();
-        Request job = new Request(chicken, id, input);
+        Request job = new Request(chicken, id, input, engine, profile);
         pending.put(id, job);
         try {
-            worker.execute(() -> calculate(job, engine, profile));
+            worker.execute(() -> calculate(job));
             return true;
         } catch (RejectedExecutionException rejected) {
             pending.remove(id, job);
@@ -104,12 +104,12 @@ final class LegacyGenomeMigrationCoordinator {
         worker.shutdownNow();
     }
 
-    private void calculate(Request job, GenomeEngine engine, WonderfulChickenGenomeProfile profile) {
+    private void calculate(Request job) {
         MigrationResult result = null;
         RuntimeException failure = null;
         try {
             long seed = migrationSeed(job.id());
-            result = new LegacyChickenGenomeMigrator(engine, profile)
+            result = new LegacyChickenGenomeMigrator(job.engine(), job.profile())
                     .migrate(job.input().toLegacyData(), 0L, seed);
         } catch (RuntimeException error) {
             failure = error;
@@ -119,8 +119,11 @@ final class LegacyGenomeMigrationCoordinator {
         if (closed || !plugin.isEnabled()) return;
         try {
             Bukkit.getScheduler().runTask(plugin, () -> complete(job, completed, error));
-        } catch (IllegalStateException ignored) {
-            // The plugin was disabled while the worker was finishing.
+        } catch (RuntimeException dispatchFailure) {
+            if (!closed && plugin.isEnabled()) {
+                plugin.getLogger().warning("Could not dispatch legacy genome result: "
+                        + dispatchFailure.getMessage());
+            }
         }
     }
 
@@ -130,6 +133,8 @@ final class LegacyGenomeMigrationCoordinator {
         pending.remove(id);
         if (closed || !plugin.isEnabled() || !job.chicken().isValid()
                 || !chickens.isRegistered(job.chicken()) || !store.isWonderful(job.chicken())) return;
+        if (job.engine() != plugin.genomeLib().engine()
+                || job.profile() != plugin.genomeProfile()) return;
 
         if (error != null) {
             retryAfter.put(id, System.currentTimeMillis() + FAILURE_RETRY_DELAY_MILLIS);
@@ -181,5 +186,7 @@ final class LegacyGenomeMigrationCoordinator {
         }
     }
 
-    private record Request(Chicken chicken, UUID id, LegacyInput input) {}
+    private record Request(
+            Chicken chicken, UUID id, LegacyInput input,
+            GenomeEngine engine, WonderfulChickenGenomeProfile profile) {}
 }
