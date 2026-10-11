@@ -106,6 +106,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
 
         chickenTrap.restoreLoaded();
         chickens.scanLoadedWorlds();
+        naturalFounders.resumeLoaded();
         displays.rebuildAllLoaded();
 
         Bukkit.getScheduler().runTaskTimer(this, naturalFounders::tick, 1L, 1L);
