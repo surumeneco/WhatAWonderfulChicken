@@ -160,20 +160,36 @@ public final class CommandService {
             ParsedSummon parsed = parseSummon(ctx.getSource(), rawArguments);
             World world = parsed.location().getWorld();
             if (world == null) throw new IllegalArgumentException("No world available at command source");
-            Chicken chicken = world.spawn(parsed.location(), Chicken.class);
-            WonderfulChickenData data = chickens.createNaturalData();
-            if (parsed.wwcData() != null) applyWwcData(data, parsed.wwcData(), chicken);
-            chickens.initialize(chicken, data);
-            if (parsed.nbt() != null && !parsed.nbt().isBlank() && !parsed.nbt().equals("{}")) {
-                if (DANGEROUS_UUID_NBT.matcher(parsed.nbt()).find()) throw new IllegalArgumentException("UUID cannot be overridden");
-                boolean ok = Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "minecraft:data merge entity " + chicken.getUniqueId() + " " + parsed.nbt());
-                if (!ok) throw new IllegalArgumentException("Vanilla NBT merge command failed");
+            if (parsed.nbt() != null && DANGEROUS_UUID_NBT.matcher(parsed.nbt()).find()) {
+                throw new IllegalArgumentException("UUID cannot be overridden");
             }
-            store.save(chicken, data);
-            chickens.projectAttributes(chicken);
-            chickens.synchronizeBehaviorState(chicken, data);
-            displays.rebuild(chicken);
-            sender.sendMessage(messages.text(sender, "command.summoned", chicken.getUniqueId()));
+            boolean queued = plugin.naturalFounders().submitFounder(
+                    co.surumene.whatawonderfulchicken.founder.FounderOrigin.NATURAL,
+                    java.util.concurrent.ThreadLocalRandom.current().nextLong(),
+                    data -> {
+                        Chicken chicken = null;
+                        try {
+                            chicken = world.spawn(parsed.location(), Chicken.class);
+                            if (parsed.wwcData() != null) applyWwcData(data, parsed.wwcData(), chicken);
+                            chickens.initialize(chicken, data);
+                            if (parsed.nbt() != null && !parsed.nbt().isBlank() && !parsed.nbt().equals("{}")) {
+                                boolean ok = Bukkit.dispatchCommand(Bukkit.getConsoleSender(),
+                                        "minecraft:data merge entity " + chicken.getUniqueId() + " " + parsed.nbt());
+                                if (!ok) throw new IllegalArgumentException("Vanilla NBT merge command failed");
+                            }
+                            store.save(chicken, data);
+                            chickens.projectAttributes(chicken);
+                            chickens.synchronizeBehaviorState(chicken, data);
+                            displays.rebuild(chicken);
+                            sender.sendMessage(messages.text(sender, "command.summoned", chicken.getUniqueId()));
+                        } catch (RuntimeException error) {
+                            if (chicken != null) chicken.remove();
+                            sender.sendMessage(messages.text(sender, "error.summon", error.getMessage()));
+                        }
+                    },
+                    error -> sender.sendMessage(messages.text(sender, "error.summon", error.getMessage())));
+            if (!queued) throw new IllegalStateException("Genome generation queue is full");
+            sender.sendMessage(Component.text("Genome生成を受け付けました。完了時に結果を通知します。"));
             return Command.SINGLE_SUCCESS;
         } catch (Exception ex) {
             sender.sendMessage(messages.text(sender, "error.summon", ex.getMessage()));
