@@ -60,6 +60,7 @@ public final class WorldListener implements Listener {
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (!chicken.isValid()) return;
             if (!store.isWonderful(chicken)) {
+                naturalFounders.resume(chicken);
                 pendingRestoration.put(chicken.getUniqueId(), chicken);
                 return;
             }
@@ -71,7 +72,11 @@ public final class WorldListener implements Listener {
     /** One-second delayed check for chickens whose PDC was restored after their add event. */
     public void retryPendingRestoration() {
         for (Chicken chicken : pendingRestoration.values()) {
-            if (!chicken.isValid() || !store.isWonderful(chicken)) continue;
+            if (!chicken.isValid()) continue;
+            if (!store.isWonderful(chicken)) {
+                naturalFounders.resume(chicken);
+                continue;
+            }
             chickens.registerLoaded(chicken);
             displays.rebuild(chicken);
         }
@@ -187,6 +192,8 @@ public final class WorldListener implements Listener {
             if (store.isWonderful(chicken)) {
                 chickens.registerLoaded(chicken);
                 displays.rebuild(chicken);
+            } else if (naturalFounders.isSelected(chicken)) {
+                naturalFounders.resume(chicken);
             } else if (event.isNewChunk() && chickens.rollNaturalConversion()) {
                 naturalFounders.request(chicken, ThreadLocalRandom.current().nextLong());
             }
