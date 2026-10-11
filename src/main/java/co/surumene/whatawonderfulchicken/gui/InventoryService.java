@@ -432,20 +432,14 @@ public final class InventoryService {
         var traits = data.phenotypeSnapshot() == null
                 ? ChickenGuiPresentation.legacyTraits(data.trait())
                 : ChickenGuiPresentation.traits(data.phenotypeSnapshot().expressedTraits());
-        if (traits.isEmpty()) {
-            lines.add(Component.text(messages.text(viewer.locale(), "gui.trait",
-                    messages.text(viewer.locale(), "gui.trait_none")), NamedTextColor.AQUA));
-            return;
-        }
-        for (var trait : traits) {
-            String name = messages.text(viewer.locale(), "trait." + trait.trait().key() + ".name");
-            String strengthKey = trait.strength() == co.surumene.whatawonderfulchicken.data.TraitStrength.STRONG
-                    ? "gui.trait_strong" : "gui.trait_weak";
-            String strength = messages.text(viewer.locale(), strengthKey);
-            lines.add(Component.text(messages.text(viewer.locale(), "gui.trait",
-                    name + " (" + strength + ")"), NamedTextColor.AQUA));
-
-        }
+        String names = traits.isEmpty()
+                ? messages.text(viewer.locale(), "gui.trait_none")
+                : String.join(" / ", traits.stream()
+                        .map(t -> messages.text(viewer.locale(),
+                                "trait." + t.trait().key() + ".name"))
+                        .toList());
+        lines.add(Component.text(messages.text(viewer.locale(), "gui.trait", names),
+                NamedTextColor.AQUA));
     }
 
     private void sendDetailedInfo(Player player, Chicken chicken, boolean pedigreeOnly) {
@@ -638,7 +632,10 @@ public final class InventoryService {
                 : String.join(", ", snapshot.expressedTraits().stream()
                         .map(trait -> messages.text(viewer.locale(), "trait." + trait.key() + ".name"))
                         .toList());
-        return base + " / " + messages.text(viewer.locale(),
+        String lineage = base + " / " + messages.text(viewer.locale(),
                 "gui.ancestor_genetics", personality, traits);
+        return snapshot.divineLineageExpressed()
+                ? lineage + " / " + messages.text(viewer.locale(), "gui.divine_lineage")
+                : lineage;
     }
 }
