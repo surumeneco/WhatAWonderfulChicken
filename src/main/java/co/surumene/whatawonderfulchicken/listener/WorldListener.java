@@ -99,11 +99,18 @@ public final class WorldListener implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBreed(EntityBreedEvent event) {
         if (!(event.getEntity() instanceof Chicken child)) return;
         if (!(event.getMother() instanceof Chicken mother) || !(event.getFather() instanceof Chicken father)) return;
         if (!store.isWonderful(mother) || !store.isWonderful(father)) return;
+        if (!store.read(mother).hasGenomeModel() || !store.read(father).hasGenomeModel()) {
+            // A vanilla fallback would lose the lineage while legacy Genome
+            // migration is pending. Retry breeding after the parents are ready.
+            chickens.retryLegacyMigrations();
+            event.setCancelled(true);
+            return;
+        }
 
         try {
             chickens.createBredData(mother, father).ifPresent(data -> {

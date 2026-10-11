@@ -23,6 +23,7 @@ public final class IntegrityController implements Runnable {
         displays.tick();
         if (tick % 20 == 0) {
             worlds.retryPendingRestoration();
+            chickens.retryLegacyMigrations();
             // Full-world fallback handles rare late PDC restoration with no add event.
             if (tick % 100 == 0) {
                 for (Chicken chicken : chickens.reconcileLoadedWorlds()) {
