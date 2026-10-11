@@ -329,19 +329,13 @@ public final class InventoryService {
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text(messages.text(viewer.locale(), "gui.nature",
                 messages.text(viewer.locale(), "nature." + data.nature().key() + ".name"))));
+        lore.add(ageLine(viewer, data));
         for (StatType stat : StatType.values()) {
             String display = config.statDisplay(stat);
             if (display.equals("none")) continue;
-            String label = statLabel(viewer, data, stat);
-            String value = formatValue(stat, data.value(stat));
-            String rank = messages.rank(viewer.locale(), Rank.fromNormalized(data.normalized(stat)).key());
-            String line = switch (display) {
-                case "value" -> label + ": " + value;
-                case "rank" -> label + ": " + rank;
-                default -> label + ": " + value + " (" + rank + ")";
-            };
-            lore.add(Component.text(line));
+            lore.add(statLine(viewer, data, stat, display));
         }
+        lore.add(Component.text(messages.text(viewer.locale(), "gui.click_detail"), NamedTextColor.DARK_GRAY));
         meta.lore(lore);
         item.setItemMeta(meta);
         return item;
@@ -367,6 +361,9 @@ public final class InventoryService {
         ItemMeta meta = item.getItemMeta();
         List<Component> lore = new ArrayList<>();
         appendTraits(lore, viewer, data);
+        if (data.phenotypeSnapshot() != null && data.phenotypeSnapshot().divineLineageExpressed()) {
+            lore.add(Component.text(messages.text(viewer.locale(), "gui.divine_lineage"), NamedTextColor.LIGHT_PURPLE));
+        }
         lore.add(Component.text(messages.text(viewer.locale(), "gui.pedigree_id", chickens.displayBloodlineId(data.bloodlineId()))));
         lore.add(Component.text(messages.text(viewer.locale(), "gui.generation", data.generation())));
         PedigreeData p = data.pedigree();
@@ -376,6 +373,7 @@ public final class InventoryService {
         addAncestor(lore, viewer, "gui.grandparent_ab", p.grandparentAB());
         addAncestor(lore, viewer, "gui.grandparent_ba", p.grandparentBA());
         addAncestor(lore, viewer, "gui.grandparent_bb", p.grandparentBB());
+        lore.add(Component.text(messages.text(viewer.locale(), "gui.click_detail"), NamedTextColor.DARK_GRAY));
         meta.lore(lore);
         item.setItemMeta(meta);
         return item;
@@ -397,8 +395,7 @@ public final class InventoryService {
             String strength = messages.text(viewer.locale(), strengthKey);
             lines.add(Component.text(messages.text(viewer.locale(), "gui.trait",
                     name + " (" + strength + ")"), NamedTextColor.AQUA));
-            lines.add(Component.text("  " + messages.text(viewer.locale(),
-                    "trait." + trait.trait().key() + ".description"), NamedTextColor.GRAY));
+
         }
     }
 
@@ -409,15 +406,15 @@ public final class InventoryService {
                 .append(Component.text(
                         messages.text(player.locale(), pedigreeOnly ? "gui.pedigree" : "gui.info"),
                         NamedTextColor.YELLOW).decorate(TextDecoration.BOLD));
-        if (ChickenDisplayName.hasCustomName(chicken)) {
-            block = block.append(Component.text(" — ", NamedTextColor.GRAY))
-                    .append(ChickenDisplayName.resolve(chicken, Component.empty()));
-        }
+        block = block.append(Component.text(" — ", NamedTextColor.GRAY))
+                .append(ChickenDisplayName.resolve(chicken,
+                        Component.text(messages.text(player.locale(), "gui.title"), NamedTextColor.YELLOW)));
 
         if (!pedigreeOnly) {
             block = block.append(Component.newline()).append(Component.text(
                     messages.text(player.locale(), "gui.nature",
                             messages.text(player.locale(), "nature." + data.nature().key() + ".name")), NamedTextColor.AQUA));
+            block = block.append(Component.newline()).append(ageLine(player, data));
             for (StatType stat : StatType.values()) {
                 String display = config.statDisplay(stat);
                 if (display.equals("none")) continue;
