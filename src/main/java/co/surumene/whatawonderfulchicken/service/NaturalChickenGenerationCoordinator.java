@@ -8,6 +8,8 @@ import co.surumene.whatawonderfulchicken.founder.WonderfulChickenFounderSynthesi
 import co.surumene.whatawonderfulchicken.genome.WonderfulChickenGenomeProfile;
 import co.surumene.wgl.api.GenomeEngine;
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.entity.Chicken;
 
 import java.util.ArrayDeque;
@@ -29,6 +31,7 @@ public final class NaturalChickenGenerationCoordinator {
     private final WonderfulChickenStore store;
     private final DisplayService displays;
     private final ThreadPoolExecutor worker;
+    private final NamespacedKey deferredSeedKey;
     private final Map<UUID, Job> pending = new HashMap<>();
     private final ArrayDeque<Job> waiting = new ArrayDeque<>();
     private volatile boolean closed;
@@ -40,6 +43,7 @@ public final class NaturalChickenGenerationCoordinator {
         this.chickens = chickens;
         this.store = store;
         this.displays = displays;
+        deferredSeedKey = new NamespacedKey(plugin, "pending_natural_founder_seed");
         worker = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(16),
                 task -> {
@@ -52,7 +56,10 @@ public final class NaturalChickenGenerationCoordinator {
     public boolean request(Chicken chicken, long seed) {
         if (closed || store.isWonderful(chicken)) return false;
         UUID uuid = chicken.getUniqueId();
-        if (pending.containsKey(uuid)) return false;
+        if (pending.containsKey(uuid)) return true;
+        Long savedSeed = chicken.getPersistentDataContainer().get(deferredSeedKey, PersistentDataType.LONG);
+        if (savedSeed != null) seed = savedSeed;
+        else chicken.getPersistentDataContainer().set(deferredSeedKey, PersistentDataType.LONG, seed);
         if (pending.size() >= 128) {
             plugin.getLogger().warning("Natural genome generation backlog full");
             return false;
@@ -62,6 +69,16 @@ public final class NaturalChickenGenerationCoordinator {
         pending.put(uuid, job);
         waiting.addLast(job);
         return true;
+    }
+
+    /** Resume a previously selected vanilla Chicken after reload. */
+    public boolean resume(Chicken chicken) {
+        Long seed = chicken.getPersistentDataContainer().get(deferredSeedKey, PersistentDataType.LONG);
+        return seed != null && request(chicken, seed);
+    }
+
+    public void resumeLoaded() {
+        Bukkit.getWorlds().forEach(world -> world.getEntitiesByClass(Chicken.class).forEach(this::resume));
     }
 
     /**
@@ -134,7 +151,10 @@ public final class NaturalChickenGenerationCoordinator {
                     Bukkit.getScheduler().runTask(plugin, () -> {
                         if (closed || !plugin.isEnabled()) return;
                         if (failed != null) onFailure.accept(failed);
-                        else onComplete.accept(finished);
+                        else {
+                            try { onComplete.accept(finished); }
+                            catch (RuntimeException error) { onFailure.accept(error); }
+                        }
                     });
                 } catch (IllegalStateException ignored) {
                     // Plugin shutdown invalidated the callback.
@@ -209,6 +229,7 @@ public final class NaturalChickenGenerationCoordinator {
         try {
             chickens.initialize(chicken,
                     chickens.dataFromFounderSynthesis(synthesis, FounderOrigin.NATURAL));
+            chicken.getPersistentDataContainer().remove(deferredSeedKey);
             displays.rebuild(chicken);
         } catch (RuntimeException ex) {
             plugin.getLogger().warning("Could not apply natural WWC genome for "
