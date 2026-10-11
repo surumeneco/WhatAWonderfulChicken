@@ -112,6 +112,40 @@ public final class NaturalChickenGenerationCoordinator {
         }
     }
 
+    /** Worker-only calculation with Bukkit-thread completion. */
+    public <T> boolean submitCalculation(
+            java.util.concurrent.Callable<T> calculate,
+            java.util.function.Consumer<T> onComplete,
+            java.util.function.Consumer<Exception> onFailure) {
+        if (closed) return false;
+        try {
+            worker.execute(() -> {
+                T outcome = null;
+                Exception error = null;
+                try {
+                    outcome = calculate.call();
+                } catch (Exception failure) {
+                    error = failure;
+                }
+                T finished = outcome;
+                Exception failed = error;
+                if (closed || !plugin.isEnabled()) return;
+                try {
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        if (closed || !plugin.isEnabled()) return;
+                        if (failed != null) onFailure.accept(failed);
+                        else onComplete.accept(finished);
+                    });
+                } catch (IllegalStateException ignored) {
+                    // Plugin shutdown invalidated the callback.
+                }
+            });
+            return true;
+        } catch (RejectedExecutionException full) {
+            return false;
+        }
+    }
+
     /** Called once per server tick; never waits for genome synthesis. */
     public void tick() {
         if (closed || waiting.isEmpty() || worker.getQueue().remainingCapacity() == 0) return;
