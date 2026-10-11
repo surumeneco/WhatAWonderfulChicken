@@ -29,14 +29,20 @@ public final class ChickenTrapFounderFactory {
         var synthesizer = new WonderfulChickenFounderSynthesizer(engine, plugin.genomeProfile());
         var synthesis = synthesizer.synthesize(FounderOrigin.CHICKEN_TRAP,
                 ThreadLocalRandom.current().nextLong());
+        return fromSynthesis(synthesis);
+    }
+
+    /** Build Bukkit/PDC-facing data only on the server thread, after CPU work. */
+    public WonderfulChickenData fromSynthesis(FounderGenomeSynthesis synthesis) {
         if (!(synthesis.result() instanceof SynthesisResult.Success success)) {
             var failure = (SynthesisResult.Failure) synthesis.result();
             throw new IllegalStateException("Trap founder synthesis failed: "
                     + failure.reason() + " / " + failure.detail());
         }
-        DecodeResult<WonderfulChickenDecodedPhenotype> decoded =
-                engine.decode(plugin.genomeProfile(), success.genome());
-        var phenotype = decoded.phenotype().toSnapshot(
+        DecodeResult<?> decoded = success.decoded();
+        WonderfulChickenDecodedPhenotype profileResult =
+                (WonderfulChickenDecodedPhenotype) decoded.phenotype();
+        var phenotype = profileResult.toSnapshot(
                 decoded.identity(), PhenotypeOrigin.CHICKEN_TRAP_FOUNDER);
 
         WonderfulChickenData data = new WonderfulChickenData();
