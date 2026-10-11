@@ -163,6 +163,17 @@ public final class WonderfulChickenStore {
         }
         double maxStamina = data.effective(StatType.STAMINA, config.natureAdjustment());
         data.currentStamina(Math.min(maxStamina, data.currentStamina()));
+        if (dataVersion != null && dataVersion == INLINE_GENOME_VERSION) {
+            try {
+                // Make newly loaded legacy items safe for ClickMobs before pickup.
+                // save() first publishes the immutable file, then commits PDC v4.
+                save(chicken, data);
+            } catch (RuntimeException error) {
+                plugin.getLogger().warning("Deferred WWC external Genome migration for "
+                        + chicken.getUniqueId() + ": " + error.getMessage());
+                // The old v3 PDC is intact and remains usable.
+            }
+        }
         return data;
     }
 
