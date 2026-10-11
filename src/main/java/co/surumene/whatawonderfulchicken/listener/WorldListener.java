@@ -99,7 +99,7 @@ public final class WorldListener implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBreed(EntityBreedEvent event) {
         if (!(event.getEntity() instanceof Chicken child)) return;
         if (!(event.getMother() instanceof Chicken mother) || !(event.getFather() instanceof Chicken father)) return;
