@@ -38,6 +38,7 @@ public final class WonderfulChickenStore {
     private final NamespacedKey behaviorKey;
     private final NamespacedKey followTargetKey;
     private final NamespacedKey bloodlineKey;
+    private final NamespacedKey legacyBloodlineKey;
     private final NamespacedKey generationKey;
     private final NamespacedKey pedigreeKey;
     private final NamespacedKey geneticsKey;
@@ -66,6 +67,7 @@ public final class WonderfulChickenStore {
         this.behaviorKey = key("behavior_mode");
         this.followTargetKey = key("follow_target");
         this.bloodlineKey = key("bloodline_id");
+        this.legacyBloodlineKey = key("legacy_bloodline_id");
         this.generationKey = key("generation");
         this.pedigreeKey = key("pedigree");
         this.geneticsKey = key("genetics");
@@ -129,7 +131,7 @@ public final class WonderfulChickenStore {
             try { data.followTarget(UUID.fromString(follow)); } catch (IllegalArgumentException ignored) {}
         }
         String bloodline = pdc.get(bloodlineKey, PersistentDataType.STRING);
-        data.bloodlineId(bloodline == null || bloodline.isBlank() ? UUID.randomUUID().toString() : bloodline);
+        data.bloodlineId(bloodline);
         Integer generation = pdc.get(generationKey, PersistentDataType.INTEGER);
         data.generation(generation == null ? 0 : generation);
         data.pedigree(PedigreeData.deserialize(pdc.get(pedigreeKey, PersistentDataType.BYTE_ARRAY)));
@@ -160,6 +162,7 @@ public final class WonderfulChickenStore {
             data.genome(plugin.genomeLib().engine().decodeBinary(genomeBytes));
             data.phenotypeSnapshot(phenotypeCodec.decode(phenotypeBytes));
             data.adultBiologicalTime(adultBiologicalTime);
+            data.bloodlineId(genomeMarker(data));
         }
         double maxStamina = data.effective(StatType.STAMINA, config.natureAdjustment());
         data.currentStamina(Math.min(maxStamina, data.currentStamina()));
@@ -186,6 +189,8 @@ public final class WonderfulChickenStore {
             phenotypeBytes = phenotypeCodec.encode(data.phenotypeSnapshot());
         }
 
+        // Validate the marker before making any PDC changes.
+        if (data.hasGenomeModel()) data.bloodlineId(genomeMarker(data));
         PersistentDataContainer pdc = chicken.getPersistentDataContainer();
         UUID payloadRef = null;
         if (data.hasGenomeModel()) {
@@ -208,8 +213,16 @@ public final class WonderfulChickenStore {
         pdc.set(behaviorKey, PersistentDataType.STRING, data.behaviorMode().name());
         if (data.followTarget() == null) pdc.remove(followTargetKey);
         else pdc.set(followTargetKey, PersistentDataType.STRING, data.followTarget().toString());
-        if (data.bloodlineId() == null || data.bloodlineId().isBlank()) data.bloodlineId(UUID.randomUUID().toString());
-        pdc.set(bloodlineKey, PersistentDataType.STRING, data.bloodlineId());
+        String previous = pdc.get(bloodlineKey, PersistentDataType.STRING);
+        if (isLegacyLineageId(previous)
+                && !pdc.has(legacyBloodlineKey, PersistentDataType.STRING)) {
+            pdc.set(legacyBloodlineKey, PersistentDataType.STRING, previous);
+        }
+        if (data.bloodlineId() == null || data.bloodlineId().isBlank()) {
+            pdc.remove(bloodlineKey);
+        } else {
+            pdc.set(bloodlineKey, PersistentDataType.STRING, data.bloodlineId());
+        }
         pdc.set(generationKey, PersistentDataType.INTEGER, data.generation());
         pdc.set(pedigreeKey, PersistentDataType.BYTE_ARRAY, data.pedigree().serialize());
         if (data.genetics() != null) pdc.set(geneticsKey, PersistentDataType.BYTE_ARRAY, data.genetics().toBytes());
@@ -230,6 +243,30 @@ public final class WonderfulChickenStore {
             pdc.set(dataVersionKey, PersistentDataType.INTEGER, LEGACY_DATA_VERSION);
         }
         loadedCache.put(chicken.getUniqueId(), new CachedState(chicken, data.copy()));
+    }
+
+    /** Kept only to migrate old descendant snapshots, never for normal display. */
+    public String legacyBloodlineId(Chicken chicken) {
+        PersistentDataContainer pdc = chicken.getPersistentDataContainer();
+        String alias = pdc.get(legacyBloodlineKey, PersistentDataType.STRING);
+        if (isLegacyLineageId(alias)) return alias;
+        String old = pdc.get(bloodlineKey, PersistentDataType.STRING);
+        return isLegacyLineageId(old) ? old : null;
+    }
+
+    public String genomeMarker(WonderfulChickenData data) {
+        if (!data.hasGenomeModel()) throw new IllegalArgumentException("Genome is required");
+        return plugin.genomeLib().engine()
+                .marker(plugin.genomeProfile().backbone(), data.genome()).formatted();
+    }
+
+    public static boolean isLegacyLineageId(String id) {
+        if (id == null || id.length() != 36) return false;
+        try {
+            return UUID.fromString(id).toString().equalsIgnoreCase(id);
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
     }
 
     public void setCurrentStamina(Chicken chicken, double stamina) {
