@@ -67,9 +67,16 @@ public final class WonderfulChickenService {
         if (previous == chicken) return false;
         if (previous != null) store.invalidate(previous);
         store.invalidate(chicken);
-        synchronizeRangePolicy(chicken);
-        migrations.request(chicken);
         WonderfulChickenData data = store.load(chicken);
+        if (data.hasGenomeModel()) {
+            synchronizeRangePolicy(chicken);
+        } else {
+            // Keep the original normalized values intact until the legacy
+            // snapshot has been synthesized and atomically committed.
+            migrations.request(chicken);
+            projectAttributes(chicken);
+        }
+        data = store.load(chicken);
         if (!config.persistCurrentStamina()) {
             data.currentStamina(data.value(StatType.STAMINA));
             store.save(chicken, data);
