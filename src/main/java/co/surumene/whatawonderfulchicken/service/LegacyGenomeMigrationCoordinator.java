@@ -33,7 +33,7 @@ final class LegacyGenomeMigrationCoordinator {
     private final ThreadPoolExecutor worker;
     private final Map<UUID, Request> pending = new HashMap<>();
     private final Map<UUID, Long> retryAfter = new HashMap<>();
-    private boolean closed;
+    private volatile boolean closed;
 
     LegacyGenomeMigrationCoordinator(
             WhatAWonderfulChickenPlugin plugin,
@@ -69,7 +69,7 @@ final class LegacyGenomeMigrationCoordinator {
         // replace the engine instance while an existing calculation is running.
         GenomeEngine engine = plugin.genomeLib().engine();
         WonderfulChickenGenomeProfile profile = plugin.genomeProfile();
-        Request job = new Request(chicken, input);
+        Request job = new Request(chicken, id, input);
         pending.put(id, job);
         try {
             worker.execute(() -> calculate(job, engine, profile));
@@ -108,7 +108,7 @@ final class LegacyGenomeMigrationCoordinator {
         MigrationResult result = null;
         RuntimeException failure = null;
         try {
-            long seed = migrationSeed(job.chicken().getUniqueId());
+            long seed = migrationSeed(job.id());
             result = new LegacyChickenGenomeMigrator(engine, profile)
                     .migrate(job.input().toLegacyData(), 0L, seed);
         } catch (RuntimeException error) {
@@ -125,7 +125,7 @@ final class LegacyGenomeMigrationCoordinator {
     }
 
     private void complete(Request job, MigrationResult result, RuntimeException error) {
-        UUID id = job.chicken().getUniqueId();
+        UUID id = job.id();
         if (pending.get(id) != job) return;
         pending.remove(id);
         if (closed || !plugin.isEnabled() || !job.chicken().isValid()
@@ -181,5 +181,5 @@ final class LegacyGenomeMigrationCoordinator {
         }
     }
 
-    private record Request(Chicken chicken, LegacyInput input) {}
+    private record Request(Chicken chicken, UUID id, LegacyInput input) {}
 }
