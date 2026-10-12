@@ -23,11 +23,11 @@ jobs:
         with:
           path: WhatAWonderfulChicken
 
-      - name: Checkout WGL develop
+      - name: Checkout WGL optimization feature
         uses: actions/checkout@v5
         with:
           repository: surumeneco/WonderfulGenomeLib
-          ref: develop
+          ref: feature/homology-chain-index-20261012
           path: WonderfulGenomeLib
 
       - uses: actions/setup-java@v5
