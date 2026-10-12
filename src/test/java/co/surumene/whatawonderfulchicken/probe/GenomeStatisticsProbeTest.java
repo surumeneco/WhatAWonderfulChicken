@@ -34,6 +34,11 @@ final class GenomeStatisticsProbeTest {
         return ph.expressedTraits().stream().map(t->t.trait().name()).toList();
     }
 
+    private static String traitDetail(PhenotypeSnapshot ph) {
+        String x=ph.expressedTraits().stream().map(t->t.trait().name()+"@"+t.strength().name())
+            .reduce((a,b)->a+","+b).orElse("_");
+        return x;
+    }
     @Test void executeStatisticalCohort() {
         System.out.printf("STAT_META species=WWC shard=%d families=%d siblings_per_family=%d%n",
           GenomeStats.SHARD,GenomeStats.FAMILIES,GenomeStats.SIBLINGS);
@@ -83,6 +88,17 @@ final class GenomeStatisticsProbeTest {
                   c.developmentFactors(),up.developmentFactors());
                 GenomeStats.categorical("WWC",f,i,ap.personality(),bp.personality(),c.personality(),up.personality(),
                   traits(ap),traits(bp),traits(c),traits(up));
+                String markerA=engine.marker(profile.backbone(),a.genome()).formatted();
+                String markerB=engine.marker(profile.backbone(),b.genome()).formatted();
+                String markerC=engine.marker(profile.backbone(),child.genome()).formatted();
+                String markerU=engine.marker(profile.backbone(),unrelated.genome()).formatted();
+                assertEquals(markerC,child.marker());
+                System.out.printf("STAT_MARKER species=WWC shard=%d family=%d sibling=%d parent_a=%s parent_b=%s child=%s unrelated=%s%n",
+                  GenomeStats.SHARD,f,i,markerA,markerB,markerC,markerU);
+                System.out.printf("STAT_TRAIT_DETAIL species=WWC shard=%d family=%d sibling=%d parent_a=%s parent_b=%s child=%s unrelated=%s%n",
+                  GenomeStats.SHARD,f,i,
+                  traitDetail(ap),traitDetail(bp),traitDetail(c),traitDetail(up));
+
                 System.out.printf(Locale.ROOT,"STAT_GENETIC species=WWC shard=%d family=%d sibling=%d divine=%s injuries=%d%n",
                  GenomeStats.SHARD,f,i,c.divineLineageExpressed(),c.injuries().size());
             }
