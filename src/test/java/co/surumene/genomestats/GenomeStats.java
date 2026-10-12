@@ -9,7 +9,7 @@ import java.util.function.Supplier;
 
 /** Isolated diagnostic harness; no production-code changes. */
 public final class GenomeStats {
-    public static final int SHARD = shardFromRef();
+    public static final int SHARD = 0; // Golden comparison: same seed as marker-inheritance-00.
     public static final int FAMILIES = 2;
     public static final int SIBLINGS = 5;
     private static final ThreadMXBean MX = (ThreadMXBean) ManagementFactory.getThreadMXBean();
