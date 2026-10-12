@@ -39,7 +39,7 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
-    filter { includeTestsMatching("*GenomePerformanceProbeTest") }
+    filter { includeTestsMatching("*GenomeStatisticsProbeTest") }
     testLogging.showStandardStreams = true
     testLogging {
         events("failed")
