@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: surumeneco/WonderfulGenomeLib
-          ref: 97a4470f35db87e035c2e34ac913d76fd9188f2b
+          ref: ed587c8d1afb9f22891627d234c5af7020354757
           path: WonderfulGenomeLib
 
       - uses: actions/setup-java@v5
