@@ -13,7 +13,10 @@ import org.bukkit.entity.Chicken;
 
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -33,6 +36,8 @@ final class LegacyGenomeMigrationCoordinator {
     private final ThreadPoolExecutor worker;
     private final Map<UUID, Request> pending = new HashMap<>();
     private final Map<UUID, Long> retryAfter = new HashMap<>();
+    /** Only failed or queue-rejected legacy entities need periodic resubmission. */
+    private final Set<UUID> retryCandidates = new LinkedHashSet<>();
     private volatile boolean closed;
 
     LegacyGenomeMigrationCoordinator(
@@ -62,6 +67,7 @@ final class LegacyGenomeMigrationCoordinator {
         WonderfulChickenData current = store.load(chicken);
         if (current.hasGenomeModel()) {
             retryAfter.remove(id);
+            retryCandidates.remove(id);
             return false;
         }
         LegacyInput input = LegacyInput.capture(current);
@@ -73,19 +79,38 @@ final class LegacyGenomeMigrationCoordinator {
         pending.put(id, job);
         try {
             worker.execute(() -> calculate(job));
+            retryCandidates.remove(id);
             return true;
         } catch (RejectedExecutionException rejected) {
             pending.remove(id, job);
-            // Queue capacity is intentionally bounded; retry during the next sweep.
+            // Queue capacity is intentionally bounded; retry this individual only.
+            retryCandidates.add(id);
             return false;
         }
     }
 
     void retryLoaded() {
-        if (closed) return;
+        if (closed || retryCandidates.isEmpty()) return;
         int submitted = 0;
-        for (Chicken chicken : chickens.loadedChickens()) {
-            if (submitted >= 4) break;
+        long now = System.currentTimeMillis();
+        // Bounded retry queue: do not load the Genome/PDC of every migrated chicken.
+        for (Iterator<UUID> it = retryCandidates.iterator(); it.hasNext() && submitted < 4;) {
+            UUID id = it.next();
+            if (pending.containsKey(id)) {
+                it.remove();
+                continue;
+            }
+            if (now < retryAfter.getOrDefault(id, 0L)) continue;
+            org.bukkit.entity.Entity entity = Bukkit.getEntity(id);
+            if (!(entity instanceof Chicken chicken) || !chicken.isValid()
+                    || !chickens.isRegistered(chicken) || !store.isWonderful(chicken)) {
+                it.remove();
+                retryAfter.remove(id);
+                continue;
+            }
+            // Remove before calling request(): request() also maintains this queue.
+            // Retain the candidate if the bounded executor rejects the submission.
+            it.remove();
             if (request(chicken)) submitted++;
         }
     }
@@ -95,12 +120,14 @@ final class LegacyGenomeMigrationCoordinator {
         Request job = pending.get(id);
         if (job != null && job.chicken() == chicken) pending.remove(id);
         retryAfter.remove(id);
+        retryCandidates.remove(id);
     }
 
     void shutdown() {
         closed = true;
         pending.clear();
         retryAfter.clear();
+        retryCandidates.clear();
         worker.shutdownNow();
     }
 
@@ -138,6 +165,7 @@ final class LegacyGenomeMigrationCoordinator {
 
         if (error != null) {
             retryAfter.put(id, System.currentTimeMillis() + FAILURE_RETRY_DELAY_MILLIS);
+            retryCandidates.add(id);
             plugin.getLogger().warning("Legacy genome migration failed for " + id
                     + " (retry after 60 seconds): " + error.getClass().getSimpleName()
                     + ": " + error.getMessage());
@@ -155,6 +183,7 @@ final class LegacyGenomeMigrationCoordinator {
         latest.adultBiologicalTime(result.adultBiologicalTime());
         store.save(job.chicken(), latest);
         retryAfter.remove(id);
+        retryCandidates.remove(id);
         chickens.synchronizeRangePolicy(job.chicken());
         chickens.projectAttributes(job.chicken());
     }
