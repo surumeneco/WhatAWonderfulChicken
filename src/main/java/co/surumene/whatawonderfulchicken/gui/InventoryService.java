@@ -440,6 +440,11 @@ public final class InventoryService {
                         .toList());
         lines.add(Component.text(messages.text(viewer.locale(), "gui.trait", names),
                 NamedTextColor.AQUA));
+        for (var expressed : traits) {
+            String description = messages.text(viewer.locale(),
+                    "trait." + expressed.trait().key() + ".description");
+            lines.add(Component.text("  " + description, NamedTextColor.GRAY));
+        }
     }
 
     private void sendDetailedInfo(Player player, Chicken chicken, boolean pedigreeOnly) {
