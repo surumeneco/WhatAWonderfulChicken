@@ -13,8 +13,8 @@ import org.bukkit.entity.Chicken;
 
 import java.util.EnumMap;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Objects;
@@ -94,23 +94,23 @@ final class LegacyGenomeMigrationCoordinator {
         int submitted = 0;
         long now = System.currentTimeMillis();
         // Bounded retry queue: do not load the Genome/PDC of every migrated chicken.
-        for (Iterator<UUID> it = retryCandidates.iterator(); it.hasNext() && submitted < 4;) {
-            UUID id = it.next();
+        for (UUID id : List.copyOf(retryCandidates)) {
+            if (submitted >= 4) break;
             if (pending.containsKey(id)) {
-                it.remove();
+                retryCandidates.remove(id);
                 continue;
             }
             if (now < retryAfter.getOrDefault(id, 0L)) continue;
             org.bukkit.entity.Entity entity = Bukkit.getEntity(id);
             if (!(entity instanceof Chicken chicken) || !chicken.isValid()
                     || !chickens.isRegistered(chicken) || !store.isWonderful(chicken)) {
-                it.remove();
+                retryCandidates.remove(id);
                 retryAfter.remove(id);
                 continue;
             }
             // Remove before calling request(): request() also maintains this queue.
             // Retain the candidate if the bounded executor rejects the submission.
-            it.remove();
+            retryCandidates.remove(id);
             if (request(chicken)) submitted++;
         }
     }
