@@ -161,7 +161,12 @@ final class LegacyGenomeMigrationCoordinator {
         if (closed || !plugin.isEnabled() || !job.chicken().isValid()
                 || !chickens.isRegistered(job.chicken()) || !store.isWonderful(job.chicken())) return;
         if (job.engine() != plugin.genomeLib().engine()
-                || job.profile() != plugin.genomeProfile()) return;
+                || job.profile() != plugin.genomeProfile()) {
+            // Reload swapped the genome implementation while the old result
+            // was in flight. Resubmit from the live entity, never lose it.
+            retryCandidates.add(id);
+            return;
+        }
 
         if (error != null) {
             retryAfter.put(id, System.currentTimeMillis() + FAILURE_RETRY_DELAY_MILLIS);
@@ -176,6 +181,8 @@ final class LegacyGenomeMigrationCoordinator {
         if (latest.hasGenomeModel()) return;
         if (!job.input().equals(LegacyInput.capture(latest))) {
             // Never overwrite changed game data with an outdated calculation.
+            // The latest state still needs a genome, so retry the live entity.
+            retryCandidates.add(id);
             return;
         }
         latest.genome(Objects.requireNonNull(result).genome());
