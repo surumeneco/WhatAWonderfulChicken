@@ -440,6 +440,15 @@ public final class InventoryService {
                         .toList());
         lines.add(Component.text(messages.text(viewer.locale(), "gui.trait", names),
                 NamedTextColor.AQUA));
+        // Trait descriptions are distinct from the intentionally omitted personality flavor text.
+        for (var expressed : traits) {
+            String key = "trait." + expressed.trait().key() + ".description";
+            lines.add(Component.text(
+                    "  " + messages.text(viewer.locale(),
+                            "trait." + expressed.trait().key() + ".name")
+                            + ": " + messages.text(viewer.locale(), key),
+                    NamedTextColor.GRAY));
+        }
     }
 
     private void sendDetailedInfo(Player player, Chicken chicken, boolean pedigreeOnly) {
