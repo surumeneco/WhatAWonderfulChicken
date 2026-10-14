@@ -23,7 +23,7 @@ import org.bukkit.entity.Entity;
 public final class IntegrityController implements Runnable {
     private static final int MAX_CHICKENS_PER_TICK = 8;
     private static final int MAX_CHUNKS_PER_TICK = 2;
-    private static final long AGE_REFRESH_QUANTUM = 1_200L;
+    private static final long AGE_REFRESH_QUANTUM = 200L;
 
     private final WonderfulChickenService chickens;
     private final DisplayService displays;
@@ -59,7 +59,7 @@ public final class IntegrityController implements Runnable {
         }
 
         if (pendingChickens.isEmpty() && tick >= nextChickenSweep) {
-            nextChickenSweep = tick + 20L;
+            nextChickenSweep = tick + 200L;
             var snapshot = chickens.loadedChickens();
             Set<UUID> registered = new HashSet<>();
             for (Chicken chicken : snapshot) {
@@ -89,7 +89,7 @@ public final class IntegrityController implements Runnable {
         // chunk entity queries are spread over many ticks instead of a
         // global world scan every five seconds.
         if (pendingChunks.isEmpty() && tick >= nextWorldSweep) {
-            nextWorldSweep = tick + 100L;
+            nextWorldSweep = tick + 200L;
             for (World world : Bukkit.getWorlds()) {
                 for (Chunk chunk : world.getLoadedChunks()) {
                     pendingChunks.addLast(chunk);
