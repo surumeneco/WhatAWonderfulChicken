@@ -499,13 +499,15 @@ public final class WonderfulChickenService {
         }
     }
 
-    public void captureHeadEquipment(Chicken chicken) {
-        if (!store.isWonderful(chicken) || chicken.getEquipment() == null) return;
+    /** @return true only when an externally changed helmet was persisted. */
+    public boolean captureHeadEquipment(Chicken chicken) {
+        if (!store.isWonderful(chicken) || chicken.getEquipment() == null) return false;
         ItemStack actual = chicken.getEquipment().getHelmet();
-        if (Objects.equals(store.read(chicken).headItem(), actual)) return;
+        if (Objects.equals(store.read(chicken).headItem(), actual)) return false;
         WonderfulChickenData data = store.load(chicken);
         data.headItem(actual);
         store.save(chicken, data);
+        return true;
     }
 
     public void synchronizeBehaviorState(Chicken chicken, WonderfulChickenData data) {

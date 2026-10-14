@@ -108,7 +108,8 @@ public final class DisplayService {
                 iterator.remove();
                 continue;
             }
-            Location destination = targetLocation(chicken, entry.getKey().role());
+            double chickenScale = projectedScale(chicken);
+            Location destination = targetLocation(chicken, entry.getKey().role(), chickenScale);
             Location current = stand.getLocation();
             if (current.getX() != destination.getX() || current.getY() != destination.getY()
                     || current.getZ() != destination.getZ() || current.getYaw() != destination.getYaw()) {
@@ -119,7 +120,6 @@ public final class DisplayService {
             }
             AttributeInstance scale = stand.getAttribute(Attribute.SCALE);
             if (scale != null) {
-                double chickenScale = chickens.effective(store.read(chicken), StatType.SIZE);
                 double intended = Math.max(0.2, chickenScale * displayScaleFactor(entry.getKey().role()));
                 if (Double.compare(scale.getBaseValue(), intended) != 0) scale.setBaseValue(intended);
             }
@@ -158,8 +158,17 @@ public final class DisplayService {
     }
 
     private Location targetLocation(Chicken chicken, DisplayRole role) {
-        WonderfulChickenData data = store.read(chicken);
-        double scale = chickens.effective(data, StatType.SIZE);
+        return targetLocation(chicken, role, projectedScale(chicken));
+    }
+
+    private double projectedScale(Chicken chicken) {
+        AttributeInstance scale = chicken.getAttribute(Attribute.SCALE);
+        if (scale != null) return scale.getBaseValue();
+        // Safety fallback for nonstandard entities with no SCALE attribute.
+        return chickens.effective(store.read(chicken), StatType.SIZE);
+    }
+
+    private Location targetLocation(Chicken chicken, DisplayRole role, double scale) {
         Location base = chicken.getLocation().clone();
         float bodyYaw = chicken.getBodyYaw();
         double yaw = Math.toRadians(bodyYaw);
