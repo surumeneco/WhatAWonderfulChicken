@@ -387,109 +387,156 @@ public final class CommandService {
             chickens.refreshPedigree(chicken);
             WonderfulChickenData data = store.load(chicken);
             Component header = ChickenDisplayName.resolve(chicken,
-                    Component.text(messages.text(sender, "command.info_header", index, total),
-                            NamedTextColor.YELLOW).decorate(TextDecoration.BOLD));
-            if (ChickenDisplayName.hasCustomName(chicken)) {
-                header = header.append(Component.text(" " + index + "/" + total, NamedTextColor.YELLOW)
-                        .decorate(TextDecoration.BOLD));
-            }
+                    Component.text(messages.text(sender, "gui.title"), NamedTextColor.YELLOW)
+                            .decorate(TextDecoration.BOLD));
             Component block = Component.text("◆ ", NamedTextColor.GOLD)
                     .append(header)
-                    .append(Component.newline())
-                    .append(infoLine("[基本] " + messages.text(sender, "command.info_uuid"), chicken.getUniqueId().toString(), NamedTextColor.GRAY))
-                    .append(Component.newline())
-                    .append(infoLine("[血統] " + messages.text(sender, "command.info_bloodline"),
-                            chickens.displayBloodlineId(data.bloodlineId()), NamedTextColor.AQUA))
-                    .append(Component.newline())
-                    .append(infoLine(messages.text(sender, "command.info_generation"),
-                            Integer.toString(data.generation()), NamedTextColor.AQUA))
-                    .append(Component.newline())
-                    .append(infoLine("[行動] " + messages.text(sender, "command.info_behavior"),
-                            messages.text(sender, "behavior." + data.behaviorMode().name().toLowerCase(Locale.ROOT)), NamedTextColor.GREEN))
-                    .append(Component.newline())
-                    .append(infoLine("[性格・特性] " + messages.text(sender, "gui.nature_label"),
-                            messages.text(sender, "nature." + data.nature().key() + ".name"), NamedTextColor.GREEN))
-                    .append(Component.newline())
-                    .append(infoLine(messages.text(sender, "gui.trait_label"),
-                            expressedTraitInfo(sender, data), NamedTextColor.GREEN));
-            block = block.append(Component.newline()).append(infoLine(
-                    messages.text(sender, "gui.parent_a"), ancestorSummary(sender, data.pedigree().parentA()), NamedTextColor.AQUA))
-                    .append(Component.newline()).append(infoLine(
-                            messages.text(sender, "gui.parent_b"), ancestorSummary(sender, data.pedigree().parentB()), NamedTextColor.AQUA))
-                    .append(Component.newline()).append(infoLine("祖父母A-A",
-                            ancestorSummary(sender, data.pedigree().grandparentAA()), NamedTextColor.AQUA))
-                    .append(Component.newline()).append(infoLine("祖父母A-B",
-                            ancestorSummary(sender, data.pedigree().grandparentAB()), NamedTextColor.AQUA))
-                    .append(Component.newline()).append(infoLine("祖父母B-A",
-                            ancestorSummary(sender, data.pedigree().grandparentBA()), NamedTextColor.AQUA))
-                    .append(Component.newline()).append(infoLine("祖父母B-B",
-                            ancestorSummary(sender, data.pedigree().grandparentBB()), NamedTextColor.AQUA));
+                    .append(Component.text(" " + index + "/" + total, NamedTextColor.YELLOW)
+                            .decorate(TextDecoration.BOLD));
 
-            for (StatType stat : StatType.values()) {
-                Rank rank = Rank.fromNormalized(data.normalized(stat));
-                Component line = Component.text((stat == StatType.values()[0] ? "[能力] " : "  ")
-                        + messages.text(sender, "stat." + stat.key()) + ": ", NamedTextColor.GRAY)
-                        .append(Component.text(formatInfoValue(stat, data.value(stat)), NamedTextColor.WHITE))
-                        .append(Component.text("  " + messages.text(sender, "command.info_effective") + "="
-                                + formatInfoValue(stat, chickens.effective(data, stat)), NamedTextColor.AQUA))
-                        .append(Component.text("  " + messages.text(sender, "command.info_normalized") + "="
-                                + String.format(Locale.ROOT, "%.3f", data.normalized(stat)), NamedTextColor.DARK_GRAY))
-                        .append(Component.text("  [" + messages.rank(sender, rank.key()) + "]", rankColor(rank))
-                                .decorate(TextDecoration.BOLD));
-                block = block.append(Component.newline()).append(line);
-            }
-
-            var snapshot = data.phenotypeSnapshot();
-            String ageText = chicken.isAdult() && data.adultBiologicalTime() != 0L
+            block = infoAppend(block, infoSection(sender, "basic"));
+            block = infoAppend(block, infoLine(messages.text(sender, "command.info_uuid"),
+                    chicken.getUniqueId().toString(), NamedTextColor.GRAY));
+            String currentAge = chicken.isAdult() && data.adultBiologicalTime() != 0L
                     ? String.format(Locale.ROOT, "%.2f", chickens.adultAgeDays(data))
                     : messages.text(sender, "command.info_immature");
-            block = block.append(Component.newline()).append(
-                    infoLine("[年齢] " + messages.text(sender, "command.info_adult_age"),
-                            ageText, NamedTextColor.GREEN));
+            block = infoAppend(block, infoLine(messages.text(sender, "command.info_current_age"),
+                    currentAge, NamedTextColor.GREEN));
+
+            block = infoAppend(block, infoSection(sender, "pedigree"));
+            block = infoAppend(block, infoLine(messages.text(sender, "command.info_bloodline"),
+                    chickens.displayBloodlineId(data.bloodlineId()), NamedTextColor.AQUA));
+            block = infoAppend(block, infoLine(messages.text(sender, "command.info_generation"),
+                    Integer.toString(data.generation()), NamedTextColor.AQUA));
+            var pedigree = data.pedigree();
+            block = infoAppend(block, infoLine(messages.text(sender, "gui.parent_a"),
+                    ancestorSummary(sender, pedigree.parentA()), NamedTextColor.AQUA));
+            block = infoAppend(block, infoLine(messages.text(sender, "gui.parent_b"),
+                    ancestorSummary(sender, pedigree.parentB()), NamedTextColor.AQUA));
+            block = infoAppend(block, infoLine(messages.text(sender, "gui.grandparent_aa"),
+                    ancestorSummary(sender, pedigree.grandparentAA()), NamedTextColor.AQUA));
+            block = infoAppend(block, infoLine(messages.text(sender, "gui.grandparent_ab"),
+                    ancestorSummary(sender, pedigree.grandparentAB()), NamedTextColor.AQUA));
+            block = infoAppend(block, infoLine(messages.text(sender, "gui.grandparent_ba"),
+                    ancestorSummary(sender, pedigree.grandparentBA()), NamedTextColor.AQUA));
+            block = infoAppend(block, infoLine(messages.text(sender, "gui.grandparent_bb"),
+                    ancestorSummary(sender, pedigree.grandparentBB()), NamedTextColor.AQUA));
+
+            block = infoAppend(block, infoSection(sender, "behavior"));
+            block = infoAppend(block, infoLine(messages.text(sender, "command.info_behavior"),
+                    messages.text(sender, "behavior."
+                            + data.behaviorMode().name().toLowerCase(Locale.ROOT)), NamedTextColor.GREEN));
+
+            block = infoAppend(block, infoSection(sender, "abilities"));
+            for (StatType stat : StatType.values()) {
+                Rank rank = Rank.fromNormalized(data.normalized(stat));
+                Component statLine = Component.text(
+                                "  " + messages.text(sender, "stat." + stat.key()) + ": ",
+                                NamedTextColor.GRAY)
+                        .append(Component.text(formatInfoValue(stat, data.value(stat))
+                                + " (" + formatInfoValue(stat, chickens.effective(data, stat))
+                                + ") / ", NamedTextColor.WHITE))
+                        .append(Component.text(messages.rank(sender, rank.key()),
+                                rankColor(rank)).decorate(TextDecoration.BOLD))
+                        .append(Component.text(
+                                " (" + String.format(Locale.ROOT, "%.3f", data.normalized(stat)) + ")",
+                                NamedTextColor.DARK_GRAY));
+                block = infoAppend(block, statLine);
+            }
+            block = infoAppend(block, infoLine(messages.text(sender, "command.info_current_stamina"),
+                    String.format(Locale.ROOT, "%.2f / %.2f",
+                            data.currentStamina(), chickens.effective(data, StatType.STAMINA)),
+                    NamedTextColor.GREEN));
+
+            block = infoAppend(block, infoSection(sender, "traits"));
+            block = infoAppend(block, infoLine(messages.text(sender, "gui.nature_label"),
+                    messages.text(sender, "nature." + data.nature().key() + ".name"),
+                    NamedTextColor.GREEN));
+            block = infoAppend(block, infoLine(messages.text(sender, "gui.trait_label"),
+                    expressedTraitInfo(sender, data), NamedTextColor.GREEN));
+            var snapshot = data.phenotypeSnapshot();
             if (snapshot != null) {
-                if (snapshot.injuries().isEmpty()) {
-                    block = block.append(Component.newline()).append(infoLine(
-                            "[怪我] " + messages.text(sender, "command.info_injuries"),
-                            messages.text(sender, "command.info_none"), NamedTextColor.GRAY));
-                } else {
-                    for (var injury : snapshot.injuries()) {
-                        boolean active = chicken.isAdult()
-                                && data.adultBiologicalTime() != 0L
-                                && chickens.adultAgeDays(data) >= injury.onsetGameDay();
-                        String description = String.format(Locale.ROOT,
-                                "%s / %s=%.2f / %s=%.2f / %s",
-                                messages.text(sender, "stat." + injury.stat().key()),
-                                messages.text(sender, "command.info_onset"),
-                                injury.onsetGameDay(),
-                                messages.text(sender, "command.info_severity"),
-                                injury.severityRank(),
-                                messages.text(sender, active
-                                        ? "command.info_active" : "command.info_latent"));
-                        block = block.append(Component.newline()).append(infoLine(
-                                messages.text(sender, "command.info_injuries"),
-                                description, active ? NamedTextColor.RED : NamedTextColor.GRAY));
-                    }
-                }
+                block = infoAppend(block, infoLine(messages.text(sender, "gui.divine_lineage"),
+                        String.format(Locale.ROOT, "%.3f (%s)",
+                                snapshot.divineLineageTotalScore(),
+                                messages.text(sender, snapshot.divineLineageExpressed()
+                                        ? "command.info_active_lineage" : "command.info_inactive_lineage")),
+                        NamedTextColor.GREEN));
             }
 
-            block = block.append(Component.newline()).append(
-                    infoLine(messages.text(sender, "command.info_current_stamina"),
-                            String.format(Locale.ROOT, "%.2f / %.2f", data.currentStamina(), chickens.effective(data, StatType.STAMINA)),
-                            NamedTextColor.GREEN));
+            block = infoAppend(block, infoSection(sender, "age"));
+            if (snapshot == null || !chicken.isAdult() || data.adultBiologicalTime() == 0L) {
+                block = infoAppend(block, infoLine(messages.text(sender, "command.info_age_stage"),
+                        messages.text(sender, "command.info_immature"), NamedTextColor.GRAY));
+            } else {
+                var curve = co.surumene.whatawonderfulchicken.runtime.AgeCurve.from(
+                        snapshot.developmentFactors(),
+                        config.ageGrowthDays(), config.agePeakDays(), config.ageAgingDays());
+                double age = chickens.adultAgeDays(data);
+                String stage = age < curve.growthEndGameDay() ? "gui.stage_growing"
+                        : age < curve.agingStartGameDay() ? "gui.stage_prime"
+                        : age < curve.elderGameDay() ? "gui.stage_aging"
+                        : "gui.stage_elder";
+                block = infoAppend(block, infoLine(messages.text(sender, "command.info_age_stage"),
+                        messages.text(sender, stage)
+                                + " / " + messages.text(sender, "command.info_growth_end")
+                                + " " + formatInfoValue(StatType.STAMINA, curve.growthEndGameDay())
+                                + " / " + messages.text(sender, "command.info_aging_start")
+                                + " " + formatInfoValue(StatType.STAMINA, curve.agingStartGameDay())
+                                + " / " + messages.text(sender, "command.info_elder_day")
+                                + " " + formatInfoValue(StatType.STAMINA, curve.elderGameDay())
+                                + " / " + messages.text(sender, "command.info_max_reduction")
+                                + " " + formatInfoValue(StatType.STAMINA, curve.maximumAgingReductionRank()),
+                        NamedTextColor.GREEN));
+            }
+
+            block = infoAppend(block, infoSection(sender, "injuries"));
+            if (snapshot == null || snapshot.injuries().isEmpty()) {
+                block = infoAppend(block, infoLine(messages.text(sender, "command.info_injuries"),
+                        messages.text(sender, "command.info_none"), NamedTextColor.GRAY));
+            } else {
+                for (var injury : snapshot.injuries()) {
+                    boolean active = chicken.isAdult() && data.adultBiologicalTime() != 0L
+                            && chickens.adultAgeDays(data) >= injury.onsetGameDay();
+                    String description = String.format(Locale.ROOT,
+                            "%s / %s=%.2f / %s=%.2f / %s",
+                            messages.text(sender, "stat." + injury.stat().key()),
+                            messages.text(sender, "command.info_onset"),
+                            injury.onsetGameDay(),
+                            messages.text(sender, "command.info_severity"),
+                            injury.severityRank(),
+                            messages.text(sender, active
+                                    ? "command.info_active" : "command.info_latent"));
+                    block = infoAppend(block, infoLine(messages.text(sender, "command.info_injuries"),
+                            description, active ? NamedTextColor.RED : NamedTextColor.GRAY));
+                }
+            }
             sender.sendMessage(block);
         }
+    }
+
+    private Component infoAppend(Component base, Component line) {
+        return base.append(Component.newline()).append(line);
+    }
+
+    private Component infoSection(CommandSender sender, String key) {
+        return Component.text("[" + messages.text(sender, "command.info_section_" + key) + "]",
+                NamedTextColor.AQUA).decorate(TextDecoration.BOLD);
     }
 
     private String expressedTraitInfo(CommandSender sender, WonderfulChickenData data) {
         if (data.phenotypeSnapshot() != null) {
             var traits = data.phenotypeSnapshot().expressedTraits();
             if (traits.isEmpty()) return messages.text(sender, "command.info_none");
-            return String.join(", ", traits.stream().map(entry ->
-                    messages.text(sender, "trait." + entry.trait().key() + ".name")
-                            + " (" + messages.text(sender,
-                                    entry.strength() == co.surumene.whatawonderfulchicken.data.TraitStrength.STRONG
-                                            ? "command.info_strong" : "command.info_weak") + ")"
-            ).toList());
+            return String.join(" / ", traits.stream().map(entry -> {
+                String name = messages.text(sender, "trait." + entry.trait().key() + ".name");
+                if (entry.strength() == co.surumene.whatawonderfulchicken.data.TraitStrength.STRONG
+                        && switch (entry.trait()) {
+                            case FUKUTSU, SAIKUTSU_OUEN, CHIKARAKOBU, KIN_NO_TAMAGO -> true;
+                            default -> false;
+                        }) name += "II";
+                return name;
+            }).toList());
         }
         return data.trait() == null ? messages.text(sender, "command.info_none")
                 : messages.text(sender, "trait." + data.trait().key() + ".name");
@@ -499,20 +546,21 @@ public final class CommandService {
         if (snapshot == null) return messages.text(sender, "gui.ancestor_none");
         String name = snapshot.name() == null || snapshot.name().isBlank()
                 ? messages.text(sender, "gui.ancestor_unnamed") : snapshot.name();
-        String base = name + " / " + snapshot.generation() + " / "
-                + chickens.displayBloodlineId(snapshot.bloodlineId());
-        if (snapshot.personality() == null) return base + " / "
-                + messages.text(sender, "gui.ancestor_unknown");
-        String personality = messages.text(sender,
-                "nature." + snapshot.personality().key() + ".name");
-        String traits = snapshot.expressedTraits().isEmpty()
-                ? messages.text(sender, "command.info_none")
-                : String.join(", ", snapshot.expressedTraits().stream()
-                        .map(trait -> messages.text(sender, "trait." + trait.key() + ".name"))
-                        .toList());
-        String result = base + " / " + messages.text(sender, "gui.ancestor_genetics", personality, traits);
-        return snapshot.divineLineageExpressed()
-                ? result + " / " + messages.text(sender, "gui.divine_lineage") : result;
+        String bloodline = snapshot.bloodlineId() == null || snapshot.bloodlineId().isBlank()
+                ? messages.text(sender, "gui.ancestor_unknown")
+                : chickens.displayBloodlineId(snapshot.bloodlineId());
+        String personality = snapshot.personality() == null
+                ? messages.text(sender, "gui.ancestor_unknown")
+                : messages.text(sender, "nature." + snapshot.personality().key() + ".name");
+        String traits = snapshot.personality() == null
+                ? messages.text(sender, "gui.ancestor_unknown")
+                : snapshot.expressedTraits().isEmpty()
+                    ? messages.text(sender, "command.info_none")
+                    : String.join("/", snapshot.expressedTraits().stream()
+                            .map(trait -> messages.text(sender, "trait." + trait.key() + ".name"))
+                            .toList());
+        return name + "(" + snapshot.generation() + ") "
+                + bloodline + " " + personality + " " + traits;
     }
 
     private Component infoLine(String label, String value, NamedTextColor valueColor) {
@@ -521,14 +569,9 @@ public final class CommandService {
     }
 
     private String formatInfoValue(StatType stat, double value) {
-        return switch (stat) {
-            case MAX_HEALTH -> String.format(Locale.ROOT, "%.0f HP", value);
-            case SIZE -> String.format(Locale.ROOT, "%.2f m", value * 0.7);
-            case GROUND_SPEED, AIR_SPEED, ASCENT_SPEED -> String.format(Locale.ROOT, "%.2f blocks/s", value);
-            case JUMP_STRENGTH, STEP_HEIGHT -> String.format(Locale.ROOT, "%.2f blocks", value);
-            case STAMINA_RECOVERY -> String.format(Locale.ROOT, "%.2f/s", value);
-            default -> String.format(Locale.ROOT, "%.2f", value);
-        };
+        // Numeric canonical values: no unit suffix or presentation-only scaling.
+        String formatted = String.format(Locale.ROOT, "%.3f", value);
+        return formatted.replaceAll("0+$", "").replaceAll("\\.$", "");
     }
 
     private NamedTextColor rankColor(Rank rank) {
