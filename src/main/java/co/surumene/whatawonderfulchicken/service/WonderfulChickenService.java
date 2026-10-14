@@ -97,6 +97,21 @@ public final class WonderfulChickenService {
         return newlyRegistered;
     }
 
+    /**
+     * Incremental fallback for PDC restored without a normal entity add event.
+     * The caller supplies one already-loaded chunk per bounded maintenance step.
+     */
+    public Collection<Chicken> reconcileLoadedChunk(org.bukkit.Chunk chunk) {
+        List<Chicken> newlyRegistered = new ArrayList<>();
+        if (!chunk.isLoaded()) return newlyRegistered;
+        for (org.bukkit.entity.Entity entity : chunk.getEntities()) {
+            if (entity instanceof Chicken chicken && registerLoaded(chicken)) {
+                newlyRegistered.add(chicken);
+            }
+        }
+        return newlyRegistered;
+    }
+
     public void unregisterLoaded(Chicken chicken) {
         migrations.invalidate(chicken);
         loaded.remove(chicken.getUniqueId(), chicken);
@@ -389,6 +404,11 @@ public final class WonderfulChickenService {
 
     public void retryLegacyMigrations() {
         migrations.retryLoaded();
+    }
+
+    /** Retry only the individual selected by the bounded maintenance wheel. */
+    public void retryLegacyMigration(Chicken chicken) {
+        migrations.request(chicken);
     }
 
     public void shutdown() {
