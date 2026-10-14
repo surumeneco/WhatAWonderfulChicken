@@ -532,7 +532,8 @@ public final class CommandService {
                 String name = messages.text(sender, "trait." + entry.trait().key() + ".name");
                 if (entry.strength() == co.surumene.whatawonderfulchicken.data.TraitStrength.STRONG
                         && switch (entry.trait()) {
-                            case FUKUTSU, SAIKUTSU_OUEN, CHIKARAKOBU, KIN_NO_TAMAGO -> true;
+                            case JIKIDEN, HATENKO, FUKUTSU, SAIKUTSU_OUEN,
+                                    CHIKARAKOBU, KIN_NO_TAMAGO -> true;
                             default -> false;
                         }) name += "II";
                 return name;
