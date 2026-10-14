@@ -543,35 +543,42 @@ public final class CommandService {
         if (data.phenotypeSnapshot() != null) {
             var traits = data.phenotypeSnapshot().expressedTraits();
             if (traits.isEmpty()) return messages.text(sender, "command.info_none");
-            return String.join(", ", traits.stream().map(entry ->
-                    messages.text(sender, "trait." + entry.trait().key() + ".name")
-                            + " (" + messages.text(sender,
-                                    entry.strength() == co.surumene.whatawonderfulchicken.data.TraitStrength.STRONG
-                                            ? "command.info_strong" : "command.info_weak") + ")"
-            ).toList());
+            return String.join(" / ", traits.stream().map(entry -> {
+                String name = messages.text(sender, "trait." + entry.trait().key() + ".name");
+                return name + (entry.strength()
+                        == co.surumene.whatawonderfulchicken.data.TraitStrength.STRONG
+                        && strongHasDistinctEffect(entry.trait()) ? "II" : "");
+            }).toList());
         }
         return data.trait() == null ? messages.text(sender, "command.info_none")
                 : messages.text(sender, "trait." + data.trait().key() + ".name");
+    }
+
+    private boolean strongHasDistinctEffect(co.surumene.whatawonderfulchicken.data.Trait trait) {
+        return switch (trait) {
+            case JIKIDEN, HATENKO, FUKUTSU, SAIKUTSU_OUEN,
+                    CHIKARAKOBU, KIN_NO_TAMAGO -> true;
+            default -> false;
+        };
     }
 
     private String ancestorSummary(CommandSender sender, AncestorSnapshot snapshot) {
         if (snapshot == null) return messages.text(sender, "gui.ancestor_none");
         String name = snapshot.name() == null || snapshot.name().isBlank()
                 ? messages.text(sender, "gui.ancestor_unnamed") : snapshot.name();
-        String base = name + " / " + snapshot.generation() + " / "
-                + chickens.displayBloodlineId(snapshot.bloodlineId());
-        if (snapshot.personality() == null) return base + " / "
-                + messages.text(sender, "gui.ancestor_unknown");
-        String personality = messages.text(sender,
-                "nature." + snapshot.personality().key() + ".name");
-        String traits = snapshot.expressedTraits().isEmpty()
+        String lineage = chickens.displayBloodlineId(snapshot.bloodlineId());
+        String personality = snapshot.personality() == null
+                ? messages.text(sender, "gui.ancestor_unknown")
+                : messages.text(sender, "nature." + snapshot.personality().key() + ".name");
+        String traits = snapshot.personality() == null
+                ? messages.text(sender, "gui.ancestor_unknown")
+                : snapshot.expressedTraits().isEmpty()
                 ? messages.text(sender, "command.info_none")
-                : String.join(", ", snapshot.expressedTraits().stream()
+                : String.join("/", snapshot.expressedTraits().stream()
                         .map(trait -> messages.text(sender, "trait." + trait.key() + ".name"))
                         .toList());
-        String result = base + " / " + messages.text(sender, "gui.ancestor_genetics", personality, traits);
-        return snapshot.divineLineageExpressed()
-                ? result + " / " + messages.text(sender, "gui.divine_lineage") : result;
+        return name + "(" + snapshot.generation() + ") "
+                + lineage + " " + personality + " " + traits;
     }
 
     private Component infoLine(String label, String value, NamedTextColor valueColor) {
