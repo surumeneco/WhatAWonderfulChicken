@@ -497,7 +497,7 @@ public final class WonderfulChickenService {
                 data.normalized(stat, store.toNormalized(stat, value));
             }
         }
-        data.currentStamina(Math.min(data.currentStamina(), effective(data, StatType.STAMINA, frame)));
+        data.currentStamina(Math.min(data.currentStamina(), effective(data, StatType.STAMINA)));
         store.save(chicken, data);
         projectAttributes(chicken);
     }
@@ -523,7 +523,7 @@ public final class WonderfulChickenService {
         setAttribute(chicken, Attribute.JUMP_STRENGTH, jumpVelocityForHeight(effective(data, StatType.JUMP_STRENGTH, frame)));
         setAttribute(chicken, Attribute.MOVEMENT_SPEED, Math.max(0.001, effective(data, StatType.GROUND_SPEED, frame) / MOVEMENT_ATTRIBUTE_BLOCKS_PER_SECOND));
         if (chicken.getHealth() > effectiveHealth) chicken.setHealth(effectiveHealth);
-        double effectiveStamina = effective(data, StatType.STAMINA);
+        double effectiveStamina = effective(data, StatType.STAMINA, frame);
         if (data.currentStamina() > effectiveStamina) {
             // Keep the persisted current pool at or below the aging-adjusted capacity.
             store.setCurrentStamina(chicken, effectiveStamina);
