@@ -60,4 +60,17 @@ final class ChickenTrapPolicyTest {
         assertEquals(32,edge.x(),1e-9);
         assertEquals(0,edge.z(),1e-9);
     }
+
+    @Test void trapSkeletonRidingChickenRetainsAutonomousNavigation() {
+        assertTrue(ChickenTrapPolicy.trapMountNavigation(true, true));
+        assertFalse(ChickenTrapPolicy.trapMountNavigation(false, true));
+        assertFalse(ChickenTrapPolicy.trapMountNavigation(true, false));
+    }
+
+    @Test void trapMountMovesToFightOutsideMeleeRange() {
+        assertTrue(ChickenTrapPolicy.shouldPursue(10.0 * 10.0));
+        assertTrue(ChickenTrapPolicy.shouldPursue(20.0 * 20.0));
+        assertFalse(ChickenTrapPolicy.shouldPursue(3.0 * 3.0));
+        assertFalse(ChickenTrapPolicy.shouldPursue(Double.NaN));
+    }
 }
