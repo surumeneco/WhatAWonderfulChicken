@@ -34,7 +34,14 @@ public final class ConfigService {
     public FileConfiguration config() { return plugin.getConfig(); }
 
     public ValidationResult validate(ConfigurationSection config) {
-        return validateConfiguration(config, defaults);
+        ValidationResult result = validateConfiguration(config, defaults);
+        if (!result.valid()) return result;
+        String name = config.getString("runtime.age.clock-world",
+                defaults.getString("runtime.age.clock-world", "world"));
+        if (org.bukkit.Bukkit.getWorld(name) == null) {
+            return ValidationResult.error("runtime.age.clock-world does not exist: " + name);
+        }
+        return result;
     }
 
     static ValidationResult validateConfiguration(ConfigurationSection config, ConfigurationSection defaults) {
@@ -70,6 +77,8 @@ public final class ConfigService {
         validateProbability(config, defaults, "breeding.direct-inheritance-rate", errors);
         validateProbability(config, defaults, "breeding.stat-mutation-rate", errors);
         validateProbability(config, defaults, "breeding.genetic-mutation-rate", errors);
+        validateProbability(config, defaults, "chicken-trap.spawn-chance", errors);
+        positive(config, defaults, "chicken-trap.activation-radius-blocks", errors);
         validateProbability(config, defaults, "traits.egg-gold-chance", errors);
         validateProbability(config, defaults, "traits.egg-netherite-conditional-chance", errors);
         double adjustment = numberSetting(config, defaults, "nature.adjustment");
@@ -95,6 +104,19 @@ public final class ConfigService {
         if (minAlert < 10 || maxAlert < minAlert) errors.add("traits.alert interval must satisfy 10 <= min <= max");
         if (integerSetting(config, defaults, "road.check-interval-ticks") < 1) errors.add("road.check-interval-ticks must be >= 1");
         positive(config, defaults, "follow.teleport-distance", errors);
+        Object clockWorld = config.isSet("runtime.age.clock-world")
+                ? config.get("runtime.age.clock-world")
+                : defaults.get("runtime.age.clock-world");
+        if (!(clockWorld instanceof String name) || name.isBlank()) {
+            errors.add("runtime.age.clock-world must be a nonempty world name");
+        }
+        nonNegative(config, defaults, "runtime.age.base-growth-game-days", errors);
+        nonNegative(config, defaults, "runtime.age.base-peak-duration-game-days", errors);
+        nonNegative(config, defaults, "runtime.age.base-aging-duration-game-days", errors);
+        for (StatType stat : StatType.values()) {
+            nonNegative(config, defaults,
+                    "runtime.age.sensitivity." + stat.configName(), errors);
+        }
         if (integerSetting(config, defaults, "commands.info-max-results") < 1) errors.add("commands.info-max-results must be >= 1");
         for (String block : config.getStringList("road.blocks")) {
             if (Material.matchMaterial(block) == null) errors.add("Unknown road block: " + block);
@@ -196,6 +218,10 @@ public final class ConfigService {
     public double alertRadius() { return config().getDouble("traits.alert-radius", 20.0); }
     public int alertMinInterval() { return config().getInt("traits.alert-min-interval-ticks", 10); }
     public int alertMaxInterval() { return config().getInt("traits.alert-max-interval-ticks", 80); }
+    public double chickenTrapChance() { return config().getDouble("chicken-trap.spawn-chance", 0.01); }
+    public double chickenTrapActivationRadius() {
+        return config().getDouble("chicken-trap.activation-radius-blocks", 10.0);
+    }
     public double eggGoldChance() { return config().getDouble("traits.egg-gold-chance", 0.05); }
     public double eggNetheriteChance() { return config().getDouble("traits.egg-netherite-conditional-chance", 0.01); }
     public double staminaConsumptionPerSecond() { return config().getDouble("flight.stamina-consumption-per-second", 1.0); }
@@ -206,6 +232,14 @@ public final class ConfigService {
     public double followTeleportDistance() { return config().getDouble("follow.teleport-distance", 16.0); }
     public boolean persistCurrentStamina() { return config().getBoolean("storage.persist-current-stamina", true); }
     public int infoMaxResults() { return config().getInt("commands.info-max-results", 10); }
+    public String ageClockWorld() { return config().getString("runtime.age.clock-world", "world"); }
+    public double ageGrowthDays() { return config().getDouble("runtime.age.base-growth-game-days", 672.0); }
+    public double agePeakDays() { return config().getDouble("runtime.age.base-peak-duration-game-days", 2880.0); }
+    public double ageAgingDays() { return config().getDouble("runtime.age.base-aging-duration-game-days", 4320.0); }
+    public double ageSensitivity(StatType stat) {
+        return config().getDouble("runtime.age.sensitivity." + stat.configName(),
+                co.surumene.whatawonderfulchicken.runtime.AgeInjuryModifier.ageSensitivity(stat));
+    }
 
     public Set<Material> roadBlocks() {
         if (cachedRoadBlocks != null) return cachedRoadBlocks;

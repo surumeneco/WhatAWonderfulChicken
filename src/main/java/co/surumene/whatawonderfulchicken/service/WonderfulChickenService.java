@@ -2,12 +2,25 @@ package co.surumene.whatawonderfulchicken.service;
 
 import co.surumene.whatawonderfulchicken.WhatAWonderfulChickenPlugin;
 import co.surumene.whatawonderfulchicken.config.ConfigService;
+import co.surumene.whatawonderfulchicken.breeding.BreedingParent;
+import co.surumene.whatawonderfulchicken.breeding.WonderfulChickenBreedingOutcome;
+import co.surumene.whatawonderfulchicken.breeding.WonderfulChickenBreedingService;
 import co.surumene.whatawonderfulchicken.data.AncestorSnapshot;
 import co.surumene.whatawonderfulchicken.data.Genetics;
 import co.surumene.whatawonderfulchicken.data.Trait;
 import co.surumene.whatawonderfulchicken.data.PedigreeData;
 import co.surumene.whatawonderfulchicken.data.StatType;
 import co.surumene.whatawonderfulchicken.data.WonderfulChickenData;
+import co.surumene.whatawonderfulchicken.founder.FounderGenomeSynthesis;
+import co.surumene.whatawonderfulchicken.founder.FounderOrigin;
+import co.surumene.whatawonderfulchicken.founder.WonderfulChickenFounderSynthesizer;
+import co.surumene.whatawonderfulchicken.genome.PhenotypeOrigin;
+import co.surumene.whatawonderfulchicken.genome.WonderfulChickenDecodedPhenotype;
+import co.surumene.whatawonderfulchicken.runtime.AdultAge;
+import co.surumene.whatawonderfulchicken.runtime.AgeCurve;
+import co.surumene.whatawonderfulchicken.runtime.AgeInjuryModifier;
+import co.surumene.wgl.api.DecodeResult;
+import co.surumene.wgl.api.SynthesisResult;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.attribute.Attribute;
@@ -35,11 +48,13 @@ public final class WonderfulChickenService {
     private final ConfigService config;
     private final WonderfulChickenStore store;
     private final Map<UUID, Chicken> loaded = new HashMap<>();
+    private final LegacyGenomeMigrationCoordinator migrations;
 
     public WonderfulChickenService(WhatAWonderfulChickenPlugin plugin, ConfigService config, WonderfulChickenStore store) {
         this.plugin = plugin;
         this.config = config;
         this.store = store;
+        this.migrations = new LegacyGenomeMigrationCoordinator(plugin, this, store);
     }
 
     public boolean isWonderful(Entity entity) {
@@ -52,9 +67,16 @@ public final class WonderfulChickenService {
         if (previous == chicken) return false;
         if (previous != null) store.invalidate(previous);
         store.invalidate(chicken);
-        ensureGenetics(chicken, new HashSet<>());
-        synchronizeRangePolicy(chicken);
         WonderfulChickenData data = store.load(chicken);
+        if (data.hasGenomeModel()) {
+            synchronizeRangePolicy(chicken);
+        } else {
+            // Keep the original normalized values intact until the legacy
+            // snapshot has been synthesized and atomically committed.
+            migrations.request(chicken);
+            projectAttributes(chicken);
+        }
+        data = store.load(chicken);
         if (!config.persistCurrentStamina()) {
             data.currentStamina(data.value(StatType.STAMINA));
             store.save(chicken, data);
@@ -76,6 +98,7 @@ public final class WonderfulChickenService {
     }
 
     public void unregisterLoaded(Chicken chicken) {
+        migrations.invalidate(chicken);
         loaded.remove(chicken.getUniqueId(), chicken);
         store.invalidate(chicken);
     }
@@ -110,78 +133,167 @@ public final class WonderfulChickenService {
     }
 
     public WonderfulChickenData createNaturalData() {
+        var engine = plugin.genomeLib().engine();
+        WonderfulChickenFounderSynthesizer synthesizer =
+                new WonderfulChickenFounderSynthesizer(engine, plugin.genomeProfile());
+        FounderGenomeSynthesis synthesis =
+                synthesizer.synthesize(FounderOrigin.NATURAL, ThreadLocalRandom.current().nextLong());
+        return dataFromFounderSynthesis(synthesis, FounderOrigin.NATURAL);
+    }
+
+    /** Apply only after the WGL CPU-heavy work has completed off-thread. */
+    public WonderfulChickenData dataFromFounderSynthesis(FounderGenomeSynthesis synthesis, FounderOrigin origin) {
+        if (!(synthesis.result() instanceof SynthesisResult.Success success)) {
+            SynthesisResult.Failure failure = (SynthesisResult.Failure) synthesis.result();
+            throw new IllegalStateException(
+                    "Natural Wonderful Chicken genome synthesis failed: "
+                            + failure.reason() + " / " + failure.detail());
+        }
+
+        DecodeResult<?> decoded = success.decoded();
+        WonderfulChickenDecodedPhenotype phenotype = (WonderfulChickenDecodedPhenotype) decoded.phenotype();
+        var snapshot = phenotype.toSnapshot(
+                decoded.identity(), origin == FounderOrigin.NATURAL
+                        ? PhenotypeOrigin.NATURAL_FOUNDER : PhenotypeOrigin.CHICKEN_TRAP_FOUNDER);
+
         WonderfulChickenData data = new WonderfulChickenData();
         for (StatType stat : StatType.values()) {
-            double normalized = truncatedGaussian(config.naturalMean(), config.naturalStdDev(), 0.0, config.naturalMaxNormalized());
-            double value = store.toValue(stat, normalized);
-            data.value(stat, value);
-            data.normalized(stat, stat == StatType.MAX_HEALTH ? store.toNormalized(stat, value) : normalized);
+            double normalized = snapshot.normalizedAbilities().get(stat);
+            data.normalized(stat, normalized);
+            data.value(stat, store.toValue(stat, normalized));
         }
+        data.genome(success.genome());
+        data.phenotypeSnapshot(snapshot);
+        data.adultBiologicalTime(0L);
         data.currentStamina(data.value(StatType.STAMINA));
-        data.bloodlineId(UUID.randomUUID().toString());
+        data.bloodlineId(store.genomeMarker(data));
         data.generation(0);
         data.pedigree(PedigreeData.EMPTY);
+        // Legacy genetics remain only as transition-era compatibility data.
         data.genetics(Genetics.random());
         data.currentStamina(data.effective(StatType.STAMINA, config.natureAdjustment()));
         return data;
     }
 
-    public WonderfulChickenData createBredData(Chicken parentA, Chicken parentB) {
-        ensureGenetics(parentA, new HashSet<>());
-        ensureGenetics(parentB, new HashSet<>());
+    public java.util.Optional<WonderfulChickenData> createBredData(
+            Chicken parentA,
+            Chicken parentB) {
+        migrations.request(parentA);
+        migrations.request(parentB);
+
         WonderfulChickenData a = store.load(parentA);
         WonderfulChickenData b = store.load(parentB);
-        var random = ThreadLocalRandom.current();
-        double mutationMultiplier = (a.trait() == Trait.HATENKO ? 2.0 : 1.0)
-                * (b.trait() == Trait.HATENKO ? 2.0 : 1.0);
-        WonderfulChickenData child = new WonderfulChickenData();
-        child.genetics(Genetics.breed(a.genetics(), b.genetics(),
-                Math.min(1.0, config.geneticMutationRate() * mutationMultiplier), random));
+        if (!a.hasGenomeModel() || !b.hasGenomeModel()) {
+            return java.util.Optional.empty();
+        }
 
-        // Guaranteed direct slots have priority over the single independent stat mutation.
-        Map<StatType, Double> guaranteed = new EnumMap<>(StatType.class);
-        List<StatType> eligible = new ArrayList<>(List.of(StatType.values()));
-        if (a.trait() == Trait.JIKIDEN) {
-            StatType chosen = eligible.remove(random.nextInt(eligible.size()));
-            guaranteed.put(chosen, a.normalized(chosen));
+        WonderfulChickenBreedingService breeding =
+                new WonderfulChickenBreedingService(
+                        () -> plugin.genomeLib().engine(),
+                        plugin::genomeProfile);
+
+        WonderfulChickenBreedingOutcome outcome = breeding.breed(
+                new BreedingParent(breedingDisplayName(parentA), a),
+                new BreedingParent(breedingDisplayName(parentB), b),
+                ThreadLocalRandom.current().nextLong());
+        return dataFromBreedingOutcome(selfSnapshot(parentA, a), selfSnapshot(parentB, b), a, b, outcome);
+    }
+
+    /**
+     * Breed the immutable parent snapshots off-thread, then construct the
+     * child's Bukkit-specific pedigree/state on the main server thread.
+     */
+    public boolean requestBredData(
+            Chicken parentA, Chicken parentB,
+            java.util.function.Consumer<java.util.Optional<WonderfulChickenData>> onComplete,
+            java.util.function.Consumer<Exception> onFailure) {
+        WonderfulChickenData a = store.load(parentA);
+        WonderfulChickenData b = store.load(parentB);
+        if (!a.hasGenomeModel() || !b.hasGenomeModel()) return false;
+        var engine = plugin.genomeLib().engine();
+        var profile = plugin.genomeProfile();
+        String nameA = breedingDisplayName(parentA);
+        String nameB = breedingDisplayName(parentB);
+        AncestorSnapshot ancestryA = selfSnapshot(parentA, a);
+        AncestorSnapshot ancestryB = selfSnapshot(parentB, b);
+        WonderfulChickenBreedingService calculator =
+                new WonderfulChickenBreedingService(() -> engine, () -> profile);
+        long seed = ThreadLocalRandom.current().nextLong();
+        return plugin.naturalFounders().submitCalculation(
+                () -> calculator.breed(
+                        new BreedingParent(nameA, a),
+                        new BreedingParent(nameB, b), seed),
+                outcome -> {
+                    if (engine != plugin.genomeLib().engine()
+                            || profile != plugin.genomeProfile()) {
+                        onFailure.accept(new IllegalStateException(
+                                "WGL configuration changed during breeding"));
+                        return;
+                    }
+                    try {
+                        onComplete.accept(dataFromBreedingOutcome(ancestryA, ancestryB, a, b, outcome));
+                    } catch (RuntimeException error) {
+                        onFailure.accept(error);
+                    }
+                },
+                onFailure);
+    }
+
+    private java.util.Optional<WonderfulChickenData> dataFromBreedingOutcome(
+            AncestorSnapshot ancestryA, AncestorSnapshot ancestryB,
+            WonderfulChickenData a, WonderfulChickenData b,
+            WonderfulChickenBreedingOutcome outcome) {
+        if (outcome instanceof WonderfulChickenBreedingOutcome.Fallback) {
+            return java.util.Optional.empty();
         }
-        if (b.trait() == Trait.JIKIDEN) {
-            StatType chosen = eligible.remove(random.nextInt(eligible.size()));
-            guaranteed.put(chosen, b.normalized(chosen));
-        }
-        StatType mutated = random.nextDouble() < Math.min(1.0, config.statMutationRate() * mutationMultiplier)
-                ? eligible.get(random.nextInt(eligible.size())) : null;
+
+        WonderfulChickenBreedingOutcome.Success success =
+                (WonderfulChickenBreedingOutcome.Success) outcome;
+
+        WonderfulChickenData child = new WonderfulChickenData();
+        child.genome(success.genome());
+        child.phenotypeSnapshot(success.phenotypeSnapshot());
+        child.adultBiologicalTime(0L);
 
         for (StatType stat : StatType.values()) {
-            double normalized;
-            if (guaranteed.containsKey(stat)) {
-                // This is the only breeding path which can retain wild-only normalized values > 1.
-                normalized = guaranteed.get(stat);
-            } else if (stat == mutated) {
-                normalized = random.nextDouble();
-            } else {
-                double av = Math.min(1.0, Math.max(0.0, a.normalized(stat)));
-                double bv = Math.min(1.0, Math.max(0.0, b.normalized(stat)));
-                if (random.nextDouble() < config.directInheritanceRate()) {
-                    normalized = random.nextBoolean() ? av : bv;
-                } else {
-                    double mean = (av + bv) / 2.0;
-                    double sigma = Math.max(config.breedingMinStdDev(), Math.abs(av - bv) * config.breedingSpreadFactor());
-                    normalized = truncatedGaussian(mean, sigma, 0.0, 1.0);
-                }
-            }
-            double value = store.toValue(stat, normalized);
-            child.value(stat, value);
-            child.normalized(stat, stat == StatType.MAX_HEALTH ? store.toNormalized(stat, value) : normalized);
+            double normalized =
+                    success.phenotypeSnapshot().normalizedAbilities().get(stat);
+            child.normalized(stat, normalized);
+            child.value(stat, store.toValue(stat, normalized));
         }
-        child.currentStamina(child.effective(StatType.STAMINA, config.natureAdjustment()));
-        child.bloodlineId(UUID.randomUUID().toString());
+
+        child.currentStamina(
+                child.effective(StatType.STAMINA, config.natureAdjustment()));
+        child.bloodlineId(success.marker());
         child.generation(Math.max(a.generation(), b.generation()) + 1);
         child.pedigree(new PedigreeData(
-                selfSnapshot(parentA, a), selfSnapshot(parentB, b),
+                ancestryA, ancestryB,
                 a.pedigree().parentA(), a.pedigree().parentB(),
                 b.pedigree().parentA(), b.pedigree().parentB()));
-        return child;
+
+        // Retain a legacy shadow genotype only for backward/rollback compatibility.
+        // It is not consulted when producing the Genome or Phenotype Snapshot.
+        if (a.genetics() != null && b.genetics() != null) {
+            child.genetics(Genetics.breed(
+                    a.genetics(),
+                    b.genetics(),
+                    Math.min(1.0, config.geneticMutationRate()),
+                    ThreadLocalRandom.current()));
+        } else {
+            child.genetics(Genetics.random());
+        }
+
+        return java.util.Optional.of(child);
+    }
+
+    private static String breedingDisplayName(Chicken chicken) {
+        if (chicken.customName() != null) {
+            String custom = PlainTextComponentSerializer.plainText()
+                    .serialize(chicken.customName());
+            if (!custom.isBlank()) return custom;
+        }
+        String name = chicken.getName();
+        return name == null || name.isBlank() ? "Chicken" : name;
     }
 
     /**
@@ -201,10 +313,17 @@ public final class WonderfulChickenService {
         PedigreeData original = data.pedigree();
         AncestorSnapshot parentA = recoverAncestor(child, original.parentA(), visiting);
         AncestorSnapshot parentB = recoverAncestor(child, original.parentB(), visiting);
-        if (parentA == original.parentA() && parentB == original.parentB()) return;
+        AncestorSnapshot grandparentAA = recoverAncestor(child, original.grandparentAA(), visiting);
+        AncestorSnapshot grandparentAB = recoverAncestor(child, original.grandparentAB(), visiting);
+        AncestorSnapshot grandparentBA = recoverAncestor(child, original.grandparentBA(), visiting);
+        AncestorSnapshot grandparentBB = recoverAncestor(child, original.grandparentBB(), visiting);
+        if (parentA == original.parentA() && parentB == original.parentB()
+                && grandparentAA == original.grandparentAA()
+                && grandparentAB == original.grandparentAB()
+                && grandparentBA == original.grandparentBA()
+                && grandparentBB == original.grandparentBB()) return;
         data.pedigree(new PedigreeData(parentA, parentB,
-                original.grandparentAA(), original.grandparentAB(),
-                original.grandparentBA(), original.grandparentBB()));
+                grandparentAA, grandparentAB, grandparentBA, grandparentBB));
         store.save(child, data);
     }
 
@@ -237,28 +356,85 @@ public final class WonderfulChickenService {
     }
 
     private AncestorSnapshot recoverAncestor(Chicken child, AncestorSnapshot snapshot, Set<UUID> visiting) {
-        if (snapshot == null || snapshot.genetics() != null) return snapshot;
-        if (snapshot.bloodlineId() == null || snapshot.bloodlineId().isBlank()) return snapshot;
-        // The old snapshot stores only name, generation and bloodline ID. Locate a real loaded parent.
+        if (snapshot == null || !WonderfulChickenStore.isLegacyLineageId(snapshot.bloodlineId())) {
+            return snapshot;
+        }
+        // Only backfill when a real loaded ancestor's persisted ID matches.
+        // Never infer a missing historical phenotype from shadow Genetics.
         for (org.bukkit.World world : Bukkit.getWorlds()) {
             for (Chicken possible : world.getEntitiesByClass(Chicken.class)) {
                 if (possible == child || !store.isWonderful(possible)) continue;
-                if (!snapshot.bloodlineId().equals(store.read(possible).bloodlineId())) continue;
-                Genetics genes = ensureGenetics(possible, visiting);
-                if (genes != null) return snapshot.withGenetics(genes);
+                if (!snapshot.bloodlineId().equals(store.legacyBloodlineId(possible))) continue;
+                WonderfulChickenData parentData = store.read(possible);
+                AncestorSnapshot verified = snapshot.withBloodlineId(parentData.bloodlineId());
+                if (verified.genetics() == null) {
+                    Genetics genes = ensureGenetics(possible, visiting);
+                    if (genes != null) verified = verified.withGenetics(genes);
+                }
+                if (verified.personality() == null && parentData.phenotypeSnapshot() != null) {
+                    var phenotype = parentData.phenotypeSnapshot();
+                    verified = verified.withPhenotype(phenotype.personality(),
+                            phenotype.expressedTraits().stream().map(e -> e.trait()).toList(),
+                            phenotype.divineLineageExpressed());
+                }
+                return verified;
             }
         }
         return snapshot;
     }
 
+    public boolean isRegistered(Chicken chicken) {
+        return loaded.get(chicken.getUniqueId()) == chicken;
+    }
+
+    public void retryLegacyMigrations() {
+        migrations.retryLoaded();
+    }
+
+    public void shutdown() {
+        migrations.shutdown();
+    }
+
     public double effective(WonderfulChickenData data, StatType stat) {
-        return data.effective(stat, config.natureAdjustment());
+        if (!data.hasGenomeModel() || data.adultBiologicalTime() == 0L) {
+            // Immature chickens do not progress through the adult curve.
+            return data.effective(stat, config.natureAdjustment());
+        }
+        var curve = AgeCurve.from(
+                data.phenotypeSnapshot().developmentFactors(),
+                config.ageGrowthDays(), config.agePeakDays(), config.ageAgingDays());
+        double age = AdultAge.days(
+                data.adultBiologicalTime(), plugin.biologicalClock().currentTime());
+        double normalized = AgeInjuryModifier.adjust(
+                stat, data.normalized(stat), age, curve,
+                data.phenotypeSnapshot().injuries(),
+                config.ageSensitivity(stat)).effectiveNormalized();
+        double value = store.toValue(stat, normalized);
+        double adjustment = config.natureAdjustment()
+                * (data.hasTrait(Trait.KUSE_MASHI) ? 1.5 : 1.0);
+        double effective = value * data.nature().multiplier(stat, adjustment);
+        return stat == StatType.MAX_HEALTH
+                ? Math.max(1.0, Math.round(effective)) : effective;
+    }
+
+    public double adultAgeDays(WonderfulChickenData data) {
+        return AdultAge.days(
+                data.adultBiologicalTime(), plugin.biologicalClock().currentTime());
+    }
+
+    private void initializeAdultAge(Chicken chicken, WonderfulChickenData data) {
+        long start = AdultAge.start(
+                chicken.isAdult(), data.adultBiologicalTime(),
+                plugin.biologicalClock().currentTime());
+        if (start != data.adultBiologicalTime()) data.adultBiologicalTime(start);
     }
 
     public void initialize(Chicken chicken, WonderfulChickenData data) {
         if (data.genetics() == null) data.genetics(Genetics.random());
+        initializeAdultAge(chicken, data);
         store.save(chicken, data);
         loaded.put(chicken.getUniqueId(), chicken);
+        migrations.request(chicken);
         projectAttributes(chicken);
         chicken.setHealth(effective(data, StatType.MAX_HEALTH));
         synchronizeBehaviorState(chicken, data);
@@ -267,8 +443,18 @@ public final class WonderfulChickenService {
     public void synchronizeRangePolicy(Chicken chicken) {
         if (!store.isWonderful(chicken)) return;
         WonderfulChickenData data = store.load(chicken);
-        if (config.rangeChangePolicy().equals("preserve-normalized")) {
-            for (StatType stat : StatType.values()) data.value(stat, store.toValue(stat, data.normalized(stat)));
+        if (data.hasGenomeModel()) {
+            // Snapshot is immutable historical phenotype. Config range changes may change
+            // its projected gameplay value, but never rewrite the stored normalized phenotype.
+            for (StatType stat : StatType.values()) {
+                double normalized = data.phenotypeSnapshot().normalizedAbilities().get(stat);
+                data.normalized(stat, normalized);
+                data.value(stat, store.toValue(stat, normalized));
+            }
+        } else if (config.rangeChangePolicy().equals("preserve-normalized")) {
+            for (StatType stat : StatType.values()) {
+                data.value(stat, store.toValue(stat, data.normalized(stat)));
+            }
         } else {
             for (StatType stat : StatType.values()) {
                 double value = stat.canonicalizeValue(data.value(stat));
@@ -288,13 +474,24 @@ public final class WonderfulChickenService {
     public void projectAttributes(Chicken chicken) {
         if (!store.isWonderful(chicken)) return;
         WonderfulChickenData data = store.read(chicken);
+        if (chicken.isAdult() && data.adultBiologicalTime() == 0L) {
+            // One-time transition from baby (or legacy v2.0 snapshot) to adult.
+            data = store.load(chicken);
+            initializeAdultAge(chicken, data);
+            store.save(chicken, data);
+        }
         double effectiveHealth = effective(data, StatType.MAX_HEALTH);
         setAttribute(chicken, Attribute.MAX_HEALTH, effectiveHealth);
         setAttribute(chicken, Attribute.SCALE, effective(data, StatType.SIZE));
-        setAttribute(chicken, Attribute.STEP_HEIGHT, data.value(StatType.STEP_HEIGHT));
+        setAttribute(chicken, Attribute.STEP_HEIGHT, effective(data, StatType.STEP_HEIGHT));
         setAttribute(chicken, Attribute.JUMP_STRENGTH, jumpVelocityForHeight(effective(data, StatType.JUMP_STRENGTH)));
         setAttribute(chicken, Attribute.MOVEMENT_SPEED, Math.max(0.001, effective(data, StatType.GROUND_SPEED) / MOVEMENT_ATTRIBUTE_BLOCKS_PER_SECOND));
         if (chicken.getHealth() > effectiveHealth) chicken.setHealth(effectiveHealth);
+        double effectiveStamina = effective(data, StatType.STAMINA);
+        if (data.currentStamina() > effectiveStamina) {
+            // Keep the persisted current pool at or below the aging-adjusted capacity.
+            store.setCurrentStamina(chicken, effectiveStamina);
+        }
         ItemStack head = data.headItem();
         if (chicken.getEquipment() != null) {
             if (!Objects.equals(chicken.getEquipment().getHelmet(), head)) chicken.getEquipment().setHelmet(head);
@@ -302,13 +499,15 @@ public final class WonderfulChickenService {
         }
     }
 
-    public void captureHeadEquipment(Chicken chicken) {
-        if (!store.isWonderful(chicken) || chicken.getEquipment() == null) return;
+    /** @return true only when an externally changed helmet was persisted. */
+    public boolean captureHeadEquipment(Chicken chicken) {
+        if (!store.isWonderful(chicken) || chicken.getEquipment() == null) return false;
         ItemStack actual = chicken.getEquipment().getHelmet();
-        if (Objects.equals(store.read(chicken).headItem(), actual)) return;
+        if (Objects.equals(store.read(chicken).headItem(), actual)) return false;
         WonderfulChickenData data = store.load(chicken);
         data.headItem(actual);
         store.save(chicken, data);
+        return true;
     }
 
     public void synchronizeBehaviorState(Chicken chicken, WonderfulChickenData data) {
@@ -319,9 +518,11 @@ public final class WonderfulChickenService {
     }
 
     public String displayBloodlineId(String bloodlineId) {
-        if (bloodlineId == null || bloodlineId.isBlank()) return "-";
-        String compact = bloodlineId.replace("-", "");
-        return compact.substring(0, Math.min(8, compact.length()));
+        if (bloodlineId == null || bloodlineId.isBlank()) return "不明";
+        if (WonderfulChickenStore.isLegacyLineageId(bloodlineId)) {
+            return "旧ID:" + bloodlineId.substring(0, 8);
+        }
+        return bloodlineId;
     }
 
     public double jumpVelocityForHeight(double height) {
@@ -331,7 +532,13 @@ public final class WonderfulChickenService {
     public AncestorSnapshot selfSnapshot(Chicken chicken, WonderfulChickenData data) {
         String name = "";
         if (chicken.customName() != null) name = PlainTextComponentSerializer.plainText().serialize(chicken.customName());
-        return new AncestorSnapshot(name, data.generation(), data.bloodlineId(), data.genetics());
+        var phenotype = data.phenotypeSnapshot();
+        return new AncestorSnapshot(name, data.generation(), data.bloodlineId(),
+                data.genetics(),
+                phenotype == null ? null : phenotype.personality(),
+                phenotype == null ? java.util.List.of() :
+                    phenotype.expressedTraits().stream().map(entry -> entry.trait()).toList(),
+                phenotype != null && phenotype.divineLineageExpressed());
     }
 
     public WonderfulChickenStore store() { return store; }

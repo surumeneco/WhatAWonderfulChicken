@@ -27,6 +27,7 @@ public final class MessageService {
         saveIfMissing("lang/en_us.yml");
         migrateLegacyDisplayNames("lang/ja_jp.yml", japaneseNameMigrations());
         migrateLegacyDisplayNames("lang/en_us.yml", englishNameMigrations());
+        migrateJapaneseTraitDescriptionsOnDisk("lang/ja_jp.yml");
         ja = loadWithBundledDefaults("lang/ja_jp.yml");
         en = loadWithBundledDefaults("lang/en_us.yml");
     }
@@ -79,6 +80,36 @@ public final class MessageService {
         } catch (Exception ex) {
             plugin.getLogger().warning("Failed to migrate language file " + path + ": " + ex.getMessage());
         }
+    }
+
+
+    private void migrateJapaneseTraitDescriptionsOnDisk(String path) {
+        File file = new File(plugin.getDataFolder(), path);
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
+        if (!migrateJapaneseTraitDescriptions(config)) return;
+        try {
+            config.save(file);
+        } catch (Exception ex) {
+            plugin.getLogger().warning("Failed to migrate language file " + path + ": " + ex.getMessage());
+        }
+    }
+
+    static boolean migrateJapaneseTraitDescriptions(YamlConfiguration config) {
+        String[][] changes = {
+            {"jikiden", "自分の能力を必ず1つ子供に伝える。", "子供が能力を受け継ぎやすい。"},
+            {"saikutsu_ouen", "近くにいると採掘速度が上がる。", "近くにいると仕事が早くなる。"},
+            {"oyogi_jouzu", "水中でも溺れない。", "水の中でもへっちゃら。"},
+            {"yukiguni_umare", "凍える寒さの影響を受けない。", "冷たいところでもへっちゃら。"}
+        };
+        boolean changed = false;
+        for (String[] pair : changes) {
+            String key = "trait." + pair[0] + ".description";
+            if (pair[1].equals(config.getString(key))) {
+                config.set(key, pair[2]);
+                changed = true;
+            }
+        }
+        return changed;
     }
 
     private Map<String, String[]> japaneseNameMigrations() {

@@ -6,52 +6,58 @@ Paper 26.2 向けの、育成・繁殖可能な騎乗用巨大Chickenプラグ�
 
 - Paper 26.2
 - Java 25
+- WonderfulGenomeLib
 
-追加の前提プラグインや外部DBはありません。個体データはChicken EntityのPDCへ保存されるため、プラグインjarとワールドデータがあれば個体情報を引き継げます。
+WonderfulGenomeLibは2.0.0から必須依存です。WWCへWGLクラスをshade / bundleせず、Paper上では別Pluginとして読み込みます。個体データは引き続きChicken EntityのPDCへ保存します。
 
 ## ビルド
 
-Windows (PowerShell / cmd):
+開発時はWonderfulGenomeLibをWWCの隣へcheckoutします。
 
 ```text
-gradlew.bat build
+workspace/
+├─ WonderfulGenomeLib/
+└─ WhatAWonderfulChicken/
 ```
 
-Linux / macOS:
+WWCはGradle Composite Buildで隣接WGLを `co.surumene:wgl-plugin:1.0.0` へ置換します。
 
 ```text
-./gradlew build
+gradle build
 ```
 
 生成物:
 
 ```text
-build/libs/WhatAWonderfulChicken-1.1.0.jar
+build/libs/WhatAWonderfulChicken-2.0.0.jar
 ```
 
 生成されたjarをPaperサーバーの `plugins/` に配置して起動してください。初回起動時に `plugins/WhatAWonderfulChicken/` 以下へconfigと言語ファイルを自動生成します。
 
-## 主な機能
+## 主な機能（2.0.0）
 
-- 自然スポーンChicken / 新規チャンク初期配置Chickenを5%で `wonderful_chicken` 化
-- 9種類の独立個体値と野生限定の規格外能力
-- 性格12種類・特性11種類と、それぞれ独立した遺伝因子2個の継承・突然変異
-- 性格による移動・飛行・体格などへの実効値補正、固有特性による支援・防御・特殊産卵
-- デカ鳥同士の繁殖・直接遺伝・ガウス遺伝・血統情報
-- Carpetを騎乗装備として使用
-- 地上走行、ジャンプ、羽ばたき飛行、スタミナ、緩降下
-- 2ブロック下の全色羊毛を街道路盤として速度補正
-- Shulker Boxを27スロット荷物として装備
-- プレイヤーのHEADスロットへ装備可能なItemStackを頭防具として装備
-- 放浪 / 待機 / 追従
-- `/wwc` / `/whatawonderfulchicken` 管理コマンド
-- PDCによるワールド内永続化
+- 自然スポーンChicken / 新規チャンク初期配置Chickenを設定確率（既定5%）でWonderful Chicken化
+- 9能力のGenome（通常能力Bと規格外寄与E）をWGLで生成・継承。自然Founderの能力Targetは0.0～0.75、チキントラップFounderは0.5～1.5
+- 6性格因子の連続Scoreから性格を判定。性格は遺伝的な基礎能力を変えず、現在実効能力のみを補正
+- Genomeから発現する特性（なし・弱発現1種類・弱発現2種類・強発現1種類）と固有効果
+- WGL相同組換え・変異による繁殖、血統Snapshot、旧個体のGenome移行
+- 成体化時を起点とした生物学的日齢、成熟・全盛・老化、発症時期を持つ潜在怪我
+- 新月かつ晴天のゲーム内時刻18000で抽選するチキントラップ（発生後、騎射Skeleton 2騎）。夜明け23000に残存遭遇Entityを消去
+- Carpet騎乗装備、Shulker Box荷物、頭装備
+- 地上走行・ジャンプ・羽ばたき飛行・スタミナ・緩降下、羊毛路面速度補正
+- 放浪・待機・追従、個体情報GUI、管理者向け詳細情報・Genomeコマンド
+- PDCによるGenome・Phenotype Snapshot・血統・成体化時刻の保存
+
+**注意:** 2.0.0では旧WWCの「性格・特性の2因子直接継承」「能力値を直接抽選するガウス繁殖」は2.0.0のGenome個体の仕組みではありません。
 
 ## コマンド
 
 ```text
 /wwc summon [x y z] [<wwc-data>] [<vanilla-nbt>]
 /wwc info [<entity selector>]
+/wwc genome get <entity selector>
+/wwc summon genome <text|bits|hex|dna> <haplotypeA> [haplotypeB]
+/wwc summon offspring parent <sourceA> parent <sourceB>
 /wwc modify <entity selector> <set|add> <field> <value>
 /wwc config get <path>
 /wwc config set <path> <value>
@@ -63,6 +69,16 @@ build/libs/WhatAWonderfulChicken-1.1.0.jar
 ```
 
 `info` と `modify` はPaper 26.2のBrigadier Entity Selector引数を使用するため、`@e[...]`、UUID指定、クライアント標準のEntity候補補完を利用できます。
+
+### 2.0.0 Genome管理
+
+`/wwc genome get` はGenomeの染色体長・bit列と親ソースを表示します。ゲーム内の表示行をクリックすると全文をコピーできます。
+
+`/wwc summon genome` は任意Genomeの直接注入です。Bを省略するとAを複製します。染色体境界はカンマで指定でき、省略箇所は `9:8:7:6:5:4` の比率で分割します。
+
+`/wwc summon offspring` のsourceには、既存Wonderful Chickenを指す `chicken_<UUID>`、またはWGLPをBase64URL形式にした `wglp_<payload>` を指定します。後者では完成済み二倍体とgameteを区別できます。Backbone非互換・繁殖失敗では召喚しません。
+
+`genome get` は `wwc.command.genome` 権限、召喚は `wwc.command.summon` 権限が必要です。
 
 ### summon のWWCデータ例
 
@@ -81,18 +97,12 @@ WWCデータとバニラNBTを両方指定した場合、能力Attribute等の�
 ## 現時点の実機確認対象
 
 Carpet / Shulker Boxの外観は、Geyser互換性を優先して不可視ArmorStandの頭装備として追従表示する初期実装です。位置・倍率、Chicken騎乗時のJE/BE入力差、乗騎ハート表示などは実サーバーで確認して調整する前提です。
-## 1.1.0（リリース予定）：性格・特性と設定互換性
+## 2.0.0 の後方互換性と設定
 
-個体には性格1種類と特性1種類が発現します。性格用・特性用にそれぞれ独立した2因子の遺伝情報を持ち、繁殖で両親から因子を受け継ぎます。性格は基礎個体値を変えずに実効能力へ補正を加え、特性は騎乗支援、耐性、繁殖、産卵、警戒などの効果を持ちます。
+1.x個体は初回ロード時に旧能力・性格・特性をTarget PhenotypeとしてWGL Synthesizerへ渡し、GenomeとPhenotype Snapshotを追加します。既存個体の表現型・血統履歴を保持し、過去の親Genomeや繁殖過程を推測・再現しません。旧個体の成体日齢は移行時に0から開始します。
 
-旧バージョンの個体には初回読込時に遺伝情報を追加・永続化します。血統IDで両親の実個体を参照できる場合はその遺伝因子を用い、復元できない場合は一様ランダムで補完します。性格は個体情報、特性は血統情報に表示され、GUIや `/wwc info` でも確認できます。
+`config.yml` と言語ファイルの不足キーは起動時・再読み込み時に補完します。既存の明示設定・カスタム翻訳を優先し、不正な設定値は拒否します。1.x由来の自然スポーン能力分布・直接遺伝設定は、WGL Founderの分布やGenomeの組換え率を制御する設定ではありません。詳細は [config互換性資料](docs/config-compatibility.md) を参照してください。
 
-### 設定・翻訳ファイルの後方互換性
+設定・ワールドのバックアップを取った上で、旧JARを撤去し、WGLとWWCの対応JARを配置して再起動してください。YAMLの追記保存に伴い、空白や引用符等の書式が変わる場合があります。
 
-旧 `config.yml` にない設定は同梱デフォルトで検証・利用できます。さらに起動時と `/wwc reload` 時に、`config.yml`、`lang/ja_jp.yml`、`lang/en_us.yml` の不足キーを追記保存します。既存の設定値・独自キー・カスタム翻訳は変更せず、不正な明示値は従来どおりエラーとします。不足がない場合は再保存しません。
-
-設定ファイルを削除する必要はありませんが、YAMLの再保存によって引用符や空白などの書式が変わる場合があります。更新前にファイルとワールドをバックアップし、旧JARを撤去してから新しいJARのみを配置して完全再起動してください。
-
-### バージョン採番
-
-`main`への反映・リリースが完了するまでは、`develop`上の修正や機能追加もすべて同じ次期リリース番号を使用します。今回の未リリース変更はすべて`1.1.0`に含め、次の番号はリリース後の変更で採番します。
+2.0.0のインストール時は、対応するWonderful Genome Lib 1.0.0を先に配置してください。Paper・Geyser/BE固有の挙動は導入環境で確認してください。

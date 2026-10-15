@@ -27,9 +27,48 @@ command:
   info_behavior: "Behavior"
   info_normalized: "Normalized"
   info_current_stamina: "Current Stamina"
+  info_effective: "Effective"
+  info_adult_age: "Adult Age (Game Days)"
+  info_immature: "Immature / Not Started"
+  info_injuries: "Injury"
+  info_none: "None"
+  info_onset: "Onset Day"
+  info_severity: "Severity (Ranks)"
+  info_active: "Active"
+  info_latent: "Latent"
+  info_strong: "Strong"
+  info_weak: "Weak"
+  info_section_basic: "Basic"
+  info_section_pedigree: "Pedigree"
+  info_section_behavior: "Behavior"
+  info_section_abilities: "Abilities"
+  info_section_traits: "Personality & Traits"
+  info_section_age: "Growth & Aging"
+  info_section_injuries: "Injuries"
+  info_current_age: "Current age (days)"
+  info_age_stage: "Growth & Aging"
+  info_growth_end: "Growth ends"
+  info_aging_start: "Aging starts"
+  info_elder_day: "Elder phase"
+  info_max_reduction: "Max reduction"
+  info_active_lineage: "Expressed"
+  info_inactive_lineage: "Not expressed"
 gui:
+  click_detail: "Click for details"
+  divine_lineage: "Divine Lineage"
+  age: "Age: {0} days / {1}"
+  age_immature: "Age: Juvenile"
+  stage_growing: "Growing"
+  stage_prime: "Prime"
+  stage_aging: "Aging"
+  stage_elder: "Elderly"
+  stage_adult: "Adult"
   nature_label: "Nature"
   trait_label: "Trait"
+  trait_none: "None"
+  trait_strong: "Strong"
+  trait_weak: "Weak"
+  injury_mark: "[Injured]"
   nature: "Nature: {0}"
   trait: "Trait: {0}"
   ancestor_genetics: "Nature: {0} / Trait: {1}"
@@ -83,40 +122,38 @@ rank:
 nature:
   majime:
     name: "Earnest"
-    description: "Always does their best with what they have."
   sekaseka:
     name: "Restless"
-    description: "Loves running more than flying."
   uwa_no_sora:
     name: "Daydreamer"
-    description: "Lost in thought, but comes alive in the sky."
   awatenbo:
     name: "Scatterbrain"
-    description: "Always rushing up and down."
   nebarizuyoi:
     name: "Persevering"
-    description: "Slow to climb, but keeps at it."
   komame:
     name: "Diligent"
-    description: "Takes even long journeys one short flight at a time."
   tamekomiya:
     name: "Hoarder"
-    description: "Does it all at once, then enjoys a long rest."
   hanekkaeri:
     name: "Bouncy"
-    description: "Loves jumping more than running."
   isoginbo:
     name: "Speedster"
-    description: "Might bump into walls, but keeps racing ahead."
   kuishinbo:
     name: "Glutton"
-    description: "Big-bodied and sturdy."
   tobashiya:
     name: "Daredevil"
-    description: "Hot-blooded and fond of quick battles."
   jikkuri:
     name: "Methodical"
-    description: "Makes slow but steady progress."
+  ganbariya:
+    name: "Determined"
+  dosshiri:
+    name: "Steadfast"
+  nobinobi:
+    name: "Carefree"
+  genkimono:
+    name: "Energetic"
+  chakkari:
+    name: "Clever"
 
 trait:
   jikiden:
@@ -152,3 +189,9 @@ trait:
   kuse_mashi:
     name: "Extra Quirky"
     description: "Makes its nature's quirks stronger."
+  oyogi_jouzu:
+    name: "Good Swimmer"
+    description: "Immune to drowning damage."
+  yukiguni_umare:
+    name: "Snowborn"
+    description: "Immune to freezing damage."

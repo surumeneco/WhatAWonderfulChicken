@@ -20,7 +20,7 @@ public record PedigreeData(
         try {
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             try (DataOutputStream out = new DataOutputStream(buffer)) {
-                out.writeInt(2);
+                out.writeInt(4);
                 write(out, parentA);
                 write(out, parentB);
                 write(out, grandparentAA);
@@ -38,7 +38,7 @@ public record PedigreeData(
         if (bytes == null || bytes.length == 0) return EMPTY;
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes))) {
             int version = in.readInt();
-            if (version != 1 && version != 2) return EMPTY;
+            if (version < 1 || version > 4) return EMPTY;
             return new PedigreeData(read(in, version), read(in, version), read(in, version),
                     read(in, version), read(in, version), read(in, version));
         } catch (IOException ex) {
@@ -54,6 +54,11 @@ public record PedigreeData(
         out.writeUTF(snapshot.bloodlineId() == null ? "" : snapshot.bloodlineId());
         out.writeBoolean(snapshot.genetics() != null);
         if (snapshot.genetics() != null) out.write(snapshot.genetics().toBytes());
+        out.writeBoolean(snapshot.personality() != null);
+        if (snapshot.personality() != null) out.writeUTF(snapshot.personality().name());
+        out.writeByte(snapshot.expressedTraits().size());
+        for (Trait trait : snapshot.expressedTraits()) out.writeUTF(trait.name());
+        out.writeBoolean(snapshot.divineLineageExpressed());
     }
 
     private static AncestorSnapshot read(DataInputStream in, int version) throws IOException {
@@ -61,7 +66,16 @@ public record PedigreeData(
         String name = in.readUTF();
         int generation = in.readInt();
         String bloodline = in.readUTF();
-        Genetics genes = version == 2 && in.readBoolean() ? Genetics.fromBytes(in.readNBytes(4)) : null;
-        return new AncestorSnapshot(name, generation, bloodline, genes);
+        Genetics genes = version >= 2 && in.readBoolean()
+                ? Genetics.fromBytes(in.readNBytes(4)) : null;
+        if (version < 3) return new AncestorSnapshot(name, generation, bloodline, genes);
+        Nature personality = in.readBoolean() ? Nature.valueOf(in.readUTF()) : null;
+        int count = in.readUnsignedByte();
+        if (count > 2) throw new IOException("Invalid ancestor trait count");
+        java.util.List<Trait> traits = new java.util.ArrayList<>(count);
+        for (int i = 0; i < count; i++) traits.add(Trait.valueOf(in.readUTF()));
+        boolean divine = version >= 4 && in.readBoolean();
+        return new AncestorSnapshot(name, generation, bloodline,
+                genes, personality, traits, divine);
     }
 }

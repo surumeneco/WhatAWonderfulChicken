@@ -20,9 +20,35 @@ public final class YamlKeyMerger {
             // isSet checks for an explicit entry, rather than the attached defaults.
             if (target.isSet(path)) continue;
             target.set(path, bundled.get(path));
+            copyMissingComments(target, bundled, path);
             added++;
         }
         return added;
+    }
+
+    /**
+     * Preserve existing operator comments, while also copying bundled comments
+     * for newly introduced leaves and their container sections.
+     */
+    private static void copyMissingComments(
+            ConfigurationSection target, ConfigurationSection bundled, String path) {
+        int separator = path.indexOf('.');
+        while (separator >= 0) {
+            copyCommentsAt(target, bundled, path.substring(0, separator));
+            separator = path.indexOf('.', separator + 1);
+        }
+        copyCommentsAt(target, bundled, path);
+    }
+
+    private static void copyCommentsAt(
+            ConfigurationSection target, ConfigurationSection bundled, String path) {
+        if (target.getComments(path).isEmpty() && !bundled.getComments(path).isEmpty()) {
+            target.setComments(path, bundled.getComments(path));
+        }
+        if (target.getInlineComments(path).isEmpty()
+                && !bundled.getInlineComments(path).isEmpty()) {
+            target.setInlineComments(path, bundled.getInlineComments(path));
+        }
     }
 
     /** Save only when additions were needed; the loaded YAML retains parsed comments. */
