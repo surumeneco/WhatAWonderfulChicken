@@ -384,11 +384,9 @@ public final class ChickenTrapRuntime implements Runnable {
                     && skeleton.getTicksLived() % interval == 0) {
                 skeleton.rangedAttack(target, 1.0F);
             }
-            // Replan twice per second; do not stop just because the bow target is
-            // already within the vanilla 15-block ranged attack distance.
-            if (ChickenTrapPolicy.shouldPursue(distanceSquared)
-                    && skeleton.getTicksLived() % 10 == 0)
-                chicken.getPathfinder().moveTo(target.getLocation(), 1.2);
+            // Vanilla 26.2 delegates the Skeleton's navigation / movement
+            // control to the mount. Do not overwrite that with a separate
+            // Chicken path; the ranged bow AI owns pursuit and strafing.
         }
     }
 
