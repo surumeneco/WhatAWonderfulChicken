@@ -20,7 +20,7 @@ workspace/
 └─ WhatAWonderfulChicken/
 ```
 
-WWCはGradle Composite Buildで隣接WGLを `co.surumene:wgl-plugin:0.1.0-SNAPSHOT` へ置換します。
+WWCはGradle Composite Buildで隣接WGLを `co.surumene:wgl-plugin:1.0.0` へ置換します。
 
 ```text
 gradle build
@@ -34,7 +34,7 @@ build/libs/WhatAWonderfulChicken-2.0.0.jar
 
 生成されたjarをPaperサーバーの `plugins/` に配置して起動してください。初回起動時に `plugins/WhatAWonderfulChicken/` 以下へconfigと言語ファイルを自動生成します。
 
-## 主な機能（2.0.0 開発版）
+## 主な機能（2.0.0）
 
 - 自然スポーンChicken / 新規チャンク初期配置Chickenを設定確率（既定5%）でWonderful Chicken化
 - 9能力のGenome（通常能力Bと規格外寄与E）をWGLで生成・継承。自然Founderの能力Targetは0.0～0.75、チキントラップFounderは0.5～1.5
@@ -48,7 +48,7 @@ build/libs/WhatAWonderfulChicken-2.0.0.jar
 - 放浪・待機・追従、個体情報GUI、管理者向け詳細情報・Genomeコマンド
 - PDCによるGenome・Phenotype Snapshot・血統・成体化時刻の保存
 
-**注意:** 2.0.0は`develop`で開発中の仕様です。`main`が示す現行デプロイ状態とは区別してください。旧WWCの「性格・特性の2因子直接継承」「能力値を直接抽選するガウス繁殖」は2.0.0のGenome個体の仕組みではありません。
+**注意:** 2.0.0では旧WWCの「性格・特性の2因子直接継承」「能力値を直接抽選するガウス繁殖」は2.0.0のGenome個体の仕組みではありません。
 
 ## コマンド
 
@@ -105,4 +105,4 @@ Carpet / Shulker Boxの外観は、Geyser互換性を優先して不可視ArmorS
 
 設定・ワールドのバックアップを取った上で、旧JARを撤去し、WGLとWWCの対応JARを配置して再起動してください。YAMLの追記保存に伴い、空白や引用符等の書式が変わる場合があります。
 
-`main`に2.0.0を正式リリースするまで、開発途中の変更は2.0.0のままとします。実機確認（Paper・Geyser/BE）は全フェーズ実装後にまとめて実施します。
+2.0.0のインストール時は、対応するWonderful Genome Lib 1.0.0を先に配置してください。Paper・Geyser/BE固有の挙動は導入環境で確認してください。
