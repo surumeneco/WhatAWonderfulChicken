@@ -2,6 +2,7 @@ package co.surumene.whatawonderfulchicken.task;
 
 import co.surumene.whatawonderfulchicken.WhatAWonderfulChickenPlugin;
 import co.surumene.whatawonderfulchicken.config.ConfigService;
+import co.surumene.whatawonderfulchicken.chickentrap.ChickenTrapPolicy;
 import co.surumene.whatawonderfulchicken.data.BehaviorMode;
 import co.surumene.whatawonderfulchicken.data.WonderfulChickenData;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
@@ -15,6 +16,7 @@ import com.destroystokyo.paper.entity.ai.GoalKey;
 import com.destroystokyo.paper.entity.ai.GoalType;
 import org.bukkit.entity.Chicken;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Skeleton;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
@@ -26,6 +28,7 @@ public final class FollowController implements Runnable {
     private final WonderfulChickenService chickens;
     private final WonderfulChickenStore store;
     private final ConfigService config;
+    private final WhatAWonderfulChickenPlugin plugin;
     private final GoalKey<Chicken> followGoalKey;
 
     public FollowController(WhatAWonderfulChickenPlugin plugin, WonderfulChickenService chickens,
@@ -33,12 +36,25 @@ public final class FollowController implements Runnable {
         this.chickens = chickens;
         this.store = store;
         this.config = config;
+        this.plugin = plugin;
         this.followGoalKey = GoalKey.of(Chicken.class, new NamespacedKey(plugin, "follow_player"));
     }
 
     @Override
     public void run() {
         for (Chicken chicken : chickens.loadedChickens()) {
+            boolean hasTrapSkeleton = chicken.getPassengers().stream()
+                    .anyMatch(passenger -> passenger instanceof Skeleton);
+            if (ChickenTrapPolicy.trapMountNavigation(
+                    plugin.chickenTrap() != null && plugin.chickenTrap().isTrapMount(chicken),
+                    hasTrapSkeleton)) {
+                // The trap runtime owns movement. In particular, do not clear its path
+                // just because an autonomous Skeleton is riding the Chicken.
+                if (!chicken.hasAI()) chicken.setAI(true);
+                if (!chicken.isAware()) chicken.setAware(true);
+                removeFollowGoal(chicken);
+                continue;
+            }
             if (isRidden(chicken)) {
                 chicken.setAware(false);
                 chicken.getPathfinder().stopPathfinding();
