@@ -158,7 +158,7 @@ nature:
 trait:
   jikiden:
     name: "直伝"
-    description: "自分の能力を必ず1つ子供に伝える。"
+    description: "子供が能力を受け継ぎやすい。"
   hatenko:
     name: "破天荒"
     description: "思いがけない子供が生まれやすい。"
@@ -176,7 +176,7 @@ trait:
     description: "傷付いても少しずつ回復する。"
   saikutsu_ouen:
     name: "採掘応援"
-    description: "近くにいると採掘速度が上がる。"
+    description: "近くにいると仕事が早くなる。"
   chikarakobu:
     name: "力こぶ"
     description: "背中に乗ると力が湧いてくる。"
@@ -191,7 +191,7 @@ trait:
     description: "性格のクセが強くなる。"
   oyogi_jouzu:
     name: "泳ぎ上手"
-    description: "水中でも溺れない。"
+    description: "水の中でもへっちゃら。"
   yukiguni_umare:
     name: "雪国生まれ"
-    description: "凍える寒さの影響を受けない。"
+    description: "冷たいところでもへっちゃら。"
