@@ -637,7 +637,9 @@ public final class InventoryService {
                 .toList();
         return ChickenPedigreeLine.format(
                 name, snapshot.generation(),
-                chickens.displayBloodlineId(snapshot.bloodlineId()),
+                snapshot.bloodlineId() == null || snapshot.bloodlineId().isBlank()
+                        ? messages.text(viewer.locale(), "gui.ancestor_unknown")
+                        : chickens.displayBloodlineId(snapshot.bloodlineId()),
                 personality, traits,
                 messages.text(viewer.locale(),
                         personality == null ? "gui.ancestor_unknown" : "command.info_none"));
