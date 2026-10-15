@@ -505,7 +505,7 @@ public final class InventoryService {
 
     private Component appendAncestorLine(Component block, Player player, String labelKey, AncestorSnapshot snapshot) {
         Component line = Component.text("  " + messages.text(player.locale(), labelKey) + ": ", NamedTextColor.GRAY)
-                .append(Component.text(ancestorText(player, snapshot, labelKey.startsWith("gui.parent_")), NamedTextColor.WHITE));
+                .append(Component.text(ancestorText(player, snapshot), NamedTextColor.WHITE));
         return block.append(Component.newline()).append(line);
     }
 
@@ -620,31 +620,27 @@ public final class InventoryService {
 
     private void addAncestor(List<Component> lore, Player viewer, String labelKey, AncestorSnapshot snapshot) {
         String label = messages.text(viewer.locale(), labelKey);
-        lore.add(Component.text(label + ": " + ancestorText(viewer, snapshot, labelKey.startsWith("gui.parent_"))));
+        lore.add(Component.text(label + ": " + ancestorText(viewer, snapshot)));
     }
 
-    private String ancestorText(Player viewer, AncestorSnapshot snapshot, boolean includeGenetics) {
-        if (snapshot == null) return messages.text(viewer.locale(), "gui.ancestor_none");
+    private String ancestorText(Player viewer, AncestorSnapshot snapshot) {
+        if (snapshot == null) return messages.text(viewer.locale(), "command.info_none");
         String name = snapshot.name();
         if (name == null || name.isBlank() || name.equals("無名の鶏")) {
             name = messages.text(viewer.locale(), "gui.ancestor_unnamed");
         }
-        String base = messages.text(viewer.locale(), "gui.ancestor_value",
-                name, snapshot.generation(), chickens.displayBloodlineId(snapshot.bloodlineId()));
-        if (!includeGenetics) return base;
-        // Old shadow Genetics must not be displayed as the actual WGL phenotype.
-        if (snapshot.personality() == null) return base + " / " + messages.text(viewer.locale(), "gui.ancestor_unknown");
-        String personality = messages.text(viewer.locale(),
-                "nature." + snapshot.personality().key() + ".name");
-        String traits = snapshot.expressedTraits().isEmpty()
-                ? messages.text(viewer.locale(), "command.info_none")
-                : String.join(", ", snapshot.expressedTraits().stream()
-                        .map(trait -> messages.text(viewer.locale(), "trait." + trait.key() + ".name"))
-                        .toList());
-        String lineage = base + " / " + messages.text(viewer.locale(),
-                "gui.ancestor_genetics", personality, traits);
-        return snapshot.divineLineageExpressed()
-                ? lineage + " / " + messages.text(viewer.locale(), "gui.divine_lineage")
-                : lineage;
+        String personality = snapshot.personality() == null ? null
+                : messages.text(viewer.locale(),
+                    "nature." + snapshot.personality().key() + ".name");
+        List<String> traits = snapshot.expressedTraits().stream()
+                .map(trait -> messages.text(viewer.locale(), "trait." + trait.key() + ".name"))
+                .toList();
+        return ChickenPedigreeLine.format(
+                name, snapshot.generation(),
+                chickens.displayBloodlineId(snapshot.bloodlineId()),
+                personality, traits,
+                messages.text(viewer.locale(),
+                        personality == null ? "gui.ancestor_unknown" : "command.info_none"));
+
     }
 }
