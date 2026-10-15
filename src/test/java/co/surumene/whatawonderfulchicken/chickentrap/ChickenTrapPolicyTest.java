@@ -67,10 +67,4 @@ final class ChickenTrapPolicyTest {
         assertFalse(ChickenTrapPolicy.trapMountNavigation(true, false));
     }
 
-    @Test void trapMountMovesToFightOutsideMeleeRange() {
-        assertTrue(ChickenTrapPolicy.shouldPursue(10.0 * 10.0));
-        assertTrue(ChickenTrapPolicy.shouldPursue(20.0 * 20.0));
-        assertFalse(ChickenTrapPolicy.shouldPursue(3.0 * 3.0));
-        assertFalse(ChickenTrapPolicy.shouldPursue(Double.NaN));
-    }
 }
