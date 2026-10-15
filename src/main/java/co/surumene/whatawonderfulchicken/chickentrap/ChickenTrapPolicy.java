@@ -27,12 +27,6 @@ public final class ChickenTrapPolicy {
         return markedTrapMount && hasSkeletonRider;
     }
 
-    /** Allow mount pursuit within encounter reach, even while the Skeleton can shoot. */
-    public static boolean shouldPursue(double distanceSquared) {
-        return Double.isFinite(distanceSquared)
-                && distanceSquared > 9.0 && distanceSquared < 1024.0;
-    }
-
     public static boolean extendedBowRange(double distanceSquared) {
         return Double.isFinite(distanceSquared)
                 && distanceSquared > 225.0 && distanceSquared <= 400.0;
