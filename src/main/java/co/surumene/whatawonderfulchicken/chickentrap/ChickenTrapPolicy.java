@@ -22,6 +22,17 @@ public final class ChickenTrapPolicy {
                 > Math.floorDiv(previous - DAWN_TIME, DAY_TICKS);
     }
 
+    /** A trap Skeleton controls its Chicken mount; normal ridden-player input stays separate. */
+    public static boolean trapMountNavigation(boolean markedTrapMount, boolean hasSkeletonRider) {
+        return markedTrapMount && hasSkeletonRider;
+    }
+
+    /** Allow mount pursuit within encounter reach, even while the Skeleton can shoot. */
+    public static boolean shouldPursue(double distanceSquared) {
+        return Double.isFinite(distanceSquared)
+                && distanceSquared > 9.0 && distanceSquared < 1024.0;
+    }
+
     public static boolean extendedBowRange(double distanceSquared) {
         return Double.isFinite(distanceSquared)
                 && distanceSquared > 225.0 && distanceSquared <= 400.0;
