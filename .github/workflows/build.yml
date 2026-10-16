@@ -23,11 +23,11 @@ jobs:
         with:
           path: WhatAWonderfulChicken
 
-      - name: Checkout WGL 1.0.0 main
+      - name: Checkout WGL 1.0.1 develop
         uses: actions/checkout@v5
         with:
           repository: surumeneco/WonderfulGenomeLib
-          ref: main
+          ref: develop
           path: WonderfulGenomeLib
 
       - uses: actions/setup-java@v5

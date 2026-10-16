@@ -19,7 +19,7 @@ public final class WonderfulChickenFounderSynthesizer {
             WonderfulChickenGenomeProfile profile) {
         this.engine = Objects.requireNonNull(engine, "engine");
         this.profile = Objects.requireNonNull(profile, "profile");
-        this.targetGenerator = new WonderfulChickenFounderTargetGenerator(profile.synthesisSettings());
+        this.targetGenerator = new WonderfulChickenFounderTargetGenerator(profile.synthesisSettings(), profile.trapDistribution());
     }
 
     public FounderGenomeSynthesis synthesize(FounderOrigin origin, long seed) {

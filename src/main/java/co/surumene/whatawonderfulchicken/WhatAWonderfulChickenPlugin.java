@@ -38,7 +38,7 @@ import java.util.List;
 public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
     private WonderfulGenomeLibService genomeLib;
     private ProfileRegistryGateway profileRegistry;
-    private WonderfulChickenGenomeProfile genomeProfile;
+    private volatile WonderfulChickenGenomeProfile genomeProfile;
     private ConfigService configService;
     private MessageService messageService;
     private WonderfulChickenStore store;
@@ -76,9 +76,10 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
                         new File(getDataFolder(), "biological-clock.yml"), getLogger()));
 
         profileRegistry = new WglProfileRegistryGateway(genomeLib, this);
+        var settings = co.surumene.whatawonderfulchicken.config.ChickenProfileConfig.read(getConfig());
         genomeProfile = new WonderfulChickenGenomeProfile(
-                WonderfulChickenGenomeSettings.defaults(),
-                genomeLib.engine().geneSequenceCodec());
+                settings.decoder(), settings.synthesizer(), settings.trapAbilities(),
+                settings.breeding(), genomeLib.engine().geneSequenceCodec());
         profileRegistry.register(genomeProfile);
 
         messageService = new MessageService(this);
@@ -162,6 +163,20 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
             throw new IllegalStateException("Wonderful Chicken genome profile is not available");
         }
         return profile;
+    }
+
+    /** Replace the Profile only after all typed settings have been validated. */
+    public void reconfigureGenomeProfile() {
+        reconfigureGenomeProfile(getConfig());
+    }
+
+    public void reconfigureGenomeProfile(org.bukkit.configuration.ConfigurationSection candidateConfig) {
+        var next = co.surumene.whatawonderfulchicken.config.ChickenProfileConfig.read(candidateConfig);
+        var candidate = new WonderfulChickenGenomeProfile(
+                next.decoder(), next.synthesizer(), next.trapAbilities(),
+                next.breeding(), genomeLib.engine().geneSequenceCodec());
+        profileRegistry.replace(candidate);
+        genomeProfile = candidate;
     }
 
     public ChickenTrapRuntime chickenTrap() {
