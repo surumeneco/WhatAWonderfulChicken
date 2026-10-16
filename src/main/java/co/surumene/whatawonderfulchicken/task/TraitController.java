@@ -85,8 +85,9 @@ public final class TraitController implements Runnable {
     private void applyHaste(Chicken chicken, int amplifier) {
         double radius = config.hasteRadius();
         double squared = radius * radius;
-        for (Player player : chicken.getWorld().getPlayers()) {
-            if (player.getLocation().distanceSquared(chicken.getLocation()) <= squared) {
+        var source = chicken.getLocation();
+        for (Player player : HasteNearbyPlayers.find(chicken.getWorld(), source, radius)) {
+            if (HasteNearbyPlayers.contains(source, player.getLocation(), squared)) {
                 apply(player, PotionEffectType.HASTE, amplifier);
             }
         }

@@ -84,6 +84,7 @@ public final class WonderfulChickenService {
         synchronizeBehaviorState(chicken, data);
         store.notifyStaminaState(chicken);
         store.notifyTraitState(chicken);
+        store.notifyFollowState(chicken);
         return true;
     }
 
@@ -100,6 +101,7 @@ public final class WonderfulChickenService {
     }
 
     public void unregisterLoaded(Chicken chicken) {
+        store.notifyFollowUnload(chicken);
         migrations.invalidate(chicken);
         loaded.remove(chicken.getUniqueId(), chicken);
         store.invalidate(chicken);
@@ -395,6 +397,13 @@ public final class WonderfulChickenService {
 
     public void shutdown() {
         migrations.shutdown();
+    }
+
+    /** Share the exact configured curve used by effective(), not the static defaults. */
+    public AgeCurve ageProjectionCurve(WonderfulChickenData data) {
+        return AgeCurve.from(
+                data.phenotypeSnapshot().developmentFactors(),
+                config.ageGrowthDays(), config.agePeakDays(), config.ageAgingDays());
     }
 
     public double effective(WonderfulChickenData data, StatType stat) {
