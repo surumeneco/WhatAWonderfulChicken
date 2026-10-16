@@ -9,6 +9,7 @@ import co.surumene.whatawonderfulchicken.data.StatType;
 import co.surumene.whatawonderfulchicken.data.WonderfulChickenData;
 import co.surumene.whatawonderfulchicken.persistence.PhenotypeSnapshotCodecV1;
 import co.surumene.whatawonderfulchicken.persistence.GenomePayloadFiles;
+import co.surumene.wgl.api.BackboneDefinition;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Chicken;
@@ -93,7 +94,11 @@ public final class WonderfulChickenStore {
         CachedState cached = loadedCache.get(chicken.getUniqueId());
         if (cached != null && cached.entity() == chicken) return cached.data();
         WonderfulChickenData restored = loadPersisted(chicken);
-        loadedCache.put(chicken.getUniqueId(), new CachedState(chicken, restored));
+        PersistentDataContainer pdc = chicken.getPersistentDataContainer();
+        String reference = pdc.get(genomeReferenceKey, PersistentDataType.STRING);
+        UUID persistedRef = reference == null ? null : UUID.fromString(reference);
+        BackboneDefinition backbone = restored.hasGenomeModel() ? plugin.genomeProfile().backbone() : null;
+        loadedCache.put(chicken.getUniqueId(), new CachedState(chicken, restored, persistedRef, backbone));
         return restored;
     }
 
@@ -181,23 +186,36 @@ public final class WonderfulChickenStore {
     }
 
     public void save(Chicken chicken, WonderfulChickenData data) {
-        byte[] genomeBytes = null;
-        byte[] phenotypeBytes = null;
-        if (data.hasGenomeModel()) {
-            // Finish all potentially-failing codec work before mutating PDC.
-            genomeBytes = plugin.genomeLib().engine().encode(data.genome());
-            phenotypeBytes = phenotypeCodec.encode(data.phenotypeSnapshot());
-        }
-
-        // Validate the marker before making any PDC changes.
-        if (data.hasGenomeModel()) data.bloodlineId(genomeMarker(data));
         PersistentDataContainer pdc = chicken.getPersistentDataContainer();
+        String oldRef = pdc.get(genomeReferenceKey, PersistentDataType.STRING);
+        UUID previousRef = oldRef == null ? null : UUID.fromString(oldRef);
+        CachedState saved = loadedCache.get(chicken.getUniqueId());
+        BackboneDefinition backbone = data.hasGenomeModel() ? plugin.genomeProfile().backbone() : null;
+        boolean reuse = data.hasGenomeModel()
+                && saved != null && saved.entity() == chicken && saved.data().hasGenomeModel()
+                && GenomePayloadReusePolicy.canReuse(
+                        saved.data().genome(), saved.data().phenotypeSnapshot(),
+                        saved.backbone(), saved.genomeReference(),
+                        data.genome(), data.phenotypeSnapshot(), backbone, previousRef,
+                        pdc.get(dataVersionKey, PersistentDataType.INTEGER))
+                && saved.data().bloodlineId() != null;
+
         UUID payloadRef = null;
         if (data.hasGenomeModel()) {
-            String oldRef = pdc.get(genomeReferenceKey, PersistentDataType.STRING);
-            UUID previous = oldRef == null ? null : UUID.fromString(oldRef);
-            // A failure here must leave the existing PDC untouched.
-            payloadRef = payloadFiles.writeOrReuse(previous, genomeBytes, phenotypeBytes);
+            if (reuse) {
+                // The original record was validated by loadPersisted() or
+                // successfully published by save(). In-memory immutable
+                // identity and the entity's committed reference are unchanged.
+                payloadRef = previousRef;
+                data.bloodlineId(saved.data().bloodlineId());
+            } else {
+                // All fallible encoding, WGL Marker derivation and file
+                // publication complete before changing the entity's PDC.
+                byte[] genomeBytes = plugin.genomeLib().engine().encode(data.genome());
+                byte[] phenotypeBytes = phenotypeCodec.encode(data.phenotypeSnapshot());
+                data.bloodlineId(genomeMarker(data));
+                payloadRef = payloadFiles.writeOrReuse(previousRef, genomeBytes, phenotypeBytes);
+            }
         }
         pdc.set(markerKey, PersistentDataType.STRING, MARKER_VALUE);
         // data_version is the commit point for the compound WWC payload.
@@ -242,7 +260,7 @@ public final class WonderfulChickenStore {
             pdc.remove(adultBiologicalTimeKey);
             pdc.set(dataVersionKey, PersistentDataType.INTEGER, LEGACY_DATA_VERSION);
         }
-        loadedCache.put(chicken.getUniqueId(), new CachedState(chicken, data.copy()));
+        loadedCache.put(chicken.getUniqueId(), new CachedState(chicken, data.copy(), payloadRef, backbone));
     }
 
     /** Kept only to migrate old descendant snapshots, never for normal display. */
@@ -305,5 +323,5 @@ public final class WonderfulChickenStore {
 
     private NamespacedKey key(String name) { return new NamespacedKey(plugin, name); }
 
-    private record CachedState(Chicken entity, WonderfulChickenData data) {}
+    private record CachedState(Chicken entity, WonderfulChickenData data, UUID genomeReference, BackboneDefinition backbone) {}
 }
