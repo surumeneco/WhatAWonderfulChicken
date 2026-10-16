@@ -55,6 +55,15 @@ public final class WonderfulChickenStore {
     private final Map<StatType, NamespacedKey> normalizedKeys = new EnumMap<>(StatType.class);
     private final Map<UUID, CachedState> loadedCache = new HashMap<>();
     private Consumer<Chicken> staminaChange = ignored -> {};
+    private Consumer<Chicken> traitStateChange = ignored -> {};
+
+    public void onTraitStateChange(Consumer<Chicken> callback) {
+        traitStateChange = Objects.requireNonNull(callback, "callback");
+    }
+
+    public void notifyTraitState(Chicken chicken) {
+        traitStateChange.accept(chicken);
+    }
 
     /** Fires after a committed state/stamina change; no full-world scan required. */
     public void onStaminaChange(Consumer<Chicken> callback) {
@@ -275,6 +284,7 @@ public final class WonderfulChickenStore {
         }
         loadedCache.put(chicken.getUniqueId(), new CachedState(chicken, data.copy(), payloadRef, backbone));
         staminaChange.accept(chicken);
+        traitStateChange.accept(chicken);
     }
 
     /** Kept only to migrate old descendant snapshots, never for normal display. */
