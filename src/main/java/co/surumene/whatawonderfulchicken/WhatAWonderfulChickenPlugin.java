@@ -92,6 +92,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         riding = new RidingController(chickens, store, configService, bedrock);
         store.onStaminaChange(riding::refreshRecovery);
         traits = new TraitController(chickens, store, configService);
+        store.onTraitStateChange(traits::updateCandidate);
         chickenTrap = new ChickenTrapRuntime(this, configService, chickens, store, displays);
 
         CommandService commands = new CommandService(this, chickens, store, configService, messageService, displays);
