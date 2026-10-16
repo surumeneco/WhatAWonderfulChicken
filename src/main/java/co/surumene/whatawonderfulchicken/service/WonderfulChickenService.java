@@ -82,6 +82,8 @@ public final class WonderfulChickenService {
             store.save(chicken, data);
         }
         synchronizeBehaviorState(chicken, data);
+        store.notifyStaminaState(chicken);
+        store.notifyTraitState(chicken);
         return true;
     }
 
@@ -497,6 +499,8 @@ public final class WonderfulChickenService {
             if (!Objects.equals(chicken.getEquipment().getHelmet(), head)) chicken.getEquipment().setHelmet(head);
             if (chicken.getEquipment().getHelmetDropChance() != 0.0f) chicken.getEquipment().setHelmetDropChance(0.0f);
         }
+        // Aging can change maximum stamina even when the stored pool is unchanged.
+        store.notifyStaminaState(chicken);
     }
 
     /** @return true only when an externally changed helmet was persisted. */
