@@ -61,6 +61,11 @@ public final class WonderfulChickenStore {
         staminaChange = Objects.requireNonNull(callback, "callback");
     }
 
+    /** Register/restoration also needs one membership check when no state was rewritten. */
+    public void notifyStaminaState(Chicken chicken) {
+        staminaChange.accept(chicken);
+    }
+
     public WonderfulChickenStore(WhatAWonderfulChickenPlugin plugin, ConfigService config) {
         this.plugin = plugin;
         this.config = config;
