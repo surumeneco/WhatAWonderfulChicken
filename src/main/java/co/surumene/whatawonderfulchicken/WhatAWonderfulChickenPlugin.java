@@ -165,6 +165,16 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         return profile;
     }
 
+    /** Replace the Profile only after all typed settings have been validated. */
+    public void reconfigureGenomeProfile() {
+        var next = co.surumene.whatawonderfulchicken.config.ChickenProfileConfig.read(getConfig());
+        var candidate = new WonderfulChickenGenomeProfile(
+                next.decoder(), next.synthesizer(), next.trapAbilities(),
+                next.breeding(), genomeLib.engine().geneSequenceCodec());
+        profileRegistry.replace(candidate);
+        genomeProfile = candidate;
+    }
+
     public ChickenTrapRuntime chickenTrap() {
         return chickenTrap;
     }
