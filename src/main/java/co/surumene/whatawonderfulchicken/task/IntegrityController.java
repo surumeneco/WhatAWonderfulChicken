@@ -99,7 +99,7 @@ public final class IntegrityController implements Runnable {
                 if (chicken.isAdult() && data.hasGenomeModel()
                         && data.adultBiologicalTime() > 0L
                         && data.phenotypeSnapshot() != null) {
-                    AgeCurve curve = AgeCurve.from(data.phenotypeSnapshot());
+                    AgeCurve curve = chickens.ageProjectionCurve(data);
                     long predicted = ChickenAgeProjectionDeadline.next(
                             now, data.adultBiologicalTime(), curve,
                             data.phenotypeSnapshot().injuries().stream()
