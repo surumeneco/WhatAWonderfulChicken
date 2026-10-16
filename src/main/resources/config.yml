@@ -225,19 +225,8 @@ natural-spawn:
   chance: 0.05
 
 breeding:
-  # WGL繁殖ではHomology・組換え・変異をWGL側が管理します。
-  # 下記1.x由来の数値はGenomeの組換え率や新世代Genomeの能力抽選を変更しません。
-  # 過去のGenetics互換保存・移行を行う場合の挙動とは区別してください。
-  # 旧正規化能力への突然変異率。2.0のWGL繁殖には適用されません（0～1）。
-  stat-mutation-rate: 0.01
-  # 旧Geneticsシャドーデータ・祖先復元の変異率（0～1）。WGL Genomeには非適用。
+  # 旧Genetics shadow保存と祖先復元に使用中。WGLのGenome変異率とは無関係。
   genetic-mutation-rate: 0.01
-  # 旧方式の直伝確率（0～1）。WGLの直伝・破天荒はProfile側で制御します。
-  direct-inheritance-rate: 0.40
-  # 旧方式の繁殖能力ガウス分布用。WGLの組換え・変異率とは独立しています。
-  gaussian:
-    spread-factor: 0.25
-    minimum-standard-deviation: 0.03
 traits:
   # プレイ中に発現した特性が提供する効果の調整。出生済みGenome・発現特性は不変。
   # 採掘応援の効果範囲（block、0超）。大きいほど遠方へ届きます。
