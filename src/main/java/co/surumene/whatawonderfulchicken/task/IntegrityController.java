@@ -1,6 +1,7 @@
 package co.surumene.whatawonderfulchicken.task;
 
 import co.surumene.whatawonderfulchicken.display.DisplayService;
+import co.surumene.whatawonderfulchicken.runtime.AgeCurve;
 import co.surumene.whatawonderfulchicken.listener.WorldListener;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import java.util.ArrayDeque;
@@ -37,7 +38,9 @@ public final class IntegrityController implements Runnable {
     private final ArrayDeque<Chunk> pendingChunks = new ArrayDeque<>();
     private final ArrayDeque<UUID> pendingRestorationIds = new ArrayDeque<>();
     private long nextCandidateSweep;
-    private final Map<UUID, Long> lastAgeProjection = new HashMap<>();
+    private final Map<UUID, Long> nextAgeProjection = new HashMap<>();
+    private final Map<UUID, Chicken> projectionEntities = new HashMap<>();
+    private long lastBiologicalTime = Long.MIN_VALUE;
     private long tick;
     private long nextChickenSweep;
     private long nextWorldSweep = GLOBAL_COMPATIBILITY_AUDIT_TICKS;
@@ -72,20 +75,39 @@ public final class IntegrityController implements Runnable {
                 registered.add(chicken.getUniqueId());
                 pendingChickens.addLast(chicken);
             }
-            lastAgeProjection.keySet().retainAll(registered);
+            nextAgeProjection.keySet().retainAll(registered);
+            projectionEntities.keySet().retainAll(registered);
         }
 
-        long ageBucket = biologicalTime.getAsLong() / AGE_REFRESH_QUANTUM;
+        long now = biologicalTime.getAsLong();
+        if (lastBiologicalTime != Long.MIN_VALUE && now < lastBiologicalTime) {
+            nextAgeProjection.clear();
+        }
+        lastBiologicalTime = now;
         for (int i = 0; i < MAX_CHICKENS_PER_TICK && !pendingChickens.isEmpty(); i++) {
             Chicken chicken = pendingChickens.removeFirst();
             if (!chicken.isValid() || chickens.isSuperseded(chicken)) continue;
 
             UUID id = chicken.getUniqueId();
             boolean headChanged = chickens.captureHeadEquipment(chicken);
-            if (lastAgeProjection.getOrDefault(id, Long.MIN_VALUE) != ageBucket) {
+            boolean newEntity = projectionEntities.put(id, chicken) != chicken;
+            if (newEntity || now >= nextAgeProjection.getOrDefault(id, Long.MIN_VALUE)) {
                 chickens.projectAttributes(chicken);
                 displays.rebuild(chicken);
-                lastAgeProjection.put(id, ageBucket);
+                var data = chickens.store().read(chicken);
+                long due = now + AGE_REFRESH_QUANTUM;
+                if (chicken.isAdult() && data.hasGenomeModel()
+                        && data.adultBiologicalTime() > 0L
+                        && data.phenotypeSnapshot() != null) {
+                    AgeCurve curve = AgeCurve.from(data.phenotypeSnapshot());
+                    long predicted = ChickenAgeProjectionDeadline.next(
+                            now, data.adultBiologicalTime(), curve,
+                            data.phenotypeSnapshot().injuries().stream()
+                                    .map(injury -> injury.onsetGameDay()).toList());
+                    // Preserve a rare external-attribute compatibility check.
+                    due = Math.min(predicted, now + 6000L);
+                }
+                nextAgeProjection.put(id, due);
             } else if (headChanged) {
                 displays.rebuild(chicken);
             }
