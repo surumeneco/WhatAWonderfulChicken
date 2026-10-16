@@ -76,10 +76,10 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
                         new File(getDataFolder(), "biological-clock.yml"), getLogger()));
 
         profileRegistry = new WglProfileRegistryGateway(genomeLib, this);
+        var settings = co.surumene.whatawonderfulchicken.config.ChickenProfileConfig.read(getConfig());
         genomeProfile = new WonderfulChickenGenomeProfile(
-                co.surumene.whatawonderfulchicken.config.ChickenProfileConfig.read(getConfig()).decoder(),
-                co.surumene.whatawonderfulchicken.config.ChickenProfileConfig.read(getConfig()).synthesizer(),
-                genomeLib.engine().geneSequenceCodec());
+                settings.decoder(), settings.synthesizer(), settings.trapAbilities(),
+                settings.breeding(), genomeLib.engine().geneSequenceCodec());
         profileRegistry.register(genomeProfile);
 
         messageService = new MessageService(this);
