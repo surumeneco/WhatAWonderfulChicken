@@ -78,7 +78,7 @@ public final class FollowController implements Runnable {
             }
         }
         for (Chicken chicken : scheduled.values()) {
-            if (!chicken.isValid() || chickens.isSuperseded(chicken)) {
+            if (!chicken.isValid() || !store.isWonderful(chicken) || chickens.isSuperseded(chicken)) {
                 membership.remove(chicken);
                 continue;
             }
