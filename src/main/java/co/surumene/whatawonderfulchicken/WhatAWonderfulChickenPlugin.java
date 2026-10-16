@@ -38,7 +38,7 @@ import java.util.List;
 public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
     private WonderfulGenomeLibService genomeLib;
     private ProfileRegistryGateway profileRegistry;
-    private WonderfulChickenGenomeProfile genomeProfile;
+    private volatile WonderfulChickenGenomeProfile genomeProfile;
     private ConfigService configService;
     private MessageService messageService;
     private WonderfulChickenStore store;
