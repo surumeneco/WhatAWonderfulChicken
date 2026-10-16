@@ -82,6 +82,7 @@ public final class WonderfulChickenService {
             store.save(chicken, data);
         }
         synchronizeBehaviorState(chicken, data);
+        store.notifyStaminaState(chicken);
         return true;
     }
 
