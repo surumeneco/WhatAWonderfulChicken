@@ -83,6 +83,7 @@ public final class WonderfulChickenService {
         }
         synchronizeBehaviorState(chicken, data);
         store.notifyStaminaState(chicken);
+        store.notifyTraitState(chicken);
         return true;
     }
 
