@@ -50,6 +50,7 @@ public final class WonderfulChickenGenomeProfile implements GenomeProfile<Wonder
     private final WonderfulChickenGenomeSettings settings;
     private final WonderfulChickenSynthesisSettings synthesisSettings;
     private final WonderfulChickenSynthesisSettings.Distribution trapDistribution;
+    private final co.surumene.whatawonderfulchicken.breeding.WonderfulChickenBreedingSettings breedingSettings;
     private final ProfileDescriptor descriptor;
     private final BackboneDefinition backbone;
     private final GeneSequenceCodec geneSequenceCodec;
