@@ -109,6 +109,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
 
         chickenTrap.restoreLoaded();
         chickens.scanLoadedWorlds();
+        worldListener.indexInitialRestorationCandidates();
         naturalFounders.resumeLoaded();
         displays.rebuildAllLoaded();
 
