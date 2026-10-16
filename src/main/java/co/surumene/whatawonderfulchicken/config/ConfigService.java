@@ -123,6 +123,11 @@ public final class ConfigService {
         for (String block : config.getStringList("road.blocks")) {
             if (Material.matchMaterial(block) == null) errors.add("Unknown road block: " + block);
         }
+        try {
+            ChickenProfileConfig.read(config);
+        } catch (RuntimeException invalidProfile) {
+            errors.add("genome-profile/founder-target: " + invalidProfile.getMessage());
+        }
         return new ValidationResult(errors.isEmpty(), List.copyOf(errors));
     }
 
