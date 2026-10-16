@@ -36,6 +36,7 @@ public final class RidingController implements Runnable {
     private final Map<UUID, UUID> mountedChickens = new HashMap<>();
     private final Map<UUID, Float> exhaustionAtMount = new HashMap<>();
     private final Set<UUID> airFlapLockedUntilJumpRelease = new HashSet<>();
+    private final RecoveryMembership recoveryCandidates = new RecoveryMembership();
     private long tick;
 
     public RidingController(WonderfulChickenService chickens, WonderfulChickenStore store, ConfigService config, BedrockCompatibility bedrock) {
@@ -43,6 +44,17 @@ public final class RidingController implements Runnable {
         this.store = store;
         this.config = config;
         this.bedrock = bedrock;
+    }
+
+    /** Called after committed stamina/capacity changes; full chickens remain inactive. */
+    public void refreshRecovery(Chicken chicken) {
+        if (!chicken.isValid() || !store.isWonderful(chicken)) {
+            recoveryCandidates.remove(chicken);
+            return;
+        }
+        WonderfulChickenData data = store.read(chicken);
+        recoveryCandidates.update(chicken,
+                data.currentStamina() < chickens.effective(data, StatType.STAMINA));
     }
 
     @Override
@@ -59,7 +71,11 @@ public final class RidingController implements Runnable {
             exhaustionAtMount.putIfAbsent(playerId, player.getExhaustion());
             tickMounted(player, chicken);
         }
-        for (Chicken chicken : chickens.loadedChickens()) {
+        for (Chicken chicken : recoveryCandidates.snapshot()) {
+            if (!chicken.isValid() || !store.isWonderful(chicken)) {
+                recoveryCandidates.remove(chicken);
+                continue;
+            }
             if (!mountedChickenIds.contains(chicken.getUniqueId())) tickUnmounted(chicken);
         }
         for (Map.Entry<UUID, UUID> entry : new HashMap<>(mountedChickens).entrySet()) {
@@ -67,7 +83,10 @@ public final class RidingController implements Runnable {
         }
         mountedChickens.clear();
         mountedChickens.putAll(nowMounted);
-        lastAirborneTick.keySet().removeIf(uuid -> Bukkit.getEntity(uuid) == null);
+        // Stale-UUID cleanup need not query Bukkit.getEntity for every tick.
+        if (tick % 200L == 0L) {
+            lastAirborneTick.keySet().removeIf(uuid -> Bukkit.getEntity(uuid) == null);
+        }
     }
 
     public void restoreHud(Player player) {
@@ -81,6 +100,8 @@ public final class RidingController implements Runnable {
         mountedChickens.clear();
         exhaustionAtMount.clear();
         airFlapLockedUntilJumpRelease.clear();
+        recoveryCandidates.clear();
+        lastAirborneTick.clear();
         removeAllInteractionProxies();
     }
 
