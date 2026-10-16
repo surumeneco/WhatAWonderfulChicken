@@ -373,7 +373,6 @@ public final class CommandService {
     }
 
     private void resynchronizeRuntimeConfiguration() {
-        plugin.reconfigureGenomeProfile();
         plugin.reconfigureBiologicalClock();
         chickens.resyncAllLoaded();
         displays.rebuildAllLoaded();
