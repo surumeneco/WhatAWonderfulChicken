@@ -58,6 +58,8 @@ public final class ConfigService {
             }
         }
         for (String path : nonSections) errors.add(path + " must be a configuration section");
+        try { ChickenProfileConfig.read(config); }
+        catch (IllegalArgumentException ex) { errors.add(ex.getMessage()); }
         for (StatType stat : StatType.values()) {
             double min = numberSetting(config, defaults, "stats." + stat.configName() + ".min");
             double max = numberSetting(config, defaults, "stats." + stat.configName() + ".max");
@@ -74,8 +76,6 @@ public final class ConfigService {
             errors.add("stats.range-change-policy must be preserve-value or preserve-normalized");
         }
         validateProbability(config, defaults, "natural-spawn.chance", errors);
-        validateProbability(config, defaults, "breeding.direct-inheritance-rate", errors);
-        validateProbability(config, defaults, "breeding.stat-mutation-rate", errors);
         validateProbability(config, defaults, "breeding.genetic-mutation-rate", errors);
         validateProbability(config, defaults, "chicken-trap.spawn-chance", errors);
         positive(config, defaults, "chicken-trap.activation-radius-blocks", errors);
@@ -84,15 +84,6 @@ public final class ConfigService {
         double adjustment = numberSetting(config, defaults, "nature.adjustment");
         if (!Double.isFinite(adjustment) || adjustment < 0.0 || adjustment >= 2.0 / 3.0)
             errors.add("nature.adjustment must be >= 0 and < 2/3 (including Kuse Mashi)");
-        double maxNormalized = numberSetting(config, defaults, "natural-spawn.max-normalized");
-        if (maxNormalized < 1.0 || !Double.isFinite(maxNormalized)) errors.add("natural-spawn.max-normalized must be >= 1.0");
-        double naturalMean = numberSetting(config, defaults, "natural-spawn.distribution.mean");
-        if (!Double.isFinite(naturalMean) || naturalMean < 0.0 || naturalMean > maxNormalized) {
-            errors.add("natural-spawn.distribution.mean must be finite and between 0.0 and natural-spawn.max-normalized");
-        }
-        positive(config, defaults, "natural-spawn.distribution.standard-deviation", errors);
-        positive(config, defaults, "breeding.gaussian.spread-factor", errors);
-        positive(config, defaults, "breeding.gaussian.minimum-standard-deviation", errors);
         positive(config, defaults, "flight.stamina-consumption-per-second", errors);
         nonNegative(config, defaults, "flight.recovery-delay-seconds", errors);
         nonNegative(config, defaults, "feeding.heal-per-seed", errors);
@@ -120,6 +111,11 @@ public final class ConfigService {
         if (integerSetting(config, defaults, "commands.info-max-results") < 1) errors.add("commands.info-max-results must be >= 1");
         for (String block : config.getStringList("road.blocks")) {
             if (Material.matchMaterial(block) == null) errors.add("Unknown road block: " + block);
+        }
+        try {
+            ChickenProfileConfig.read(config);
+        } catch (RuntimeException invalidProfile) {
+            errors.add("genome-profile/founder-target: " + invalidProfile.getMessage());
         }
         return new ValidationResult(errors.isEmpty(), List.copyOf(errors));
     }
@@ -150,6 +146,11 @@ public final class ConfigService {
         candidate.setDefaults(defaults);
         ValidationResult validation = validate(candidate);
         if (!validation.valid()) return validation;
+        try {
+            plugin.reconfigureGenomeProfile(candidate);
+        } catch (RuntimeException registrationError) {
+            return ValidationResult.error("Genome Profile reload rejected: " + registrationError.getMessage());
+        }
         plugin.reloadConfig();
         persistMissingDefaults();
         cachedRoadBlocks = null;
@@ -165,6 +166,12 @@ public final class ConfigService {
         if (!validation.valid()) {
             config.set(path, old);
             return validation;
+        }
+        try {
+            plugin.reconfigureGenomeProfile(config);
+        } catch (RuntimeException failed) {
+            config.set(path, old);
+            return ValidationResult.error(failed.getMessage());
         }
         plugin.saveConfig();
         cachedRoadBlocks = null;
@@ -195,6 +202,12 @@ public final class ConfigService {
             plugin.reloadConfig();
             return validation;
         }
+        try {
+            plugin.reconfigureGenomeProfile(config);
+        } catch (RuntimeException failed) {
+            plugin.reloadConfig();
+            return ValidationResult.error(failed.getMessage());
+        }
         plugin.saveConfig();
         cachedRoadBlocks = null;
         return validation;
@@ -205,14 +218,7 @@ public final class ConfigService {
     public String statDisplay(StatType stat) { return config().getString("stats." + stat.configName() + ".display", "rank").toLowerCase(Locale.ROOT); }
     public String rangeChangePolicy() { return config().getString("stats.range-change-policy", "preserve-value"); }
     public double naturalChance() { return config().getDouble("natural-spawn.chance", 0.05); }
-    public double naturalMaxNormalized() { return config().getDouble("natural-spawn.max-normalized", 1.5); }
-    public double naturalMean() { return config().getDouble("natural-spawn.distribution.mean", 0.42); }
-    public double naturalStdDev() { return config().getDouble("natural-spawn.distribution.standard-deviation", 0.22); }
-    public double directInheritanceRate() { return config().getDouble("breeding.direct-inheritance-rate", 0.40); }
-    public double breedingSpreadFactor() { return config().getDouble("breeding.gaussian.spread-factor", 0.25); }
-    public double breedingMinStdDev() { return config().getDouble("breeding.gaussian.minimum-standard-deviation", 0.03); }
     public double natureAdjustment() { return config().getDouble("nature.adjustment", 0.10); }
-    public double statMutationRate() { return config().getDouble("breeding.stat-mutation-rate", 0.01); }
     public double geneticMutationRate() { return config().getDouble("breeding.genetic-mutation-rate", 0.01); }
     public double hasteRadius() { return config().getDouble("traits.haste-radius", 7.5); }
     public double alertRadius() { return config().getDouble("traits.alert-radius", 20.0); }

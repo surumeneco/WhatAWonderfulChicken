@@ -1,5 +1,11 @@
 # What a Wonderful Chicken
 
+## 2.0.1 Config整備
+
+- 新しい `founder-target.*` 設定で自然FounderとチキントラップFounderの能力Target分布を別々に指定できます。
+- `genome-profile.decoder.*`、`genome-profile.synthesizer.*`、`genome-profile.breeding-policy.*` の種固有パラメータを外部設定化しました。reload後の新規生成・繁殖から反映し、既存Phenotype Snapshotは維持します。
+- 旧1.xの無効な生成・繁殖設定を配布設定から廃止しました。現在使われている遺伝情報の移行用設定は維持しています。詳細は [設定の互換性](docs/config-compatibility.md) を参照してください。
+
 ## 2.0.1 パッチ修正
 
 - 不変Genome・Phenotype・Backboneと保存済み外部参照が一致する装備・荷物・runtime保存では、WGL Marker再計算とGenome/Snapshot再エンコードを省略します。

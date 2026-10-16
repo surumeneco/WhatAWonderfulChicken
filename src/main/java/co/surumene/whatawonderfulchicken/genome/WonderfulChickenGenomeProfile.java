@@ -49,6 +49,8 @@ public final class WonderfulChickenGenomeProfile implements GenomeProfile<Wonder
 
     private final WonderfulChickenGenomeSettings settings;
     private final WonderfulChickenSynthesisSettings synthesisSettings;
+    private final WonderfulChickenSynthesisSettings.Distribution trapDistribution;
+    private final co.surumene.whatawonderfulchicken.breeding.WonderfulChickenBreedingSettings breedingSettings;
     private final ProfileDescriptor descriptor;
     private final BackboneDefinition backbone;
     private final GeneSequenceCodec geneSequenceCodec;
@@ -67,8 +69,27 @@ public final class WonderfulChickenGenomeProfile implements GenomeProfile<Wonder
             WonderfulChickenGenomeSettings settings,
             WonderfulChickenSynthesisSettings synthesisSettings,
             GeneSequenceCodec geneSequenceCodec) {
+        this(settings, synthesisSettings, synthesisSettings.abilityDistribution(), geneSequenceCodec);
+    }
+
+    public WonderfulChickenGenomeProfile(WonderfulChickenGenomeSettings settings,
+            WonderfulChickenSynthesisSettings synthesisSettings,
+            WonderfulChickenSynthesisSettings.Distribution trapDistribution,
+            GeneSequenceCodec geneSequenceCodec) {
+        this(settings, synthesisSettings, trapDistribution,
+                co.surumene.whatawonderfulchicken.breeding.WonderfulChickenBreedingSettings.defaults(),
+                geneSequenceCodec);
+    }
+
+    public WonderfulChickenGenomeProfile(WonderfulChickenGenomeSettings settings,
+            WonderfulChickenSynthesisSettings synthesisSettings,
+            WonderfulChickenSynthesisSettings.Distribution trapDistribution,
+            co.surumene.whatawonderfulchicken.breeding.WonderfulChickenBreedingSettings breedingSettings,
+            GeneSequenceCodec geneSequenceCodec) {
         this.settings = Objects.requireNonNull(settings, "settings");
         this.synthesisSettings = Objects.requireNonNull(synthesisSettings, "synthesisSettings");
+        this.trapDistribution = Objects.requireNonNull(trapDistribution, "trapDistribution");
+        this.breedingSettings = Objects.requireNonNull(breedingSettings, "breedingSettings");
         this.descriptor = WonderfulChickenProfileFoundation.descriptor(settings, synthesisSettings);
         this.backbone = WonderfulChickenProfileFoundation.backbone(settings);
         this.geneSequenceCodec = geneSequenceCodec;
@@ -77,6 +98,12 @@ public final class WonderfulChickenGenomeProfile implements GenomeProfile<Wonder
     public WonderfulChickenGenomeSettings settings() {
         return settings;
     }
+
+    public co.surumene.whatawonderfulchicken.breeding.WonderfulChickenBreedingSettings breedingSettings() {
+        return breedingSettings;
+    }
+
+    public WonderfulChickenSynthesisSettings.Distribution trapDistribution() { return trapDistribution; }
 
     public WonderfulChickenSynthesisSettings synthesisSettings() {
         return synthesisSettings;

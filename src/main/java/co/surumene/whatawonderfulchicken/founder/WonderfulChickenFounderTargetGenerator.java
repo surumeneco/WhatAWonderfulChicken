@@ -18,9 +18,16 @@ import java.util.Objects;
 public final class WonderfulChickenFounderTargetGenerator {
     private static final int TRAIT_CANDIDATE_COUNT = Trait.values().length + 1;
     private final WonderfulChickenSynthesisSettings settings;
+    private final WonderfulChickenSynthesisSettings.Distribution trapDistribution;
 
     public WonderfulChickenFounderTargetGenerator(WonderfulChickenSynthesisSettings settings) {
-        this.settings = Objects.requireNonNull(settings, "settings");
+        this(settings, settings.abilityDistribution());
+    }
+    public WonderfulChickenFounderTargetGenerator(
+            WonderfulChickenSynthesisSettings settings,
+            WonderfulChickenSynthesisSettings.Distribution trapDistribution) {
+        this.settings = Objects.requireNonNull(settings);
+        this.trapDistribution = Objects.requireNonNull(trapDistribution);
     }
 
     public FounderTarget generate(FounderOrigin origin, GenomeRandom random) {
@@ -32,7 +39,7 @@ public final class WonderfulChickenFounderTargetGenerator {
         double abilityMax = origin == FounderOrigin.NATURAL ? 0.75 : 1.5;
         for (StatType stat : StatType.values()) {
             abilities.put(stat, truncatedNormal(
-                    settings.abilityDistribution(), abilityMin, abilityMax, random));
+                    (origin == FounderOrigin.NATURAL ? settings.abilityDistribution() : trapDistribution), abilityMin, abilityMax, random));
         }
 
         EnumMap<PersonalityFactor, Double> personality = new EnumMap<>(PersonalityFactor.class);

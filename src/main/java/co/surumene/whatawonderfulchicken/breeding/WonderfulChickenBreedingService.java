@@ -17,7 +17,7 @@ public final class WonderfulChickenBreedingService {
     public WonderfulChickenBreedingService(
             Supplier<GenomeEngine> engineSupplier,
             Supplier<WonderfulChickenGenomeProfile> profileSupplier) {
-        this(engineSupplier, profileSupplier, WonderfulChickenBreedingSettings.defaults());
+        this(engineSupplier, profileSupplier, null);
     }
 
     public WonderfulChickenBreedingService(
@@ -26,7 +26,7 @@ public final class WonderfulChickenBreedingService {
             WonderfulChickenBreedingSettings settings) {
         this.engineSupplier = Objects.requireNonNull(engineSupplier, "engineSupplier");
         this.profileSupplier = Objects.requireNonNull(profileSupplier, "profileSupplier");
-        this.settings = Objects.requireNonNull(settings, "settings");
+        this.settings = settings;
     }
 
     public WonderfulChickenBreedingOutcome breed(
@@ -97,7 +97,7 @@ public final class WonderfulChickenBreedingService {
 
         BreedingContext context =
                 new WonderfulChickenBreedingContextFactory(
-                        engine, profile, settings)
+                        engine, profile, settings == null ? profile.breedingSettings() : settings)
                         .create(parentA.data(), parentB.data(), random);
 
         return breedCompatibleSources(
