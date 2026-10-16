@@ -188,7 +188,7 @@ public final class WonderfulChickenStore {
     public void save(Chicken chicken, WonderfulChickenData data) {
         PersistentDataContainer pdc = chicken.getPersistentDataContainer();
         String oldRef = pdc.get(genomeReferenceKey, PersistentDataType.STRING);
-        UUID previous = oldRef == null ? null : UUID.fromString(oldRef);
+        UUID previousRef = oldRef == null ? null : UUID.fromString(oldRef);
         CachedState saved = loadedCache.get(chicken.getUniqueId());
         BackboneDefinition backbone = data.hasGenomeModel() ? plugin.genomeProfile().backbone() : null;
         boolean reuse = data.hasGenomeModel()
@@ -196,7 +196,7 @@ public final class WonderfulChickenStore {
                 && GenomePayloadReusePolicy.canReuse(
                         saved.data().genome(), saved.data().phenotypeSnapshot(),
                         saved.backbone(), saved.genomeReference(),
-                        data.genome(), data.phenotypeSnapshot(), backbone, previous,
+                        data.genome(), data.phenotypeSnapshot(), backbone, previousRef,
                         pdc.get(dataVersionKey, PersistentDataType.INTEGER))
                 && saved.data().bloodlineId() != null;
 
@@ -206,7 +206,7 @@ public final class WonderfulChickenStore {
                 // The original record was validated by loadPersisted() or
                 // successfully published by save(). In-memory immutable
                 // identity and the entity's committed reference are unchanged.
-                payloadRef = previous;
+                payloadRef = previousRef;
                 data.bloodlineId(saved.data().bloodlineId());
             } else {
                 // All fallible encoding, WGL Marker derivation and file
@@ -214,7 +214,7 @@ public final class WonderfulChickenStore {
                 byte[] genomeBytes = plugin.genomeLib().engine().encode(data.genome());
                 byte[] phenotypeBytes = phenotypeCodec.encode(data.phenotypeSnapshot());
                 data.bloodlineId(genomeMarker(data));
-                payloadRef = payloadFiles.writeOrReuse(previous, genomeBytes, phenotypeBytes);
+                payloadRef = payloadFiles.writeOrReuse(previousRef, genomeBytes, phenotypeBytes);
             }
         }
         pdc.set(markerKey, PersistentDataType.STRING, MARKER_VALUE);
