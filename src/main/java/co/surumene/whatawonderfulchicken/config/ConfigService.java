@@ -167,6 +167,12 @@ public final class ConfigService {
             config.set(path, old);
             return validation;
         }
+        try {
+            plugin.reconfigureGenomeProfile(config);
+        } catch (RuntimeException failed) {
+            config.set(path, old);
+            return ValidationResult.error(failed.getMessage());
+        }
         plugin.saveConfig();
         cachedRoadBlocks = null;
         return validation;
