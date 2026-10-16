@@ -90,6 +90,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         naturalFounders = new NaturalChickenGenerationCoordinator(this, chickens, store, displays);
         inventories = new InventoryService(this, chickens, store, configService, messageService, displays);
         riding = new RidingController(chickens, store, configService, bedrock);
+        store.onStaminaChange(riding::refreshRecovery);
         traits = new TraitController(chickens, store, configService);
         chickenTrap = new ChickenTrapRuntime(this, configService, chickens, store, displays);
 

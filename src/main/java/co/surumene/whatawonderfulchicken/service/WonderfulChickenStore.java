@@ -21,6 +21,8 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Objects;
+import java.util.function.Consumer;
 
 public final class WonderfulChickenStore {
     public static final String MARKER_VALUE = "wonderful_chicken";
@@ -52,6 +54,17 @@ public final class WonderfulChickenStore {
     private final Map<StatType, NamespacedKey> valueKeys = new EnumMap<>(StatType.class);
     private final Map<StatType, NamespacedKey> normalizedKeys = new EnumMap<>(StatType.class);
     private final Map<UUID, CachedState> loadedCache = new HashMap<>();
+    private Consumer<Chicken> staminaChange = ignored -> {};
+
+    /** Fires after a committed state/stamina change; no full-world scan required. */
+    public void onStaminaChange(Consumer<Chicken> callback) {
+        staminaChange = Objects.requireNonNull(callback, "callback");
+    }
+
+    /** Register/restoration also needs one membership check when no state was rewritten. */
+    public void notifyStaminaState(Chicken chicken) {
+        staminaChange.accept(chicken);
+    }
 
     public WonderfulChickenStore(WhatAWonderfulChickenPlugin plugin, ConfigService config) {
         this.plugin = plugin;
@@ -261,6 +274,7 @@ public final class WonderfulChickenStore {
             pdc.set(dataVersionKey, PersistentDataType.INTEGER, LEGACY_DATA_VERSION);
         }
         loadedCache.put(chicken.getUniqueId(), new CachedState(chicken, data.copy(), payloadRef, backbone));
+        staminaChange.accept(chicken);
     }
 
     /** Kept only to migrate old descendant snapshots, never for normal display. */
@@ -293,6 +307,7 @@ public final class WonderfulChickenStore {
         if (Double.compare(data.currentStamina(), clamped) == 0) return;
         chicken.getPersistentDataContainer().set(currentStaminaKey, PersistentDataType.DOUBLE, clamped);
         data.currentStamina(clamped);
+        staminaChange.accept(chicken);
     }
 
     public double toValue(StatType stat, double normalized) {
