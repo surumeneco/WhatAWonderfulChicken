@@ -63,6 +63,11 @@ public final class WorldListener implements Listener {
         }
     }
 
+    public void trackCompatibilityCandidate(Chicken chicken) {
+        if (!store.isWonderful(chicken)) restorationCandidates.track(chicken);
+        else restorationCandidates.untrack(chicken.getUniqueId());
+    }
+
     public java.util.List<UUID> latePdcCandidateIds() {
         return restorationCandidates.ids();
     }
