@@ -58,6 +58,8 @@ public final class ConfigService {
             }
         }
         for (String path : nonSections) errors.add(path + " must be a configuration section");
+        try { ChickenProfileConfig.read(config); }
+        catch (IllegalArgumentException ex) { errors.add(ex.getMessage()); }
         for (StatType stat : StatType.values()) {
             double min = numberSetting(config, defaults, "stats." + stat.configName() + ".min");
             double max = numberSetting(config, defaults, "stats." + stat.configName() + ".max");
