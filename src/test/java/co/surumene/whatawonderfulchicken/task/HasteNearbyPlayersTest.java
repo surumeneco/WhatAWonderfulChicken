@@ -29,8 +29,10 @@ final class HasteNearbyPlayersTest {
     }
 
     @Test void cubeDiagonalOutsideSphereIsExcluded() {
-        var origin = new Location(null, 0, 0, 0);
-        assertTrue(HasteNearbyPlayers.contains(origin, new Location(null, 4, 0, 0), 25));
-        assertFalse(HasteNearbyPlayers.contains(origin, new Location(null, 4, 4, 0), 25));
+        World world = (World) Proxy.newProxyInstance(World.class.getClassLoader(),
+                new Class<?>[]{World.class}, (proxy, method, args) -> null);
+        var origin = new Location(world, 0, 0, 0);
+        assertTrue(HasteNearbyPlayers.contains(origin, new Location(world, 4, 0, 0), 25));
+        assertFalse(HasteNearbyPlayers.contains(origin, new Location(world, 4, 4, 0), 25));
     }
 }
