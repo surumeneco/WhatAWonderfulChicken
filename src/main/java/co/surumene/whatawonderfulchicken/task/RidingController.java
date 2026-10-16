@@ -34,6 +34,7 @@ public final class RidingController implements Runnable {
     private final Map<UUID, Long> lastAirborneTick = new HashMap<>();
     private final Map<UUID, Boolean> roadCache = new HashMap<>();
     private final Map<UUID, UUID> mountedChickens = new HashMap<>();
+    private Set<UUID> mountedIds = Set.of();
     private final Map<UUID, Float> exhaustionAtMount = new HashMap<>();
     private final Set<UUID> airFlapLockedUntilJumpRelease = new HashSet<>();
     private final RecoveryMembership recoveryCandidates = new RecoveryMembership();
@@ -83,10 +84,15 @@ public final class RidingController implements Runnable {
         }
         mountedChickens.clear();
         mountedChickens.putAll(nowMounted);
+        mountedIds = Set.copyOf(mountedChickenIds);
         // Stale-UUID cleanup need not query Bukkit.getEntity for every tick.
         if (tick % 200L == 0L) {
             lastAirborneTick.keySet().removeIf(uuid -> Bukkit.getEntity(uuid) == null);
         }
+    }
+
+    public Set<UUID> mountedChickenIds() {
+        return mountedIds;
     }
 
     public void restoreHud(Player player) {
@@ -98,6 +104,7 @@ public final class RidingController implements Runnable {
             finishMount(entry.getKey(), entry.getValue());
         }
         mountedChickens.clear();
+        mountedIds = Set.of();
         exhaustionAtMount.clear();
         airFlapLockedUntilJumpRelease.clear();
         recoveryCandidates.clear();

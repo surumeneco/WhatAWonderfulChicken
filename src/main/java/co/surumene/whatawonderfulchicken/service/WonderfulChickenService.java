@@ -84,6 +84,7 @@ public final class WonderfulChickenService {
         synchronizeBehaviorState(chicken, data);
         store.notifyStaminaState(chicken);
         store.notifyTraitState(chicken);
+        store.notifyFollowState(chicken);
         return true;
     }
 
@@ -100,6 +101,7 @@ public final class WonderfulChickenService {
     }
 
     public void unregisterLoaded(Chicken chicken) {
+        store.notifyFollowUnload(chicken);
         migrations.invalidate(chicken);
         loaded.remove(chicken.getUniqueId(), chicken);
         store.invalidate(chicken);

@@ -56,6 +56,24 @@ public final class WonderfulChickenStore {
     private final Map<UUID, CachedState> loadedCache = new HashMap<>();
     private Consumer<Chicken> staminaChange = ignored -> {};
     private Consumer<Chicken> traitStateChange = ignored -> {};
+    private Consumer<Chicken> followStateChange = ignored -> {};
+    private Consumer<Chicken> followUnload = ignored -> {};
+
+    public void onFollowStateChange(Consumer<Chicken> callback) {
+        followStateChange = Objects.requireNonNull(callback, "callback");
+    }
+
+    public void onFollowUnload(Consumer<Chicken> callback) {
+        followUnload = Objects.requireNonNull(callback, "callback");
+    }
+
+    public void notifyFollowState(Chicken chicken) {
+        followStateChange.accept(chicken);
+    }
+
+    public void notifyFollowUnload(Chicken chicken) {
+        followUnload.accept(chicken);
+    }
 
     public void onTraitStateChange(Consumer<Chicken> callback) {
         traitStateChange = Objects.requireNonNull(callback, "callback");
@@ -285,6 +303,11 @@ public final class WonderfulChickenStore {
         loadedCache.put(chicken.getUniqueId(), new CachedState(chicken, data.copy(), payloadRef, backbone));
         staminaChange.accept(chicken);
         traitStateChange.accept(chicken);
+        if (saved == null || saved.entity() != chicken
+                || saved.data().behaviorMode() != data.behaviorMode()
+                || !Objects.equals(saved.data().followTarget(), data.followTarget())) {
+            followStateChange.accept(chicken);
+        }
     }
 
     /** Kept only to migrate old descendant snapshots, never for normal display. */
