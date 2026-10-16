@@ -223,13 +223,7 @@ natural-spawn:
   # NATURALスポーンしたバニラ鶏をWonderful Chicken化する抽選の確率（0.0～1.0）。
   # Founderの能力Target分布はfounder-target.natural.abilitiesで指定します。
   chance: 0.05
-  # 以下は旧1.x方式との互換・管理用です。WGLの新規Founder合成範囲
-  # （自然個体0～0.75、トラップ0.5～1.5）を変更する設定ではありません。
-  max-normalized: 1.5
-  # 以下の旧ガウス設定も、WGL Founder生成に直接作用しません。
-  distribution:
-    mean: 0.42
-    standard-deviation: 0.22
+
 breeding:
   # WGL繁殖ではHomology・組換え・変異をWGL側が管理します。
   # 下記1.x由来の数値はGenomeの組換え率や新世代Genomeの能力抽選を変更しません。
