@@ -89,6 +89,10 @@ public final class RidingController implements Runnable {
         }
     }
 
+    public Set<UUID> mountedChickenIds() {
+        return Set.copyOf(mountedChickens.values());
+    }
+
     public void restoreHud(Player player) {
         player.sendExperienceChange(player.getExp(), player.getLevel());
     }
