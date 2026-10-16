@@ -161,6 +161,7 @@ public final class FollowController implements Runnable {
     private final class FollowGoal implements Goal<Chicken> {
         private final Chicken chicken;
         private int ticks;
+        private Vector lastDestination;
 
         private FollowGoal(Chicken chicken) {
             this.chicken = chicken;
@@ -194,11 +195,17 @@ public final class FollowController implements Runnable {
             Vector approach = followDestination(chicken.getLocation().toVector(), destination.toVector());
             destination.setX(approach.getX());
             destination.setZ(approach.getZ());
-            var path = chicken.getPathfinder().findPath(destination);
-            if (path != null) {
-                chicken.getPathfinder().moveTo(path, 1.0);
+            var navigation = chicken.getPathfinder();
+            if (!FollowRepathPolicy.needsRepath(
+                    navigation.hasPath(), lastDestination, destination.toVector())) {
+                return;
+            }
+            var path = navigation.findPath(destination);
+            if (path != null && navigation.moveTo(path, 1.0)) {
+                lastDestination = destination.toVector();
             } else {
-                chicken.getPathfinder().stopPathfinding();
+                navigation.stopPathfinding();
+                lastDestination = null;
             }
         }
 
@@ -206,6 +213,7 @@ public final class FollowController implements Runnable {
         public void stop() {
             chicken.getPathfinder().stopPathfinding();
             ticks = 0;
+            lastDestination = null;
         }
 
         @Override
