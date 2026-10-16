@@ -56,6 +56,11 @@ public final class IntegrityController implements Runnable {
         this.biologicalTime = biologicalTime;
     }
 
+    /** Config/clock changes require a fresh curve even during a plateau. */
+    public void markAllAgeDirty() {
+        nextAgeProjection.clear();
+    }
+
     @Override
     public void run() {
         tick++;
