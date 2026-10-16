@@ -39,6 +39,23 @@ final class FounderTargetGeneratorTest {
                 generator.generate(FounderOrigin.CHICKEN_TRAP, new TestRandom(123456789L)));
     }
 
+    @Test
+    void trapAbilityDistributionIsIndependentFromNatural() {
+        var settings = WonderfulChickenSynthesisSettings.defaults();
+        var customized = new WonderfulChickenFounderTargetGenerator(settings,
+                new WonderfulChickenSynthesisSettings.Distribution(1.0, 0.01));
+        var random = new TestRandom(20310521L);
+        for (int i = 0; i < 25; i++) {
+            var natural = customized.generate(FounderOrigin.NATURAL, random);
+            var trap = customized.generate(FounderOrigin.CHICKEN_TRAP, random);
+            for (StatType stat : StatType.values()) {
+                assertRange(natural.abilities().get(stat), 0.0, 0.75);
+                assertTrue(trap.abilities().get(stat) > 0.85,
+                        "trap must use its own distribution, not natural's");
+            }
+        }
+    }
+
     private static void assertRange(double value, double min, double max) {
         assertTrue(Double.isFinite(value) && value >= min && value <= max,
                 () -> value + " outside [" + min + "," + max + "]");
