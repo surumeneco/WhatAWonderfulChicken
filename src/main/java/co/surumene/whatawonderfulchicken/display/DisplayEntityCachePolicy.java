@@ -7,7 +7,7 @@ final class DisplayEntityCachePolicy {
     private DisplayEntityCachePolicy() {}
 
     static boolean reusable(Entity candidate, UUID expected, boolean superseded) {
-        return candidate != null && candidate.isValid() && !superseded
+        return expected != null && candidate != null && candidate.isValid() && !superseded
                 && expected.equals(candidate.getUniqueId());
     }
 }
