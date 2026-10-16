@@ -51,6 +51,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
     private BedrockCompatibility bedrock;
     private BiologicalClock biologicalClock;
     private ChickenTrapRuntime chickenTrap;
+    private IntegrityController integrity;
 
     @Override
     public void onEnable() {
@@ -122,13 +123,16 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         store.onFollowUnload(follow::removeCandidate);
         for (var chicken : chickens.loadedChickens()) follow.updateCandidate(chicken);
         Bukkit.getScheduler().runTaskTimer(this, follow, 5L, 5L);
-        Bukkit.getScheduler().runTaskTimer(this, new IntegrityController(chickens, displays, worldListener, () -> biologicalClock().currentTime()), 1L, 1L);
+        integrity = new IntegrityController(chickens, displays, worldListener,
+                () -> biologicalClock().currentTime());
+        Bukkit.getScheduler().runTaskTimer(this, integrity, 1L, 1L);
 
         getLogger().info(messageService.text(Bukkit.getConsoleSender(), "plugin.enabled"));
     }
 
     @Override
     public void onDisable() {
+        integrity = null;
         if (naturalFounders != null) naturalFounders.shutdown();
         if (chickenTrap != null) chickenTrap.shutdown();
         if (chickens != null) chickens.shutdown();
@@ -198,6 +202,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
     }
 
     public void reconfigureBiologicalClock() {
+        if (integrity != null) integrity.markAllAgeDirty();
         World next = requireClockWorld(configService.ageClockWorld());
         if (!biologicalClock().worldName().equals(next.getName())) {
             biologicalClock().reconfigure(next.getName(), next::getFullTime);

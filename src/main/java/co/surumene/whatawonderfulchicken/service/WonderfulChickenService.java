@@ -399,6 +399,13 @@ public final class WonderfulChickenService {
         migrations.shutdown();
     }
 
+    /** Share the exact configured curve used by effective(), not the static defaults. */
+    public AgeCurve ageProjectionCurve(WonderfulChickenData data) {
+        return AgeCurve.from(
+                data.phenotypeSnapshot().developmentFactors(),
+                config.ageGrowthDays(), config.agePeakDays(), config.ageAgingDays());
+    }
+
     public double effective(WonderfulChickenData data, StatType stat) {
         if (!data.hasGenomeModel() || data.adultBiologicalTime() == 0L) {
             // Immature chickens do not progress through the adult curve.
