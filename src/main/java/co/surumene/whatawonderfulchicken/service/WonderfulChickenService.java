@@ -101,6 +101,7 @@ public final class WonderfulChickenService {
     }
 
     public void unregisterLoaded(Chicken chicken) {
+        store.notifyFollowUnload(chicken);
         migrations.invalidate(chicken);
         loaded.remove(chicken.getUniqueId(), chicken);
         store.invalidate(chicken);
