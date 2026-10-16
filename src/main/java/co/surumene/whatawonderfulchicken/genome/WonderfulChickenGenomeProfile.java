@@ -68,8 +68,16 @@ public final class WonderfulChickenGenomeProfile implements GenomeProfile<Wonder
             WonderfulChickenGenomeSettings settings,
             WonderfulChickenSynthesisSettings synthesisSettings,
             GeneSequenceCodec geneSequenceCodec) {
+        this(settings, synthesisSettings, synthesisSettings.abilityDistribution(), geneSequenceCodec);
+    }
+
+    public WonderfulChickenGenomeProfile(WonderfulChickenGenomeSettings settings,
+            WonderfulChickenSynthesisSettings synthesisSettings,
+            WonderfulChickenSynthesisSettings.Distribution trapDistribution,
+            GeneSequenceCodec geneSequenceCodec) {
         this.settings = Objects.requireNonNull(settings, "settings");
         this.synthesisSettings = Objects.requireNonNull(synthesisSettings, "synthesisSettings");
+        this.trapDistribution = Objects.requireNonNull(trapDistribution, "trapDistribution");
         this.descriptor = WonderfulChickenProfileFoundation.descriptor(settings, synthesisSettings);
         this.backbone = WonderfulChickenProfileFoundation.backbone(settings);
         this.geneSequenceCodec = geneSequenceCodec;
@@ -78,6 +86,8 @@ public final class WonderfulChickenGenomeProfile implements GenomeProfile<Wonder
     public WonderfulChickenGenomeSettings settings() {
         return settings;
     }
+
+    public WonderfulChickenSynthesisSettings.Distribution trapDistribution() { return trapDistribution; }
 
     public WonderfulChickenSynthesisSettings synthesisSettings() {
         return synthesisSettings;
