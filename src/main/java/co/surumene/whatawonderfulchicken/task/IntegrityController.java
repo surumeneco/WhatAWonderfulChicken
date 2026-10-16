@@ -23,6 +23,10 @@ import org.bukkit.entity.Entity;
 public final class IntegrityController implements Runnable {
     private static final int MAX_CHICKENS_PER_TICK = 8;
     private static final int MAX_CHUNKS_PER_TICK = 2;
+    private static final int MAX_PDC_CANDIDATES_PER_TICK = 8;
+    // Eventless third-party entity insertion fallback; normal late PDC checks
+    // run every 200 ticks against tracked chicken UUIDs instead of all chunks.
+    private static final long GLOBAL_COMPATIBILITY_AUDIT_TICKS = 6000L;
     private static final long AGE_REFRESH_QUANTUM = 200L;
 
     private final WonderfulChickenService chickens;
@@ -31,10 +35,12 @@ public final class IntegrityController implements Runnable {
     private final LongSupplier biologicalTime;
     private final ArrayDeque<Chicken> pendingChickens = new ArrayDeque<>();
     private final ArrayDeque<Chunk> pendingChunks = new ArrayDeque<>();
+    private final ArrayDeque<UUID> pendingRestorationIds = new ArrayDeque<>();
+    private long nextCandidateSweep;
     private final Map<UUID, Long> lastAgeProjection = new HashMap<>();
     private long tick;
     private long nextChickenSweep;
-    private long nextWorldSweep;
+    private long nextWorldSweep = GLOBAL_COMPATIBILITY_AUDIT_TICKS;
 
     public IntegrityController(
             WonderfulChickenService chickens,
@@ -85,11 +91,20 @@ public final class IntegrityController implements Runnable {
             }
         }
 
+        if (pendingRestorationIds.isEmpty() && tick >= nextCandidateSweep) {
+            nextCandidateSweep = tick + 200L;
+            pendingRestorationIds.addAll(worlds.latePdcCandidateIds());
+        }
+        for (int i = 0; i < MAX_PDC_CANDIDATES_PER_TICK
+                && !pendingRestorationIds.isEmpty(); i++) {
+            worlds.auditLatePdcCandidate(pendingRestorationIds.removeFirst());
+        }
+
         // Rare late-PDC/third-party restorations still have a fallback, but
         // chunk entity queries are spread over many ticks instead of a
         // global world scan every five seconds.
         if (pendingChunks.isEmpty() && tick >= nextWorldSweep) {
-            nextWorldSweep = tick + 200L;
+            nextWorldSweep = tick + GLOBAL_COMPATIBILITY_AUDIT_TICKS;
             for (World world : Bukkit.getWorlds()) {
                 for (Chunk chunk : world.getLoadedChunks()) {
                     pendingChunks.addLast(chunk);
@@ -100,9 +115,9 @@ public final class IntegrityController implements Runnable {
             Chunk chunk = pendingChunks.removeFirst();
             if (!chunk.isLoaded()) continue;
             for (Entity entity : chunk.getEntities()) {
-                if (entity instanceof Chicken chicken
-                        && chickens.registerLoaded(chicken)) {
-                    displays.rebuild(chicken);
+                if (entity instanceof Chicken chicken) {
+                    worlds.trackCompatibilityCandidate(chicken);
+                    if (chickens.registerLoaded(chicken)) displays.rebuild(chicken);
                 }
             }
         }
