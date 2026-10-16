@@ -146,6 +146,11 @@ public final class ConfigService {
         candidate.setDefaults(defaults);
         ValidationResult validation = validate(candidate);
         if (!validation.valid()) return validation;
+        try {
+            plugin.reconfigureGenomeProfile(candidate);
+        } catch (RuntimeException registrationError) {
+            return ValidationResult.error("Genome Profile reload rejected: " + registrationError.getMessage());
+        }
         plugin.reloadConfig();
         persistMissingDefaults();
         cachedRoadBlocks = null;
