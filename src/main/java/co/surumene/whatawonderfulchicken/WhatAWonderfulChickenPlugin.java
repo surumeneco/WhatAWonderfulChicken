@@ -77,7 +77,8 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
 
         profileRegistry = new WglProfileRegistryGateway(genomeLib, this);
         genomeProfile = new WonderfulChickenGenomeProfile(
-                WonderfulChickenGenomeSettings.defaults(),
+                co.surumene.whatawonderfulchicken.config.ChickenProfileConfig.read(getConfig()).decoder(),
+                co.surumene.whatawonderfulchicken.config.ChickenProfileConfig.read(getConfig()).synthesizer(),
                 genomeLib.engine().geneSequenceCodec());
         profileRegistry.register(genomeProfile);
 
