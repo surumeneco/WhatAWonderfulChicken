@@ -31,6 +31,7 @@ public final class TraitController implements Runnable {
     private final WonderfulChickenStore store;
     private final ConfigService config;
     private final Map<UUID, Long> lastAlert = new HashMap<>();
+    private final RuntimeTraitMembership membership = new RuntimeTraitMembership();
     private long ticks;
 
     public TraitController(WonderfulChickenService chickens, WonderfulChickenStore store, ConfigService config) {
@@ -39,11 +40,25 @@ public final class TraitController implements Runnable {
         this.config = config;
     }
 
+    /** Recompute membership only when an entity is restored or its traits change. */
+    public void updateCandidate(Chicken chicken) {
+        if (!chicken.isValid() || !store.isWonderful(chicken)) {
+            membership.remove(chicken);
+            return;
+        }
+        var data = store.read(chicken);
+        membership.update(chicken, RuntimeTraitMembership.needsTick(data::hasTrait));
+    }
+
     @Override
     public void run() {
         ticks += 10L;
         Set<UUID> active = new HashSet<>();
-        for (Chicken chicken : chickens.loadedChickens()) {
+        for (Chicken chicken : membership.snapshot()) {
+            if (!chicken.isValid() || !store.isWonderful(chicken)) {
+                membership.remove(chicken);
+                continue;
+            }
             active.add(chicken.getUniqueId());
             var data = store.read(chicken);
             var expressed = data.phenotypeSnapshot() == null
@@ -116,5 +131,6 @@ public final class TraitController implements Runnable {
 
     public void shutdown() {
         lastAlert.clear();
+        membership.clear();
     }
 }
