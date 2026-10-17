@@ -95,6 +95,7 @@ public final class IntegrityController implements Runnable {
 
             UUID id = chicken.getUniqueId();
             boolean headChanged = chickens.captureHeadEquipment(chicken);
+            if (headChanged) worlds.recordPeriodicHeadCorrection();
             boolean newEntity = projectionEntities.put(id, chicken) != chicken;
             if (newEntity || now >= nextAgeProjection.getOrDefault(id, Long.MIN_VALUE)) {
                 chickens.projectAttributes(chicken);
@@ -126,6 +127,8 @@ public final class IntegrityController implements Runnable {
                 && !pendingRestorationIds.isEmpty(); i++) {
             worlds.auditLatePdcCandidate(pendingRestorationIds.removeFirst());
         }
+
+        if (tick % 6000L == 0L) worlds.logHeadEquipmentAudit();
 
         // Rare late-PDC/third-party restorations still have a fallback, but
         // chunk entity queries are spread over many ticks instead of a
