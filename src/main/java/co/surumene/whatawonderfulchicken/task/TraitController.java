@@ -50,6 +50,7 @@ public final class TraitController implements Runnable {
     public void updateCandidate(Chicken chicken) {
         if (!chicken.isValid() || !store.isWonderful(chicken)) {
             membership.remove(chicken);
+            updateTaskState();
             return;
         }
         var data = store.read(chicken);
@@ -152,6 +153,11 @@ public final class TraitController implements Runnable {
         } else if (!shouldRun && task != null) {
             task.cancel();
             task = null;
+        }
+        // Pausing the logical 10-tick clock must not preserve a Watchman
+        // cooldown across a period with no eligible trait sources.
+        if (TraitTaskActivityPolicy.shouldClearAlerts(membership.size())) {
+            lastAlert.clear();
         }
     }
 
