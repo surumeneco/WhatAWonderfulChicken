@@ -16,6 +16,7 @@ import org.bukkit.entity.Chicken;
 import org.bukkit.entity.Entity;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
 import java.util.HashMap;
@@ -38,6 +39,7 @@ public final class DisplayService {
     private final Map<DisplayKey, Chicken> cachedOwners = new HashMap<>();
     private final Map<DisplayKey, ArmorStand> cachedStands = new HashMap<>();
     private final DisplayRemovalQueue removals = new DisplayRemovalQueue();
+    private BukkitTask removalFlushTask;
 
     public DisplayService(WhatAWonderfulChickenPlugin plugin, WonderfulChickenService chickens, WonderfulChickenStore store) {
         this.plugin = plugin;
@@ -63,7 +65,7 @@ public final class DisplayService {
                 DisplayKey key = new DisplayKey(UUID.fromString(ownerRaw), DisplayRole.valueOf(roleRaw));
                 Entity owner = Bukkit.getEntity(key.owner());
                 if (!(owner instanceof Chicken chicken) || !store.isWonderful(chicken)) {
-                    removals.queue(stand.getUniqueId());
+                    queueRemoval(stand.getUniqueId());
                     continue;
                 }
                 UUID current = displays.get(key);
@@ -78,10 +80,10 @@ public final class DisplayService {
                     cachedOwners.put(key, chicken);
                     cachedStands.put(key, stand);
                 } else if (!current.equals(stand.getUniqueId())) {
-                    removals.queue(stand.getUniqueId());
+                    queueRemoval(stand.getUniqueId());
                 }
             } catch (IllegalArgumentException ex) {
-                removals.queue(stand.getUniqueId());
+                queueRemoval(stand.getUniqueId());
             }
         }
     }
@@ -99,11 +101,13 @@ public final class DisplayService {
     }
 
     public void removeAll() {
-        displays.values().forEach(removals::queue);
+        displays.values().forEach(this::queueRemoval);
         displays.clear();
         cachedOwners.clear();
         cachedStands.clear();
-        // The periodic tick task no longer runs after plugin disable.
+        // Avoid keeping a pending wake after plugin shutdown.
+        if (removalFlushTask != null) removalFlushTask.cancel();
+        removalFlushTask = null;
         flushPendingRemovals();
     }
 
@@ -128,7 +132,7 @@ public final class DisplayService {
             }
             if (chicken == null || !chicken.isValid() || chickens.isSuperseded(chicken)
                     || !store.isWonderful(chicken) || stand == null || !stand.isValid()) {
-                removals.queue(entry.getValue());
+                queueRemoval(entry.getValue());
                 iterator.remove();
                 cachedOwners.remove(key);
                 cachedStands.remove(key);
@@ -251,7 +255,22 @@ public final class DisplayService {
         UUID display = displays.remove(key);
         cachedOwners.remove(key);
         cachedStands.remove(key);
-        if (display != null) removals.queue(display);
+        if (display != null) queueRemoval(display);
+    }
+
+    /** Keep the original next-tick removal latency while the global sync scan is sparse. */
+    private void queueRemoval(UUID entityId) {
+        removals.queue(entityId);
+        scheduleRemovalFlush();
+    }
+
+    private void scheduleRemovalFlush() {
+        if (removalFlushTask != null || !plugin.isEnabled()) return;
+        removalFlushTask = Bukkit.getScheduler().runTask(plugin, () -> {
+            removalFlushTask = null;
+            flushPendingRemovals();
+            if (!removals.isEmpty()) scheduleRemovalFlush();
+        });
     }
 
     private void flushPendingRemovals() {
@@ -277,14 +296,14 @@ public final class DisplayService {
                 DisplayKey key = new DisplayKey(UUID.fromString(ownerRaw), DisplayRole.valueOf(roleRaw));
                 Entity owner = Bukkit.getEntity(key.owner());
                 if (!(owner instanceof Chicken chicken) || !store.isWonderful(chicken)) {
-                    removals.queue(stand.getUniqueId());
+                    queueRemoval(stand.getUniqueId());
                     return;
                 }
                 ArmorStand prior = first.putIfAbsent(key, stand);
-                if (prior != null) removals.queue(stand.getUniqueId());
+                if (prior != null) queueRemoval(stand.getUniqueId());
                 else stand.setPersistent(false);
             } catch (IllegalArgumentException ex) {
-                removals.queue(stand.getUniqueId());
+                queueRemoval(stand.getUniqueId());
             }
         }));
         first.forEach((key, stand) -> {
