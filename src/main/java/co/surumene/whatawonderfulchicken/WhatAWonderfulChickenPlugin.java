@@ -125,6 +125,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         Bukkit.getScheduler().runTaskTimer(this, follow, 5L, 5L);
         integrity = new IntegrityController(chickens, displays, worldListener,
                 () -> biologicalClock().currentTime());
+        chickens.onLoadedChange(integrity::track, integrity::untrack);
         Bukkit.getScheduler().runTaskTimer(this, integrity, 1L, 1L);
 
         getLogger().info(messageService.text(Bukkit.getConsoleSender(), "plugin.enabled"));
