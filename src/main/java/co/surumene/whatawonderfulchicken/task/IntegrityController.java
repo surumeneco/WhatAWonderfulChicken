@@ -6,9 +6,7 @@ import co.surumene.whatawonderfulchicken.listener.WorldListener;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import java.util.ArrayDeque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.LongSupplier;
 import org.bukkit.Bukkit;
@@ -34,6 +32,7 @@ public final class IntegrityController implements Runnable {
     private final DisplayService displays;
     private final WorldListener worlds;
     private final LongSupplier biologicalTime;
+    private final TrackedEntityIndex<Chicken> tracked = new TrackedEntityIndex<>();
     private final ArrayDeque<Chicken> pendingChickens = new ArrayDeque<>();
     private final ArrayDeque<Chunk> pendingChunks = new ArrayDeque<>();
     private final ArrayDeque<UUID> pendingRestorationIds = new ArrayDeque<>();
@@ -54,6 +53,19 @@ public final class IntegrityController implements Runnable {
         this.displays = displays;
         this.worlds = worlds;
         this.biologicalTime = biologicalTime;
+        for (Chicken chicken : chickens.loadedChickens()) track(chicken);
+    }
+
+    /** Called by the loaded registry on each successful entity registration. */
+    public void track(Chicken chicken) {
+        tracked.track(chicken.getUniqueId(), chicken);
+    }
+
+    /** Never remove a replacement with the same UUID when its predecessor unloads. */
+    public void untrack(Chicken chicken) {
+        tracked.untrack(chicken.getUniqueId(), chicken);
+        nextAgeProjection.remove(chicken.getUniqueId());
+        projectionEntities.remove(chicken.getUniqueId());
     }
 
     /** Config/clock changes require a fresh curve even during a plateau. */
@@ -74,14 +86,11 @@ public final class IntegrityController implements Runnable {
 
         if (pendingChickens.isEmpty() && tick >= nextChickenSweep) {
             nextChickenSweep = tick + 200L;
-            var snapshot = chickens.loadedChickens();
-            Set<UUID> registered = new HashSet<>();
-            for (Chicken chicken : snapshot) {
-                registered.add(chicken.getUniqueId());
-                pendingChickens.addLast(chicken);
-            }
-            nextAgeProjection.keySet().retainAll(registered);
-            projectionEntities.keySet().retainAll(registered);
+            // Candidate B: incremental index avoids decoding/verifying every
+            // Chicken PDC merely to enumerate candidates for the fallback audit.
+            for (Chicken chicken : tracked.snapshot()) pendingChickens.addLast(chicken);
+            nextAgeProjection.keySet().retainAll(tracked.ids());
+            projectionEntities.keySet().retainAll(tracked.ids());
         }
 
         long now = biologicalTime.getAsLong();
@@ -91,7 +100,11 @@ public final class IntegrityController implements Runnable {
         lastBiologicalTime = now;
         for (int i = 0; i < MAX_CHICKENS_PER_TICK && !pendingChickens.isEmpty(); i++) {
             Chicken chicken = pendingChickens.removeFirst();
-            if (!chicken.isValid() || chickens.isSuperseded(chicken)) continue;
+            if (!chicken.isValid() || chickens.isSuperseded(chicken)
+                    || !chickens.isRegistered(chicken)) {
+                untrack(chicken);
+                continue;
+            }
 
             UUID id = chicken.getUniqueId();
             boolean headChanged = chickens.captureHeadEquipment(chicken);
