@@ -66,11 +66,9 @@ public final class IntegrityController implements Runnable {
         tick++;
         displays.tick();
 
-        // These two queues are already bounded by pending event/migration IDs.
-        if (tick % 20 == 0) {
-            worlds.retryPendingRestoration();
-            chickens.retryLegacyMigrations();
-        }
+        // Restoration candidates still have their 20-tick compatibility scan.
+        // Genome retry wakeups are requested only for failed/saturated jobs.
+        if (tick % 20 == 0) worlds.retryPendingRestoration();
 
         if (pendingChickens.isEmpty() && tick >= nextChickenSweep) {
             nextChickenSweep = tick + 200L;
