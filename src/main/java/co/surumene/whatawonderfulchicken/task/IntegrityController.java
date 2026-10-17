@@ -133,7 +133,8 @@ public final class IntegrityController implements Runnable {
         // Rare late-PDC/third-party restorations still have a fallback, but
         // chunk entity queries are spread over many ticks instead of a
         // global world scan every five seconds.
-        if (pendingChunks.isEmpty() && tick >= nextWorldSweep) {
+        if (CompatibilityScanPolicy.shouldScanAllChunks(CompatibilityScanPolicy.Mode.CANDIDATE_ONLY)
+                && pendingChunks.isEmpty() && tick >= nextWorldSweep) {
             nextWorldSweep = tick + GLOBAL_COMPATIBILITY_AUDIT_TICKS;
             for (World world : Bukkit.getWorlds()) {
                 for (Chunk chunk : world.getLoadedChunks()) {
