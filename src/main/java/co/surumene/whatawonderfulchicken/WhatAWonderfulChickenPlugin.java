@@ -8,6 +8,7 @@ import co.surumene.whatawonderfulchicken.compat.GeyserBedrockCompatibility;
 import co.surumene.whatawonderfulchicken.config.ConfigService;
 import co.surumene.whatawonderfulchicken.config.MessageService;
 import co.surumene.whatawonderfulchicken.display.DisplayService;
+import co.surumene.whatawonderfulchicken.display.DisplayMovementListener;
 import co.surumene.whatawonderfulchicken.genome.WonderfulChickenGenomeProfile;
 import co.surumene.whatawonderfulchicken.genome.WonderfulChickenGenomeSettings;
 import co.surumene.whatawonderfulchicken.genome.lifecycle.ProfileRegistryGateway;
@@ -102,6 +103,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
 
         WorldListener worldListener = new WorldListener(this, chickens, store, displays, inventories, configService, naturalFounders);
         getServer().getPluginManager().registerEvents(worldListener, this);
+        getServer().getPluginManager().registerEvents(new DisplayMovementListener(displays), this);
         getServer().getPluginManager().registerEvents(riding, this);
         getServer().getPluginManager().registerEvents(new ChickenTrapListener(chickenTrap), this);
         getServer().getPluginManager().registerEvents(
