@@ -160,3 +160,27 @@ The last outstanding steps after these code candidates are tested are
 **external-server behavior validation, controlled comparison, adoption
 decisions, and release integration**. These cannot be marked completed
 without real-server observations.
+
+## 2026-10-17: user-approved implementation decision (supersedes prior A/B candidates)
+
+The decisions below were explicitly made by the server owner. The earlier comparison matrix and candidate-only descriptions above remain as **historical** evidence, not open design choices.
+
+| Item | Decision | WWC 2.0.1 implementation |
+| --- | --- | --- |
+| #1 Display movement #69 | **REJECT** | Preserve per-tick `DisplayService.tick()` exactly; no Paper move listener is adopted |
+| #2 Integrity roster #70 | **ACCEPT** | Maintain UUID-to-live-entity membership by load/unload/registration callbacks; keep bounded 200-tick processing and age projection. Same-UUID stale unload does not clear replacement caches |
+| #3 Head equipment #71 | **ACCEPT** | Use `EntityEquipmentChangedEvent`, existing on-demand internal writes; no periodic `captureHeadEquipment()` read in the integrity sweep |
+| #4 PDC/unknown entity #72 | **MODIFY** | Keep 200-tick known candidate checks and entity/chunk lifecycle; every 6000 server ticks audit only loaded 3×3 chunk neighborhoods around **each online player** (max 9 positions/player, deduplicated per world), not all loaded chunks. Never load chunks for this audit. Inspect at most 2 scheduled chunks/tick |
+| #5 Legacy migration #73 | **ACCEPT** | On-demand worker-completion and single retry deadline, preserving 60s wall-clock failure backoff and worker backpressure; no 20-tick global empty retry check |
+| #6 Trait ticker #74 | **ACCEPT** | Schedule every 10 ticks only when the active trait membership is nonempty; stop task when empty, restart when a source appears; do not alter effect strength, expiry or alert rules |
+
+Implementation PR: [#76](https://github.com/surumeneco/WhatAWonderfulChicken/pull/76).
+Google Drive design decision: https://docs.google.com/document/d/1Ivkek-Mo5x6hnEI9nEo0DtFFBYOQQMbGQ2CEEshaNjs .
+
+### Live acceptance gate (still pending)
+
+- Verify ClickMobs restoration and later PDC writes both inside and outside player-nearby chunks, across multiple worlds and two overlapping player neighborhoods. Unloaded chunks **must not** be loaded; unknown chickens outside the neighborhoods have no longer a global discovery guarantee.
+- Verify same UUID entity replacement followed by old entity unload, equipment edits by other plugins, attribute growth, stale cache invalidation, and plugin reload/shutdown.
+- Verify failed/saturated migration retries after 60 real seconds, and trait source count going 0→1→0→1 without skipped required effects or altered alert rate.
+- Compare CPU and MSPT under the scenarios documented above; do not claim production improvement from source-level counts or Java 25 CI.
+- Keep `main`, deployment, and the WWC 2.0.1 draft release PR unchanged pending real server verification.
