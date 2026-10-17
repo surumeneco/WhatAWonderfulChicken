@@ -13,6 +13,8 @@ final class DisplayRemovalQueue {
         pending.add(entityId);
     }
 
+    boolean isEmpty() { return pending.isEmpty(); }
+
     boolean contains(UUID entityId) {
         return pending.contains(entityId);
     }
