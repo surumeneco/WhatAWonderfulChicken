@@ -105,6 +105,15 @@ public final class IntegrityController implements Runnable {
                 untrack(chicken);
                 continue;
             }
+            // The original loadedChickens() snapshot also dropped individuals
+            // whose PDC vanished after registration. Preserve that recovery
+            // behavior with the incremental index.
+            if (!chickens.store().isWonderful(chicken)) {
+                chickens.unregisterLoaded(chicken);
+                worlds.trackCompatibilityCandidate(chicken);
+                untrack(chicken);
+                continue;
+            }
 
             UUID id = chicken.getUniqueId();
             boolean newEntity = projectionEntities.put(id, chicken) != chicken;
