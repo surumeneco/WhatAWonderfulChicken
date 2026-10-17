@@ -7,9 +7,11 @@ import co.surumene.whatawonderfulchicken.data.Trait;
 import co.surumene.whatawonderfulchicken.runtime.TraitRuntimeModifiers;
 import org.bukkit.event.entity.EntityDamageEvent;
 import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent;
+import io.papermc.paper.event.entity.EntityEquipmentChangedEvent;
 import com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.inventory.EquipmentSlot;
 import co.surumene.whatawonderfulchicken.gui.InventoryService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.NaturalChickenGenerationCoordinator;
@@ -41,6 +43,7 @@ public final class WorldListener implements Listener {
     private final InventoryService inventories;
     private final Map<UUID, Chicken> pendingRestoration = new HashMap<>();
     private final LatePdcCandidateIndex restorationCandidates = new LatePdcCandidateIndex();
+    private final HeadEquipmentCaptureAudit headEquipmentAudit = new HeadEquipmentCaptureAudit();
 
     public WorldListener(WhatAWonderfulChickenPlugin plugin, WonderfulChickenService chickens, WonderfulChickenStore store,
                          DisplayService displays, InventoryService inventories, ConfigService config,
@@ -118,6 +121,38 @@ public final class WorldListener implements Listener {
             displays.rebuild(chicken);
         }
         pendingRestoration.clear();
+    }
+
+    /**
+     * Paper detects helmet changes after equipment modifiers are updated.
+     * Keep the 200-tick fallback until live ClickMobs/external-plugin coverage
+     * and event-versus-polling CPU cost have been measured.
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onEquipmentChanged(EntityEquipmentChangedEvent event) {
+        if (!(event.getEntity() instanceof Chicken chicken)
+                || !event.getEquipmentChanges().containsKey(EquipmentSlot.HEAD)
+                || !chicken.isValid() || chicken.isDead()
+                || !chickens.isRegistered(chicken) || chickens.isSuperseded(chicken)
+                || !store.isWonderful(chicken)) return;
+        boolean corrected = chickens.captureHeadEquipment(chicken);
+        headEquipmentAudit.recordEvent(corrected);
+        if (corrected) displays.rebuild(chicken);
+    }
+
+    /** Called when the legacy 200-tick scan finds a missed helmet change. */
+    public void recordPeriodicHeadCorrection() {
+        headEquipmentAudit.recordPeriodicCorrection();
+    }
+
+    /** Sparse diagnostics only; do not log during completely idle periods. */
+    public void logHeadEquipmentAudit() {
+        HeadEquipmentCaptureAudit.Sample snapshot = headEquipmentAudit.drain();
+        if (!snapshot.hasActivity()) return;
+        plugin.getLogger().info("WWC head equipment coverage: event HEAD notifications="
+                + snapshot.eventNotifications() + ", event corrections="
+                + snapshot.eventCorrections() + ", periodic-only corrections="
+                + snapshot.periodicCorrections());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
