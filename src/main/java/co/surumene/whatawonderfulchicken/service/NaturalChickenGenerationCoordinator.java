@@ -12,7 +12,6 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.entity.Chicken;
 
-import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -33,7 +32,7 @@ public final class NaturalChickenGenerationCoordinator {
     private final ThreadPoolExecutor worker;
     private final NamespacedKey deferredSeedKey;
     private final Map<UUID, Job> pending = new HashMap<>();
-    private final ArrayDeque<Job> waiting = new ArrayDeque<>();
+    private final FounderDispatchQueue<Job> waiting = new FounderDispatchQueue<>();
     private volatile boolean closed;
 
     public NaturalChickenGenerationCoordinator(
@@ -67,7 +66,8 @@ public final class NaturalChickenGenerationCoordinator {
         Job job = new Job(chicken, uuid, seed,
                 plugin.genomeLib().engine(), plugin.genomeProfile());
         pending.put(uuid, job);
-        waiting.addLast(job);
+        waiting.offer(job);
+        dispatchWaiting();
         return true;
     }
 
@@ -111,18 +111,22 @@ public final class NaturalChickenGenerationCoordinator {
                 if (closed) return;
                 try {
                     Bukkit.getScheduler().runTask(plugin, () -> {
-                        if (closed || !plugin.isEnabled()) return;
-                        if (error != null) {
-                            onFailure.accept(error);
-                        } else if (engine != plugin.genomeLib().engine()
-                                || profile != plugin.genomeProfile()) {
-                            onFailure.accept(new IllegalStateException("WGL configuration changed during calculation"));
-                        } else {
-                            try {
-                                onComplete.accept(chickens.dataFromFounderSynthesis(completed, origin));
-                            } catch (RuntimeException conversionError) {
-                                onFailure.accept(conversionError);
+                        try {
+                            if (closed || !plugin.isEnabled()) return;
+                            if (error != null) {
+                                onFailure.accept(error);
+                            } else if (engine != plugin.genomeLib().engine()
+                                    || profile != plugin.genomeProfile()) {
+                                onFailure.accept(new IllegalStateException("WGL configuration changed during calculation"));
+                            } else {
+                                try {
+                                    onComplete.accept(chickens.dataFromFounderSynthesis(completed, origin));
+                                } catch (RuntimeException conversionError) {
+                                    onFailure.accept(conversionError);
+                                }
                             }
+                        } finally {
+                            dispatchWaiting();
                         }
                     });
                 } catch (IllegalStateException ignored) {}
@@ -153,11 +157,15 @@ public final class NaturalChickenGenerationCoordinator {
                 if (closed || !plugin.isEnabled()) return;
                 try {
                     Bukkit.getScheduler().runTask(plugin, () -> {
-                        if (closed || !plugin.isEnabled()) return;
-                        if (failed != null) onFailure.accept(failed);
-                        else {
-                            try { onComplete.accept(finished); }
-                            catch (RuntimeException applyError) { onFailure.accept(applyError); }
+                        try {
+                            if (closed || !plugin.isEnabled()) return;
+                            if (failed != null) onFailure.accept(failed);
+                            else {
+                                try { onComplete.accept(finished); }
+                                catch (RuntimeException applyError) { onFailure.accept(applyError); }
+                            }
+                        } finally {
+                            dispatchWaiting();
                         }
                     });
                 } catch (IllegalStateException ignored) {
@@ -170,16 +178,12 @@ public final class NaturalChickenGenerationCoordinator {
         }
     }
 
-    /** Called once per server tick; never waits for genome synthesis. */
-    public void tick() {
-        if (closed || waiting.isEmpty() || worker.getQueue().remainingCapacity() == 0) return;
-        Job job = waiting.removeFirst();
-        if (pending.get(job.id()) != job) return;
-        try {
-            worker.execute(() -> calculate(job));
-        } catch (RejectedExecutionException rejected) {
-            if (!closed) waiting.addFirst(job);
-        }
+    /** Main-thread wakeup on enqueue or worker completion; never polls an idle queue. */
+    private void dispatchWaiting() {
+        if (closed || waiting.isEmpty()) return;
+        waiting.drain(job -> pending.get(job.id()) == job,
+                () -> worker.getQueue().remainingCapacity(),
+                job -> worker.execute(() -> calculate(job)));
     }
 
     public void invalidate(Chicken chicken) {
@@ -210,7 +214,13 @@ public final class NaturalChickenGenerationCoordinator {
         RuntimeException error = failure;
         if (closed || !plugin.isEnabled()) return;
         try {
-            Bukkit.getScheduler().runTask(plugin, () -> complete(job, completed, error));
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                try {
+                    complete(job, completed, error);
+                } finally {
+                    dispatchWaiting();
+                }
+            });
         } catch (IllegalStateException ignored) {
             // Plugin disabled before completion could be scheduled.
         }
