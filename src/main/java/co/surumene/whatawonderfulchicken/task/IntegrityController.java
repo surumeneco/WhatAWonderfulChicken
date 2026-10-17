@@ -94,7 +94,10 @@ public final class IntegrityController implements Runnable {
             if (!chicken.isValid() || chickens.isSuperseded(chicken)) continue;
 
             UUID id = chicken.getUniqueId();
-            boolean headChanged = chickens.captureHeadEquipment(chicken);
+            // Comparison B: Paper equipment events are the only change signal.
+            // Keep A's 200-tick polling on the separate baseline branch.
+            boolean headChanged = HeadAuditStrategy.shouldPoll(HeadAuditStrategy.Mode.EVENT_ONLY)
+                    && chickens.captureHeadEquipment(chicken);
             if (headChanged) worlds.recordPeriodicHeadCorrection();
             boolean newEntity = projectionEntities.put(id, chicken) != chicken;
             if (newEntity || now >= nextAgeProjection.getOrDefault(id, Long.MIN_VALUE)) {
