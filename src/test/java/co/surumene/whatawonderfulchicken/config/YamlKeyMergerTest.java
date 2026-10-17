@@ -41,7 +41,9 @@ class YamlKeyMergerTest {
 
         YamlConfiguration persisted = YamlConfiguration.loadConfiguration(file);
         assertTrue(persisted.isSet("nature.adjustment"));
-        assertTrue(persisted.isSet("breeding.stat-mutation-rate"));
+        assertTrue(persisted.isSet("founder-target.natural.abilities.mean"));
+        assertTrue(persisted.isSet("genome-profile.breeding-policy.direct-inheritance.weak-prefer-probability"));
+        assertFalse(persisted.isSet("breeding.stat-mutation-rate"));
         assertTrue(persisted.isSet("breeding.genetic-mutation-rate"));
         assertTrue(persisted.isSet("traits.haste-radius"));
         assertTrue(persisted.isSet("traits.egg-gold-chance"));

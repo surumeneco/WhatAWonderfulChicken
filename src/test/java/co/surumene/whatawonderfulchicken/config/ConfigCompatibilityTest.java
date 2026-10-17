@@ -80,12 +80,7 @@ class ConfigCompatibilityTest {
                 "stats.stamina-recovery",
                 "nature.adjustment",
                 "natural-spawn.chance",
-                "natural-spawn.max-normalized",
-                "natural-spawn.distribution",
-                "breeding.stat-mutation-rate",
                 "breeding.genetic-mutation-rate",
-                "breeding.direct-inheritance-rate",
-                "breeding.gaussian",
                 "traits.haste-radius",
                 "traits.alert-radius",
                 "traits.alert-min-interval-ticks",
@@ -127,11 +122,11 @@ class ConfigCompatibilityTest {
         YamlConfiguration bundled = defaults();
         old.setDefaults(bundled);
 
-        old.set("breeding.stat-mutation-rate", "invalid");
+        old.set("founder-target.natural.abilities.standard-deviation", "invalid");
         assertTrue(ConfigService.validateConfiguration(old, bundled).errors()
-                .stream().anyMatch(message -> message.contains("breeding.stat-mutation-rate")));
+                .stream().anyMatch(message -> message.contains("founder-target.natural.abilities.standard-deviation")));
 
-        old.set("breeding.stat-mutation-rate", 0.01);
+        old.set("founder-target.natural.abilities.standard-deviation", 0.22);
         old.set("nature.adjustment", 0.9);
         assertTrue(ConfigService.validateConfiguration(old, bundled).errors()
                 .stream().anyMatch(message -> message.contains("nature.adjustment")));

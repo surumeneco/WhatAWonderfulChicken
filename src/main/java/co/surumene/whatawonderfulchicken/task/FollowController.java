@@ -21,6 +21,10 @@ import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 public final class FollowController implements Runnable {
@@ -29,20 +33,55 @@ public final class FollowController implements Runnable {
     private final WonderfulChickenStore store;
     private final ConfigService config;
     private final WhatAWonderfulChickenPlugin plugin;
+    private final RidingController riding;
+    private final FollowMembership membership = new FollowMembership();
     private final GoalKey<Chicken> followGoalKey;
 
     public FollowController(WhatAWonderfulChickenPlugin plugin, WonderfulChickenService chickens,
-                            WonderfulChickenStore store, ConfigService config) {
+                            WonderfulChickenStore store, ConfigService config, RidingController riding) {
         this.chickens = chickens;
+        this.riding = riding;
         this.store = store;
         this.config = config;
         this.plugin = plugin;
         this.followGoalKey = GoalKey.of(Chicken.class, new NamespacedKey(plugin, "follow_player"));
     }
 
+    /** Called when loaded/mode/target changes, not on every background tick. */
+    public void updateCandidate(Chicken chicken) {
+        if (!chicken.isValid() || !store.isWonderful(chicken)) {
+            membership.remove(chicken);
+            return;
+        }
+        BehaviorMode mode = store.read(chicken).behaviorMode();
+        membership.update(chicken, mode);
+        if (mode == BehaviorMode.WANDER) {
+            removeFollowGoal(chicken);
+            if (!isRidden(chicken) && !chicken.isAware()) chicken.setAware(true);
+        }
+    }
+
+    public void removeCandidate(Chicken chicken) {
+        membership.remove(chicken);
+    }
+
     @Override
     public void run() {
-        for (Chicken chicken : chickens.loadedChickens()) {
+        Map<UUID, Chicken> scheduled = new HashMap<>();
+        for (Chicken chicken : membership.snapshot()) {
+            scheduled.put(chicken.getUniqueId(), chicken);
+        }
+        // Mounted WANDER chickens still need navigation suppressed.
+        for (UUID id : riding.mountedChickenIds()) {
+            if (!scheduled.containsKey(id) && Bukkit.getEntity(id) instanceof Chicken chicken) {
+                scheduled.put(id, chicken);
+            }
+        }
+        for (Chicken chicken : scheduled.values()) {
+            if (!chicken.isValid() || !store.isWonderful(chicken) || chickens.isSuperseded(chicken)) {
+                membership.remove(chicken);
+                continue;
+            }
             boolean hasTrapSkeleton = chicken.getPassengers().stream()
                     .anyMatch(passenger -> passenger instanceof Skeleton);
             if (ChickenTrapPolicy.trapMountNavigation(
@@ -122,6 +161,7 @@ public final class FollowController implements Runnable {
     private final class FollowGoal implements Goal<Chicken> {
         private final Chicken chicken;
         private int ticks;
+        private Vector lastDestination;
 
         private FollowGoal(Chicken chicken) {
             this.chicken = chicken;
@@ -155,11 +195,17 @@ public final class FollowController implements Runnable {
             Vector approach = followDestination(chicken.getLocation().toVector(), destination.toVector());
             destination.setX(approach.getX());
             destination.setZ(approach.getZ());
-            var path = chicken.getPathfinder().findPath(destination);
-            if (path != null) {
-                chicken.getPathfinder().moveTo(path, 1.0);
+            var navigation = chicken.getPathfinder();
+            if (!FollowRepathPolicy.needsRepath(
+                    navigation.hasPath(), lastDestination, destination.toVector())) {
+                return;
+            }
+            var path = navigation.findPath(destination);
+            if (path != null && navigation.moveTo(path, 1.0)) {
+                lastDestination = destination.toVector();
             } else {
-                chicken.getPathfinder().stopPathfinding();
+                navigation.stopPathfinding();
+                lastDestination = null;
             }
         }
 
@@ -167,6 +213,7 @@ public final class FollowController implements Runnable {
         public void stop() {
             chicken.getPathfinder().stopPathfinding();
             ticks = 0;
+            lastDestination = null;
         }
 
         @Override
@@ -182,10 +229,7 @@ public final class FollowController implements Runnable {
 
     private boolean isRidden(Chicken chicken) {
         if (!chicken.getPassengers().isEmpty()) return true;
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (player.getVehicle() == chicken) return true;
-        }
-        return false;
+        return riding.mountedChickenIds().contains(chicken.getUniqueId());
     }
 
     private void waitPassively(Chicken chicken) {

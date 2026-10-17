@@ -8,6 +8,12 @@ import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
 import org.bukkit.Bukkit;
 import org.bukkit.Input;
+import org.bukkit.event.Listener;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.entity.EntityMountEvent;
+import org.bukkit.event.entity.EntityDismountEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Chicken;
@@ -24,7 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-public final class RidingController implements Runnable {
+public final class RidingController implements Runnable, Listener {
     private final WonderfulChickenService chickens;
     private final WonderfulChickenStore store;
     private final ConfigService config;
@@ -34,8 +40,12 @@ public final class RidingController implements Runnable {
     private final Map<UUID, Long> lastAirborneTick = new HashMap<>();
     private final Map<UUID, Boolean> roadCache = new HashMap<>();
     private final Map<UUID, UUID> mountedChickens = new HashMap<>();
+    private Set<UUID> mountedIds = Set.of();
     private final Map<UUID, Float> exhaustionAtMount = new HashMap<>();
     private final Set<UUID> airFlapLockedUntilJumpRelease = new HashSet<>();
+    private final RecoveryMembership recoveryCandidates = new RecoveryMembership();
+    private final RiderMembership riderCandidates = new RiderMembership();
+    private boolean riderIndexBootstrapped;
     private long tick;
 
     public RidingController(WonderfulChickenService chickens, WonderfulChickenStore store, ConfigService config, BedrockCompatibility bedrock) {
@@ -45,13 +55,60 @@ public final class RidingController implements Runnable {
         this.bedrock = bedrock;
     }
 
+    /** Called after committed stamina/capacity changes; full chickens remain inactive. */
+    public void refreshRecovery(Chicken chicken) {
+        if (!chicken.isValid() || !store.isWonderful(chicken)) {
+            recoveryCandidates.remove(chicken);
+            return;
+        }
+        WonderfulChickenData data = store.read(chicken);
+        recoveryCandidates.update(chicken,
+                data.currentStamina() < chickens.effective(data, StatType.STAMINA));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onMount(EntityMountEvent event) {
+        if (event.getEntity() instanceof Player player
+                && event.getMount() instanceof Chicken chicken
+                && store.isWonderful(chicken)) {
+            riderCandidates.mount(player.getUniqueId());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onDismount(EntityDismountEvent event) {
+        if (event.getEntity() instanceof Player player
+                && event.getDismounted() instanceof Chicken) {
+            riderCandidates.dismount(player.getUniqueId());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onQuit(PlayerQuitEvent event) {
+        riderCandidates.dismount(event.getPlayer().getUniqueId());
+    }
+
     @Override
     public void run() {
         tick++;
         Map<UUID, UUID> nowMounted = new HashMap<>();
         Set<UUID> mountedChickenIds = new HashSet<>();
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!(player.getVehicle() instanceof Chicken chicken) || !store.isWonderful(chicken)) continue;
+        // Compatibility resync for eventless third-party mount changes and hot reload.
+        if (!riderIndexBootstrapped || tick % 200L == 0L) {
+            riderIndexBootstrapped = true;
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (player.getVehicle() instanceof Chicken chicken && store.isWonderful(chicken)) {
+                    riderCandidates.mount(player.getUniqueId());
+                }
+            }
+        }
+        for (UUID riderId : riderCandidates.snapshot()) {
+            Player player = Bukkit.getPlayer(riderId);
+            if (player == null || !(player.getVehicle() instanceof Chicken chicken)
+                    || !store.isWonderful(chicken)) {
+                riderCandidates.dismount(riderId);
+                continue;
+            }
             UUID playerId = player.getUniqueId();
             UUID chickenId = chicken.getUniqueId();
             nowMounted.put(playerId, chickenId);
@@ -59,7 +116,11 @@ public final class RidingController implements Runnable {
             exhaustionAtMount.putIfAbsent(playerId, player.getExhaustion());
             tickMounted(player, chicken);
         }
-        for (Chicken chicken : chickens.loadedChickens()) {
+        for (Chicken chicken : recoveryCandidates.snapshot()) {
+            if (!chicken.isValid() || !store.isWonderful(chicken)) {
+                recoveryCandidates.remove(chicken);
+                continue;
+            }
             if (!mountedChickenIds.contains(chicken.getUniqueId())) tickUnmounted(chicken);
         }
         for (Map.Entry<UUID, UUID> entry : new HashMap<>(mountedChickens).entrySet()) {
@@ -67,7 +128,15 @@ public final class RidingController implements Runnable {
         }
         mountedChickens.clear();
         mountedChickens.putAll(nowMounted);
-        lastAirborneTick.keySet().removeIf(uuid -> Bukkit.getEntity(uuid) == null);
+        mountedIds = Set.copyOf(mountedChickenIds);
+        // Stale-UUID cleanup need not query Bukkit.getEntity for every tick.
+        if (tick % 200L == 0L) {
+            lastAirborneTick.keySet().removeIf(uuid -> Bukkit.getEntity(uuid) == null);
+        }
+    }
+
+    public Set<UUID> mountedChickenIds() {
+        return mountedIds;
     }
 
     public void restoreHud(Player player) {
@@ -79,8 +148,12 @@ public final class RidingController implements Runnable {
             finishMount(entry.getKey(), entry.getValue());
         }
         mountedChickens.clear();
+        mountedIds = Set.of();
+        riderCandidates.clear();
         exhaustionAtMount.clear();
         airFlapLockedUntilJumpRelease.clear();
+        recoveryCandidates.clear();
+        lastAirborneTick.clear();
         removeAllInteractionProxies();
     }
 

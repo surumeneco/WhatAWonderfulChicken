@@ -38,7 +38,7 @@ import java.util.List;
 public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
     private WonderfulGenomeLibService genomeLib;
     private ProfileRegistryGateway profileRegistry;
-    private WonderfulChickenGenomeProfile genomeProfile;
+    private volatile WonderfulChickenGenomeProfile genomeProfile;
     private ConfigService configService;
     private MessageService messageService;
     private WonderfulChickenStore store;
@@ -51,6 +51,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
     private BedrockCompatibility bedrock;
     private BiologicalClock biologicalClock;
     private ChickenTrapRuntime chickenTrap;
+    private IntegrityController integrity;
 
     @Override
     public void onEnable() {
@@ -76,9 +77,10 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
                         new File(getDataFolder(), "biological-clock.yml"), getLogger()));
 
         profileRegistry = new WglProfileRegistryGateway(genomeLib, this);
+        var settings = co.surumene.whatawonderfulchicken.config.ChickenProfileConfig.read(getConfig());
         genomeProfile = new WonderfulChickenGenomeProfile(
-                WonderfulChickenGenomeSettings.defaults(),
-                genomeLib.engine().geneSequenceCodec());
+                settings.decoder(), settings.synthesizer(), settings.trapAbilities(),
+                settings.breeding(), genomeLib.engine().geneSequenceCodec());
         profileRegistry.register(genomeProfile);
 
         messageService = new MessageService(this);
@@ -89,7 +91,9 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         naturalFounders = new NaturalChickenGenerationCoordinator(this, chickens, store, displays);
         inventories = new InventoryService(this, chickens, store, configService, messageService, displays);
         riding = new RidingController(chickens, store, configService, bedrock);
+        store.onStaminaChange(riding::refreshRecovery);
         traits = new TraitController(chickens, store, configService);
+        store.onTraitStateChange(traits::updateCandidate);
         chickenTrap = new ChickenTrapRuntime(this, configService, chickens, store, displays);
 
         CommandService commands = new CommandService(this, chickens, store, configService, messageService, displays);
@@ -98,6 +102,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
 
         WorldListener worldListener = new WorldListener(this, chickens, store, displays, inventories, configService, naturalFounders);
         getServer().getPluginManager().registerEvents(worldListener, this);
+        getServer().getPluginManager().registerEvents(riding, this);
         getServer().getPluginManager().registerEvents(new ChickenTrapListener(chickenTrap), this);
         getServer().getPluginManager().registerEvents(
                 new BiologicalClockListener(biologicalClock, getLogger()), this);
@@ -106,6 +111,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
 
         chickenTrap.restoreLoaded();
         chickens.scanLoadedWorlds();
+        worldListener.indexInitialRestorationCandidates();
         naturalFounders.resumeLoaded();
         displays.rebuildAllLoaded();
 
@@ -113,14 +119,21 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         Bukkit.getScheduler().runTaskTimer(this, chickenTrap, 1L, 1L);
         Bukkit.getScheduler().runTaskTimer(this, riding, 1L, 1L);
         Bukkit.getScheduler().runTaskTimer(this, traits, 10L, 10L);
-        Bukkit.getScheduler().runTaskTimer(this, new FollowController(this, chickens, store, configService), 5L, 5L);
-        Bukkit.getScheduler().runTaskTimer(this, new IntegrityController(chickens, displays, worldListener, () -> biologicalClock().currentTime()), 1L, 1L);
+        FollowController follow = new FollowController(this, chickens, store, configService, riding);
+        store.onFollowStateChange(follow::updateCandidate);
+        store.onFollowUnload(follow::removeCandidate);
+        for (var chicken : chickens.loadedChickens()) follow.updateCandidate(chicken);
+        Bukkit.getScheduler().runTaskTimer(this, follow, 5L, 5L);
+        integrity = new IntegrityController(chickens, displays, worldListener,
+                () -> biologicalClock().currentTime());
+        Bukkit.getScheduler().runTaskTimer(this, integrity, 1L, 1L);
 
         getLogger().info(messageService.text(Bukkit.getConsoleSender(), "plugin.enabled"));
     }
 
     @Override
     public void onDisable() {
+        integrity = null;
         if (naturalFounders != null) naturalFounders.shutdown();
         if (chickenTrap != null) chickenTrap.shutdown();
         if (chickens != null) chickens.shutdown();
@@ -164,6 +177,20 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         return profile;
     }
 
+    /** Replace the Profile only after all typed settings have been validated. */
+    public void reconfigureGenomeProfile() {
+        reconfigureGenomeProfile(getConfig());
+    }
+
+    public void reconfigureGenomeProfile(org.bukkit.configuration.ConfigurationSection candidateConfig) {
+        var next = co.surumene.whatawonderfulchicken.config.ChickenProfileConfig.read(candidateConfig);
+        var candidate = new WonderfulChickenGenomeProfile(
+                next.decoder(), next.synthesizer(), next.trapAbilities(),
+                next.breeding(), genomeLib.engine().geneSequenceCodec());
+        profileRegistry.replace(candidate);
+        genomeProfile = candidate;
+    }
+
     public ChickenTrapRuntime chickenTrap() {
         return chickenTrap;
     }
@@ -176,6 +203,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
     }
 
     public void reconfigureBiologicalClock() {
+        if (integrity != null) integrity.markAllAgeDirty();
         World next = requireClockWorld(configService.ageClockWorld());
         if (!biologicalClock().worldName().equals(next.getName())) {
             biologicalClock().reconfigure(next.getName(), next::getFullTime);

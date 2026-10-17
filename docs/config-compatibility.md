@@ -1,25 +1,25 @@
-# WWC 2.0 settings audit
+# WWC 2.0.1 configuration and compatibility
 
-Approved source: Google Drive "What a Wonderful Chicken アップデート予定.md".
+## Active Genome Profile settings
 
-## Live settings
+- `founder-target.natural.abilities` and `founder-target.chicken-trap.abilities` independently configure normal Target mean/standard deviation. Existing natural (0..0.75) and trap (0.5..1.5) rejection ranges are fixed.
+- `founder-target.personality` and `founder-target.development` configure both origins.
+- `genome-profile.decoder.*`, `genome-profile.synthesizer.*`, and `genome-profile.breeding-policy.*` configure only Chicken-owned Profile behavior. Homology/mutation/crossover remain WGL-owned.
+- Values are parsed as typed immutable records. Default values equal the previous constants. Invalid types, ranges, and incompatible region ratios reject config changes before normal runtime resync.
+- `/wwc reload` and valid `/wwc config set/reset` replace the registered Profile for future founders/breeding. An operation already holding a Profile continues with its existing immutable settings. Saved Genome/Phenotype Snapshot is not retroactively decoded.
 
-- `stats.*`: decoded ability display and projection; existing genome and birth snapshot stay unchanged.
-- `nature.adjustment`: live personality multiplier, not the decoded personality factors.
-- `natural-spawn.chance`: natural entity conversion probability only.
-- `traits.*`, `flight.*`, `feeding.*`, `road.*`, `follow.*`: live gameplay tuning.
-- `runtime.age.*`: biological clock, growth and age stat modifiers.
-- `commands.*`, `storage.*`: operator output and state persistence.
-- Chicken Trap-specific keys belong to the separate Phase 9 PR #34.
+## Current gameplay settings
 
-## Legacy 1.x keys retained for compatibility
+- `stats.*`: canonical ability projection/display. `stats.range-change-policy` remains active in legacy numeric synchronization.
+- `nature.adjustment`, `natural-spawn.chance`, `chicken-trap.*`, `traits.*`, `flight.*`, `feeding.*`, `road.*`, `follow.*`, `runtime.age.*`, `commands.*`, and `storage.*` remain active.
+- `breeding.genetic-mutation-rate` remains used only by legacy shadow Genetics and ancestor recovery, not WGL Genome mutation.
 
-- `natural-spawn.max-normalized` and `natural-spawn.distribution.*` do not tune WGL Founder synthesis. Its generator uses profile distribution N(0.42,0.22) with natural target range 0.0-0.75 and Chicken Trap range 0.5-1.5.
-- `breeding.stat-mutation-rate`, `breeding.direct-inheritance-rate`, `breeding.gaussian.*` do not tune WGL recombination or Genome mutation.
-- `breeding.genetic-mutation-rate` is still used for legacy shadow Genetics and ancestor recovery, but not for WGL Genome mutation.
+## Retired 1.x compatibility config keys
 
-Do not quietly repurpose old administrator overrides for WGL; changing these semantics requires an approved design change.
+The bundled default config and active validators/getters no longer include `natural-spawn.max-normalized`, `natural-spawn.distribution.*`, `breeding.stat-mutation-rate`, `breeding.direct-inheritance-rate` or `breeding.gaussian.*`. They had no effect on WGL-based founders and breeding. Existing administrator YAML keys are **not silently deleted**; old unknown keys are retained on disk but do not control 2.0.1 behavior.
 
-## Load/migration behavior
+Old 1.x PDC individual/lineage migration is maintained independently. Previous numeric configuration is not automatically given a different Genome meaning.
 
-Validate before applying reload. When `set` fails validation, restore the old value. `YamlKeyMerger` fills only absent keys, copies bundled comments where appropriate, and preserves existing values and comments. No mutation of stored Genome / birth Phenotype Snapshot occurs on reload.
+## Deployment
+
+Use WGL 1.0.1 and WWC 2.0.1 together. Validate Paper, migration, reload/commands and TPS/MSPT on the actual server; CI success only covers automated build and tests.

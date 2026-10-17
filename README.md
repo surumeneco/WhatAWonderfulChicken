@@ -1,5 +1,17 @@
 # What a Wonderful Chicken
 
+## 2.0.1 Config整備
+
+- 新しい `founder-target.*` 設定で自然FounderとチキントラップFounderの能力Target分布を別々に指定できます。
+- `genome-profile.decoder.*`、`genome-profile.synthesizer.*`、`genome-profile.breeding-policy.*` の種固有パラメータを外部設定化しました。reload後の新規生成・繁殖から反映し、既存Phenotype Snapshotは維持します。
+- 旧1.xの無効な生成・繁殖設定を配布設定から廃止しました。現在使われている遺伝情報の移行用設定は維持しています。詳細は [設定の互換性](docs/config-compatibility.md) を参照してください。
+
+## 2.0.1 パッチ修正
+
+- 不変Genome・Phenotype・Backboneと保存済み外部参照が一致する装備・荷物・runtime保存では、WGL Marker再計算とGenome/Snapshot再エンコードを省略します。
+- 新規個体、Genome更新、Profile変更、旧個体移行、不正/欠損参照は完全再計算し、外部ファイルのcopy-on-writeを維持します。
+- WGL 1.0.1が実行時必須です。本番環境でのTPS/MSPT改善率は未測定です。
+
 Paper 26.2 向けの、育成・繁殖可能な騎乗用巨大Chickenプラグインです。
 
 ## 要件
@@ -20,7 +32,7 @@ workspace/
 └─ WhatAWonderfulChicken/
 ```
 
-WWCはGradle Composite Buildで隣接WGLを `co.surumene:wgl-plugin:1.0.0` へ置換します。
+WWCはGradle Composite Buildで隣接WGLを `co.surumene:wgl-plugin:1.0.1` へ置換します。
 
 ```text
 gradle build
@@ -29,7 +41,7 @@ gradle build
 生成物:
 
 ```text
-build/libs/WhatAWonderfulChicken-2.0.0.jar
+build/libs/WhatAWonderfulChicken-2.0.1.jar
 ```
 
 生成されたjarをPaperサーバーの `plugins/` に配置して起動してください。初回起動時に `plugins/WhatAWonderfulChicken/` 以下へconfigと言語ファイルを自動生成します。
@@ -105,4 +117,4 @@ Carpet / Shulker Boxの外観は、Geyser互換性を優先して不可視ArmorS
 
 設定・ワールドのバックアップを取った上で、旧JARを撤去し、WGLとWWCの対応JARを配置して再起動してください。YAMLの追記保存に伴い、空白や引用符等の書式が変わる場合があります。
 
-2.0.0のインストール時は、対応するWonderful Genome Lib 1.0.0を先に配置してください。Paper・Geyser/BE固有の挙動は導入環境で確認してください。
+2.0.1のインストール時は、対応するWonderful Genome Lib 1.0.1を先に配置してください。Paper・Geyser/BE固有の挙動は導入環境で確認してください。

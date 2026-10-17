@@ -82,6 +82,9 @@ public final class WonderfulChickenService {
             store.save(chicken, data);
         }
         synchronizeBehaviorState(chicken, data);
+        store.notifyStaminaState(chicken);
+        store.notifyTraitState(chicken);
+        store.notifyFollowState(chicken);
         return true;
     }
 
@@ -98,6 +101,7 @@ public final class WonderfulChickenService {
     }
 
     public void unregisterLoaded(Chicken chicken) {
+        store.notifyFollowUnload(chicken);
         migrations.invalidate(chicken);
         loaded.remove(chicken.getUniqueId(), chicken);
         store.invalidate(chicken);
@@ -395,6 +399,13 @@ public final class WonderfulChickenService {
         migrations.shutdown();
     }
 
+    /** Share the exact configured curve used by effective(), not the static defaults. */
+    public AgeCurve ageProjectionCurve(WonderfulChickenData data) {
+        return AgeCurve.from(
+                data.phenotypeSnapshot().developmentFactors(),
+                config.ageGrowthDays(), config.agePeakDays(), config.ageAgingDays());
+    }
+
     public double effective(WonderfulChickenData data, StatType stat) {
         if (!data.hasGenomeModel() || data.adultBiologicalTime() == 0L) {
             // Immature chickens do not progress through the adult curve.
@@ -497,6 +508,8 @@ public final class WonderfulChickenService {
             if (!Objects.equals(chicken.getEquipment().getHelmet(), head)) chicken.getEquipment().setHelmet(head);
             if (chicken.getEquipment().getHelmetDropChance() != 0.0f) chicken.getEquipment().setHelmetDropChance(0.0f);
         }
+        // Aging can change maximum stamina even when the stored pool is unchanged.
+        store.notifyStaminaState(chicken);
     }
 
     /** @return true only when an externally changed helmet was persisted. */
