@@ -19,6 +19,7 @@ class DisplayRemovalQueueTest {
         queue.queue(first);
         queue.queue(first);
         queue.queue(second);
+        assertFalse(queue.isEmpty());
 
         List<UUID> attempted = new ArrayList<>();
         queue.flush(id -> {
@@ -38,6 +39,7 @@ class DisplayRemovalQueueTest {
 
         assertEquals(List.of(first), attempted);
         assertFalse(queue.contains(first));
+        assertTrue(queue.isEmpty());
     }
 
     @Test
