@@ -103,7 +103,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
 
         WorldListener worldListener = new WorldListener(this, chickens, store, displays, inventories, configService, naturalFounders);
         getServer().getPluginManager().registerEvents(worldListener, this);
-        getServer().getPluginManager().registerEvents(new DisplayMovementListener(displays), this);
+        getServer().getPluginManager().registerEvents(new DisplayMovementListener(this, displays), this);
         getServer().getPluginManager().registerEvents(riding, this);
         getServer().getPluginManager().registerEvents(new ChickenTrapListener(chickenTrap), this);
         getServer().getPluginManager().registerEvents(
