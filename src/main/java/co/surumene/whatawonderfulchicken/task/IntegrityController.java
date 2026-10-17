@@ -64,7 +64,8 @@ public final class IntegrityController implements Runnable {
     @Override
     public void run() {
         tick++;
-        displays.tick();
+        // Candidate B: periodic fail-safe (20 ticks) instead of idle 1-tick scans.
+        if (tick % 20L == 0L) displays.tick();
 
         // These two queues are already bounded by pending event/migration IDs.
         if (tick % 20 == 0) {
