@@ -6,15 +6,17 @@ import co.surumene.whatawonderfulchicken.listener.WorldListener;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import java.util.ArrayDeque;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.LongSupplier;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.entity.Chicken;
+import org.bukkit.entity.Player;
+import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 
 /**
@@ -34,6 +36,7 @@ public final class IntegrityController implements Runnable {
     private final DisplayService displays;
     private final WorldListener worlds;
     private final LongSupplier biologicalTime;
+    private final TrackedEntityIndex<Chicken> tracked = new TrackedEntityIndex<>();
     private final ArrayDeque<Chicken> pendingChickens = new ArrayDeque<>();
     private final ArrayDeque<Chunk> pendingChunks = new ArrayDeque<>();
     private final ArrayDeque<UUID> pendingRestorationIds = new ArrayDeque<>();
@@ -54,6 +57,19 @@ public final class IntegrityController implements Runnable {
         this.displays = displays;
         this.worlds = worlds;
         this.biologicalTime = biologicalTime;
+        for (Chicken chicken : chickens.loadedChickens()) track(chicken);
+    }
+
+    /** Incrementally track loaded WWC instances, retaining UUID replacement identity. */
+    public void track(Chicken chicken) {
+        tracked.track(chicken.getUniqueId(), chicken);
+    }
+
+    public void untrack(Chicken chicken) {
+        if (tracked.untrack(chicken.getUniqueId(), chicken)) {
+            nextAgeProjection.remove(chicken.getUniqueId());
+            projectionEntities.remove(chicken.getUniqueId());
+        }
     }
 
     /** Config/clock changes require a fresh curve even during a plateau. */
@@ -66,22 +82,15 @@ public final class IntegrityController implements Runnable {
         tick++;
         displays.tick();
 
-        // These two queues are already bounded by pending event/migration IDs.
-        if (tick % 20 == 0) {
-            worlds.retryPendingRestoration();
-            chickens.retryLegacyMigrations();
-        }
+        // Legacy Genome retries wake only on failure/deadline/worker completion.
+        if (tick % 20 == 0) worlds.retryPendingRestoration();
 
         if (pendingChickens.isEmpty() && tick >= nextChickenSweep) {
             nextChickenSweep = tick + 200L;
-            var snapshot = chickens.loadedChickens();
-            Set<UUID> registered = new HashSet<>();
-            for (Chicken chicken : snapshot) {
-                registered.add(chicken.getUniqueId());
-                pendingChickens.addLast(chicken);
-            }
-            nextAgeProjection.keySet().retainAll(registered);
-            projectionEntities.keySet().retainAll(registered);
+            // No periodic PDC-backed full snapshot of the registered set.
+            pendingChickens.addAll(tracked.snapshot());
+            nextAgeProjection.keySet().retainAll(tracked.ids());
+            projectionEntities.keySet().retainAll(tracked.ids());
         }
 
         long now = biologicalTime.getAsLong();
@@ -91,11 +100,13 @@ public final class IntegrityController implements Runnable {
         lastBiologicalTime = now;
         for (int i = 0; i < MAX_CHICKENS_PER_TICK && !pendingChickens.isEmpty(); i++) {
             Chicken chicken = pendingChickens.removeFirst();
-            if (!chicken.isValid() || chickens.isSuperseded(chicken)) continue;
+            if (!chicken.isValid() || chickens.isSuperseded(chicken)
+                    || !chickens.isRegistered(chicken)) {
+                untrack(chicken);
+                continue;
+            }
 
             UUID id = chicken.getUniqueId();
-            boolean headChanged = chickens.captureHeadEquipment(chicken);
-            if (headChanged) worlds.recordPeriodicHeadCorrection();
             boolean newEntity = projectionEntities.put(id, chicken) != chicken;
             if (newEntity || now >= nextAgeProjection.getOrDefault(id, Long.MIN_VALUE)) {
                 chickens.projectAttributes(chicken);
@@ -114,8 +125,6 @@ public final class IntegrityController implements Runnable {
                     due = Math.min(predicted, now + 6000L);
                 }
                 nextAgeProjection.put(id, due);
-            } else if (headChanged) {
-                displays.rebuild(chicken);
             }
         }
 
@@ -130,15 +139,21 @@ public final class IntegrityController implements Runnable {
 
         if (tick % 6000L == 0L) worlds.logHeadEquipmentAudit();
 
-        // Rare late-PDC/third-party restorations still have a fallback, but
-        // chunk entity queries are spread over many ticks instead of a
-        // global world scan every five seconds.
+        // Every 6000 ticks only the currently online players' center chunk
+        // and eight neighbors are eligible. No new chunk loads or duplicates.
         if (pendingChunks.isEmpty() && tick >= nextWorldSweep) {
             nextWorldSweep = tick + GLOBAL_COMPATIBILITY_AUDIT_TICKS;
-            for (World world : Bukkit.getWorlds()) {
-                for (Chunk chunk : world.getLoadedChunks()) {
-                    pendingChunks.addLast(chunk);
-                }
+            List<PlayerNearbyChunkAuditPolicy.PlayerChunk> positions = new ArrayList<>();
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                Location loc = player.getLocation();
+                positions.add(new PlayerNearbyChunkAuditPolicy.PlayerChunk(
+                        player.getWorld().getUID(), loc.getBlockX() >> 4, loc.getBlockZ() >> 4));
+            }
+            for (PlayerNearbyChunkAuditPolicy.ChunkKey key :
+                    PlayerNearbyChunkAuditPolicy.nearby(positions)) {
+                World world = Bukkit.getWorld(key.worldId());
+                if (world == null || !world.isChunkLoaded(key.chunkX(), key.chunkZ())) continue;
+                pendingChunks.addLast(world.getChunkAt(key.chunkX(), key.chunkZ()));
             }
         }
         for (int i = 0; i < MAX_CHUNKS_PER_TICK && !pendingChunks.isEmpty(); i++) {

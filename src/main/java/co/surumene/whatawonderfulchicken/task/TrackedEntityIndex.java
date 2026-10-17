@@ -15,8 +15,8 @@ final class TrackedEntityIndex<T> {
         entities.put(id, entity);
     }
 
-    void untrack(UUID id, T entity) {
-        entities.remove(id, entity);
+    boolean untrack(UUID id, T entity) {
+        return entities.remove(id, entity);
     }
 
     List<T> snapshot() {
