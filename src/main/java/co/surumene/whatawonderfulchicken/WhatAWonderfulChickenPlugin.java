@@ -92,7 +92,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         inventories = new InventoryService(this, chickens, store, configService, messageService, displays);
         riding = new RidingController(chickens, store, configService, bedrock);
         store.onStaminaChange(riding::refreshRecovery);
-        traits = new TraitController(chickens, store, configService);
+        traits = new TraitController(this, chickens, store, configService);
         store.onTraitStateChange(traits::updateCandidate);
         chickenTrap = new ChickenTrapRuntime(this, configService, chickens, store, displays);
 
@@ -114,10 +114,10 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         worldListener.indexInitialRestorationCandidates();
         naturalFounders.resumeLoaded();
         displays.rebuildAllLoaded();
+        traits.start();
 
         Bukkit.getScheduler().runTaskTimer(this, chickenTrap, 1L, 1L);
         Bukkit.getScheduler().runTaskTimer(this, riding, 1L, 1L);
-        Bukkit.getScheduler().runTaskTimer(this, traits, 10L, 10L);
         FollowController follow = new FollowController(this, chickens, store, configService, riding);
         store.onFollowStateChange(follow::updateCandidate);
         store.onFollowUnload(follow::removeCandidate);
