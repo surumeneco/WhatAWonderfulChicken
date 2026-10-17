@@ -91,6 +91,7 @@ public final class DisplayService {
         WonderfulChickenData data = store.read(chicken);
         syncRole(chicken, DisplayRole.CARPET, data.carpet());
         syncRole(chicken, DisplayRole.SHULKER_BOX, data.shulkerBox());
+        syncMoving(chicken);
     }
 
     public void removeFor(Chicken chicken) {
@@ -133,21 +134,46 @@ public final class DisplayService {
                 cachedStands.remove(key);
                 continue;
             }
-            double chickenScale = projectedScale(chicken);
-            Location destination = targetLocation(chicken, key.role(), chickenScale);
-            Location current = stand.getLocation();
-            if (current.getX() != destination.getX() || current.getY() != destination.getY()
-                    || current.getZ() != destination.getZ() || current.getYaw() != destination.getYaw()) {
-                stand.teleport(destination);
+            syncTransform(chicken, key.role(), stand);
+        }
+    }
+
+    /**
+     * Candidate B: react only when a tracked Chicken actually moved.
+     * The slower periodic tick is retained as a safety fallback during A/B testing.
+     */
+    public void syncMoving(Chicken chicken) {
+        if (!chicken.isValid() || chickens.isSuperseded(chicken)
+                || !store.isWonderful(chicken)) return;
+        for (DisplayRole role : DisplayRole.values()) {
+            DisplayKey key = new DisplayKey(chicken.getUniqueId(), role);
+            UUID id = displays.get(key);
+            if (id == null) continue;
+            ArmorStand stand = cachedStands.get(key);
+            if (!DisplayEntityCachePolicy.reusable(stand, id, false)) {
+                Entity actual = Bukkit.getEntity(id);
+                stand = actual instanceof ArmorStand live ? live : null;
+                if (stand != null) cachedStands.put(key, stand);
             }
-            if (Float.compare(stand.getBodyYaw(), chicken.getBodyYaw()) != 0) {
-                stand.setBodyYaw(chicken.getBodyYaw());
-            }
-            AttributeInstance scale = stand.getAttribute(Attribute.SCALE);
-            if (scale != null) {
-                double intended = Math.max(0.2, chickenScale * displayScaleFactor(key.role()));
-                if (Double.compare(scale.getBaseValue(), intended) != 0) scale.setBaseValue(intended);
-            }
+            if (stand != null && stand.isValid()) syncTransform(chicken, role, stand);
+        }
+    }
+
+    private void syncTransform(Chicken chicken, DisplayRole role, ArmorStand stand) {
+        double chickenScale = projectedScale(chicken);
+        Location destination = targetLocation(chicken, role, chickenScale);
+        Location current = stand.getLocation();
+        if (current.getX() != destination.getX() || current.getY() != destination.getY()
+                || current.getZ() != destination.getZ() || current.getYaw() != destination.getYaw()) {
+            stand.teleport(destination);
+        }
+        if (Float.compare(stand.getBodyYaw(), chicken.getBodyYaw()) != 0) {
+            stand.setBodyYaw(chicken.getBodyYaw());
+        }
+        AttributeInstance scale = stand.getAttribute(Attribute.SCALE);
+        if (scale != null) {
+            double intended = Math.max(0.2, chickenScale * displayScaleFactor(role));
+            if (Double.compare(scale.getBaseValue(), intended) != 0) scale.setBaseValue(intended);
         }
     }
 
