@@ -48,6 +48,15 @@ public final class WonderfulChickenService {
     private final ConfigService config;
     private final WonderfulChickenStore store;
     private final Map<UUID, Chicken> loaded = new HashMap<>();
+    private java.util.function.Consumer<Chicken> onLoaded = ignored -> {};
+    private java.util.function.Consumer<Chicken> onUnloaded = ignored -> {};
+
+    /** Subscription established once at plugin enable; Entity identity matters on replacement. */
+    public void onLoadedChange(java.util.function.Consumer<Chicken> registered,
+                               java.util.function.Consumer<Chicken> unregistered) {
+        onLoaded = java.util.Objects.requireNonNull(registered);
+        onUnloaded = java.util.Objects.requireNonNull(unregistered);
+    }
     private final LegacyGenomeMigrationCoordinator migrations;
 
     public WonderfulChickenService(WhatAWonderfulChickenPlugin plugin, ConfigService config, WonderfulChickenStore store) {
@@ -85,6 +94,7 @@ public final class WonderfulChickenService {
         store.notifyStaminaState(chicken);
         store.notifyTraitState(chicken);
         store.notifyFollowState(chicken);
+        onLoaded.accept(chicken);
         return true;
     }
 
@@ -103,7 +113,7 @@ public final class WonderfulChickenService {
     public void unregisterLoaded(Chicken chicken) {
         store.notifyFollowUnload(chicken);
         migrations.invalidate(chicken);
-        loaded.remove(chicken.getUniqueId(), chicken);
+        if (loaded.remove(chicken.getUniqueId(), chicken)) onUnloaded.accept(chicken);
         store.invalidate(chicken);
     }
 
