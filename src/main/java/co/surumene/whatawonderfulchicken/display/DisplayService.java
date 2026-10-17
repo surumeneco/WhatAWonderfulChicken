@@ -147,6 +147,11 @@ public final class DisplayService {
      * The slower periodic tick is retained as a safety fallback during A/B testing.
      */
     public void syncMoving(Chicken chicken) {
+        // EntityMoveEvent also fires for ordinary vanilla Chickens. Avoid
+        // PDC/cache work when neither display role is registered for this UUID.
+        UUID ownerId = chicken.getUniqueId();
+        if (!displays.containsKey(new DisplayKey(ownerId, DisplayRole.CARPET))
+                && !displays.containsKey(new DisplayKey(ownerId, DisplayRole.SHULKER_BOX))) return;
         if (!chicken.isValid() || chickens.isSuperseded(chicken)
                 || !store.isWonderful(chicken)) return;
         for (DisplayRole role : DisplayRole.values()) {
