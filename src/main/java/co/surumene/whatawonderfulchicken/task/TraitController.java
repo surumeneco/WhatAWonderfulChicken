@@ -9,6 +9,9 @@ import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.entity.Chicken;
+import org.bukkit.Bukkit;
+import org.bukkit.scheduler.BukkitTask;
+import co.surumene.whatawonderfulchicken.WhatAWonderfulChickenPlugin;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Fox;
 import org.bukkit.entity.Monster;
@@ -27,14 +30,18 @@ import java.util.UUID;
 public final class TraitController implements Runnable {
     private static final int EFFECT_TICKS = 80;
     private static final int EFFECT_REFRESH_THRESHOLD = 40;
+    private final WhatAWonderfulChickenPlugin plugin;
     private final WonderfulChickenService chickens;
     private final WonderfulChickenStore store;
     private final ConfigService config;
     private final Map<UUID, Long> lastAlert = new HashMap<>();
     private final RuntimeTraitMembership membership = new RuntimeTraitMembership();
     private long ticks;
+    private BukkitTask task;
+    private boolean schedulerStarted;
 
-    public TraitController(WonderfulChickenService chickens, WonderfulChickenStore store, ConfigService config) {
+    public TraitController(WhatAWonderfulChickenPlugin plugin, WonderfulChickenService chickens, WonderfulChickenStore store, ConfigService config) {
+        this.plugin = plugin;
         this.chickens = chickens;
         this.store = store;
         this.config = config;
@@ -48,6 +55,7 @@ public final class TraitController implements Runnable {
         }
         var data = store.read(chicken);
         membership.update(chicken, RuntimeTraitMembership.needsTick(data::hasTrait));
+        updateTaskState();
     }
 
     @Override
@@ -80,6 +88,7 @@ public final class TraitController implements Runnable {
             }
         }
         lastAlert.keySet().retainAll(active);
+        updateTaskState();
     }
 
     private void applyHaste(Chicken chicken, int amplifier) {
@@ -130,7 +139,27 @@ public final class TraitController implements Runnable {
         lastAlert.put(chicken.getUniqueId(), ticks);
     }
 
+    /** Enable scheduler management after initial entity restoration finishes. */
+    public void start() {
+        schedulerStarted = true;
+        updateTaskState();
+    }
+
+    private void updateTaskState() {
+        if (!schedulerStarted) return;
+        boolean shouldRun = TraitTaskActivityPolicy.shouldRun(membership.size());
+        if (shouldRun && task == null) {
+            task = Bukkit.getScheduler().runTaskTimer(plugin, this, 10L, 10L);
+        } else if (!shouldRun && task != null) {
+            task.cancel();
+            task = null;
+        }
+    }
+
     public void shutdown() {
+        schedulerStarted = false;
+        if (task != null) task.cancel();
+        task = null;
         lastAlert.clear();
         membership.clear();
     }
