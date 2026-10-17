@@ -99,6 +99,18 @@ class ConfigCompatibilityTest {
     }
 
     @Test
+    void nighttimeTrapDefaultIsTenPercentAndLegacyAdminOverrideIsPreserved() {
+        YamlConfiguration bundled = defaults();
+        assertEquals(0.10, bundled.getDouble("chicken-trap.spawn-chance"), 1e-9);
+
+        YamlConfiguration existing = legacyConfig();
+        existing.set("chicken-trap.spawn-chance", 0.01);
+        existing.setDefaults(bundled);
+        assertTrue(ConfigService.validateConfiguration(existing, bundled).valid());
+        assertEquals(0.01, existing.getDouble("chicken-trap.spawn-chance"), 1e-9);
+    }
+
+    @Test
     void chickenTrapConfigurationAcceptsLegacyDefaultsAndRejectsInvalidValues() {
         YamlConfiguration existing = legacyConfig();
         YamlConfiguration bundled = defaults();

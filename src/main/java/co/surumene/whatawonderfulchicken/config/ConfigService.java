@@ -224,7 +224,7 @@ public final class ConfigService {
     public double alertRadius() { return config().getDouble("traits.alert-radius", 20.0); }
     public int alertMinInterval() { return config().getInt("traits.alert-min-interval-ticks", 10); }
     public int alertMaxInterval() { return config().getInt("traits.alert-max-interval-ticks", 80); }
-    public double chickenTrapChance() { return config().getDouble("chicken-trap.spawn-chance", 0.01); }
+    public double chickenTrapChance() { return config().getDouble("chicken-trap.spawn-chance", 0.10); }
     public double chickenTrapActivationRadius() {
         return config().getDouble("chicken-trap.activation-radius-blocks", 10.0);
     }
