@@ -8,7 +8,7 @@ import co.surumene.whatawonderfulchicken.data.PedigreeData;
 import co.surumene.whatawonderfulchicken.data.StatType;
 import co.surumene.whatawonderfulchicken.data.WonderfulChickenData;
 import co.surumene.whatawonderfulchicken.persistence.PhenotypeSnapshotCodecV1;
-import co.surumene.whatawonderfulchicken.persistence.GenomePayloadFiles;
+import co.surumene.whatawonderfulchicken.persistence.WorldGenomePayloads;
 import co.surumene.wgl.api.BackboneDefinition;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
@@ -48,7 +48,8 @@ public final class WonderfulChickenStore {
     private final NamespacedKey genomeKey;
     private final NamespacedKey phenotypeSnapshotKey;
     private final NamespacedKey genomeReferenceKey;
-    private final GenomePayloadFiles payloadFiles;
+    private final WorldGenomePayloads payloadFiles;
+    private final NamespacedKey genomeWorldKey;
     private final NamespacedKey adultBiologicalTimeKey;
     private final PhenotypeSnapshotCodecV1 phenotypeCodec = new PhenotypeSnapshotCodecV1();
     private final Map<StatType, NamespacedKey> valueKeys = new EnumMap<>(StatType.class);
@@ -96,9 +97,8 @@ public final class WonderfulChickenStore {
     public WonderfulChickenStore(WhatAWonderfulChickenPlugin plugin, ConfigService config) {
         this.plugin = plugin;
         this.config = config;
-        this.payloadFiles = new GenomePayloadFiles(
-                Bukkit.getWorlds().getFirst().getWorldFolder().toPath()
-                        .resolve("data").resolve("wonderful").resolve("wwc").resolve("genomes"));
+        this.payloadFiles = new WorldGenomePayloads(plugin.coreContext(), "wwc");
+        this.genomeWorldKey = key("genome_world_uuid");
         this.markerKey = key("type");
         this.dataVersionKey = key("data_version");
         this.currentStaminaKey = key("current_stamina");
@@ -191,7 +191,7 @@ public final class WonderfulChickenStore {
             if (dataVersion >= DATA_VERSION) {
                 String ref = pdc.get(genomeReferenceKey, PersistentDataType.STRING);
                 if (ref == null) throw new IllegalStateException("WWC v4 entity has no Genome reference");
-                GenomePayloadFiles.Payload payload = payloadFiles.read(UUID.fromString(ref));
+                var payload = payloadFiles.read(chicken.getWorld(), storedWorld(pdc), UUID.fromString(ref));
                 genomeBytes = payload.genome();
                 phenotypeBytes = payload.phenotype();
             } else {
@@ -246,6 +246,7 @@ public final class WonderfulChickenStore {
                 // The original record was validated by loadPersisted() or
                 // successfully published by save(). In-memory immutable
                 // identity and the entity's committed reference are unchanged.
+                payloadFiles.ensureLocal(chicken.getWorld(), storedWorld(pdc), previousRef);
                 payloadRef = previousRef;
                 data.bloodlineId(saved.data().bloodlineId());
             } else {
@@ -254,7 +255,7 @@ public final class WonderfulChickenStore {
                 byte[] genomeBytes = plugin.genomeLib().engine().encode(data.genome());
                 byte[] phenotypeBytes = phenotypeCodec.encode(data.phenotypeSnapshot());
                 data.bloodlineId(genomeMarker(data));
-                payloadRef = payloadFiles.writeOrReuse(previousRef, genomeBytes, phenotypeBytes);
+                payloadRef = payloadFiles.writeOrReuse(chicken.getWorld(), storedWorld(pdc), previousRef, genomeBytes, phenotypeBytes);
             }
         }
         pdc.set(markerKey, PersistentDataType.STRING, MARKER_VALUE);
@@ -288,6 +289,7 @@ public final class WonderfulChickenStore {
 
         if (data.hasGenomeModel()) {
             pdc.set(genomeReferenceKey, PersistentDataType.STRING, payloadRef.toString());
+            pdc.set(genomeWorldKey, PersistentDataType.STRING, chicken.getWorld().getUID().toString());
             pdc.remove(genomeKey);
             pdc.remove(phenotypeSnapshotKey);
             pdc.set(adultBiologicalTimeKey, PersistentDataType.LONG, data.adultBiologicalTime());
@@ -297,6 +299,7 @@ public final class WonderfulChickenStore {
             pdc.remove(genomeKey);
             pdc.remove(phenotypeSnapshotKey);
             pdc.remove(genomeReferenceKey);
+            pdc.remove(genomeWorldKey);
             pdc.remove(adultBiologicalTimeKey);
             pdc.set(dataVersionKey, PersistentDataType.INTEGER, LEGACY_DATA_VERSION);
         }
@@ -308,6 +311,33 @@ public final class WonderfulChickenStore {
                 || !Objects.equals(saved.data().followTarget(), data.followTarget())) {
             followStateChange.accept(chicken);
         }
+    }
+
+
+    private UUID storedWorld(PersistentDataContainer pdc) {
+        String raw = pdc.get(genomeWorldKey, PersistentDataType.STRING);
+        return raw == null ? null : UUID.fromString(raw);
+    }
+
+    /** Move an immutable record into the currently loaded Entity's World.
+     * No source or orphan record is ever deleted.
+     * @return true if a record had to be copied, false if already local or no reference.
+     */
+    public boolean migrateWorldRecord(Chicken chicken, boolean dryRun) {
+        if (!chicken.isValid() || !isWonderful(chicken)) return false;
+        PersistentDataContainer pdc = chicken.getPersistentDataContainer();
+        String raw = pdc.get(genomeReferenceKey, PersistentDataType.STRING);
+        if (raw == null) return false;
+        UUID reference = UUID.fromString(raw);
+        boolean present = payloadFiles.isLocal(chicken.getWorld(), reference);
+        if (dryRun) {
+            payloadFiles.read(chicken.getWorld(), storedWorld(pdc), reference);
+            return !present;
+        }
+        boolean copied = payloadFiles.ensureLocal(chicken.getWorld(), storedWorld(pdc), reference);
+        // Commit only after a verified copy. This key is a location hint, not an identity.
+        pdc.set(genomeWorldKey, PersistentDataType.STRING, chicken.getWorld().getUID().toString());
+        return copied;
     }
 
     /** Kept only to migrate old descendant snapshots, never for normal display. */
