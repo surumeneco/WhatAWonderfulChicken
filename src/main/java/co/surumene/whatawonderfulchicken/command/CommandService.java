@@ -55,6 +55,7 @@ public final class CommandService {
     private final ConfigService config;
     private final MessageService messages;
     private final DisplayService displays;
+    private final WorldStorageMigration<Chicken> storageMigration;
 
     public CommandService(WhatAWonderfulChickenPlugin plugin, WonderfulChickenService chickens, WonderfulChickenStore store,
                           ConfigService config, MessageService messages, DisplayService displays) {
@@ -64,6 +65,8 @@ public final class CommandService {
         this.config = config;
         this.messages = messages;
         this.displays = displays;
+        this.storageMigration = new WorldStorageMigration<>(plugin, Chicken.class,
+                store::isWonderful, store::migrateWorldRecord);
     }
 
     public com.mojang.brigadier.tree.LiteralCommandNode<CommandSourceStack> build() {
@@ -73,10 +76,23 @@ public final class CommandService {
         root.then(infoNode());
         root.then(modifyNode());
         root.then(configNode());
+        root.then(storageNode());
         root.then(Commands.literal("reload")
                 .requires(source -> source.getSender().hasPermission("wwc.command.reload"))
                 .executes(this::reload));
         return root.build();
+    }
+
+
+    private LiteralArgumentBuilder<CommandSourceStack> storageNode() {
+        return Commands.literal("storage")
+                .requires(source -> source.getSender().hasPermission("wwc.command.storage"))
+                .then(Commands.literal("migrate")
+                        .executes(ctx -> storageMigration.start(ctx.getSource().getSender(), false))
+                        .then(Commands.literal("dry-run")
+                                .executes(ctx -> storageMigration.start(ctx.getSource().getSender(), true))))
+                .then(Commands.literal("status")
+                        .executes(ctx -> storageMigration.status(ctx.getSource().getSender())));
     }
 
     private LiteralArgumentBuilder<CommandSourceStack> summonNode() {

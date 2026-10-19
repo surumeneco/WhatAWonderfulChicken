@@ -33,3 +33,5 @@ permissions:
     default: op
   wwc.command.reload:
     default: op
+  wwc.command.storage:
+    default: op
