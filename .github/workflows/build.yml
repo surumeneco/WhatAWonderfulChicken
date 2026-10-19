@@ -30,6 +30,13 @@ jobs:
           ref: develop
           path: WonderfulGenomeLib
 
+      - name: Checkout WCL bootstrap and storage API
+        uses: actions/checkout@v5
+        with:
+          repository: surumeneco/WonderfulCoreLibrary
+          ref: feature/world-payload-storage-20261019
+          path: WonderfulCoreLibrary
+
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -41,6 +48,10 @@ jobs:
 
       - name: Verify WGL
         working-directory: WonderfulGenomeLib
+        run: gradle clean build --no-daemon
+
+      - name: Verify WCL
+        working-directory: WonderfulCoreLibrary
         run: gradle clean build --no-daemon
 
       - name: Build WWC against WGL

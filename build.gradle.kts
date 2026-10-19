@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "co.surumene"
-version = "2.0.1"
+version = "2.1.0"
 
 repositories {
     maven("https://repo.papermc.io/repository/maven-public/")
@@ -18,10 +18,12 @@ repositories {
 dependencies {
     compileOnly("io.papermc.paper:paper-api:26.2.build.129-stable")
     compileOnly("co.surumene:wgl-plugin:1.0.1")
+    compileOnly("co.surumene:wcl-plugin:0.1.0-SNAPSHOT")
     compileOnly("org.geysermc.geyser:api:2.11.2-SNAPSHOT")
 
     testImplementation("io.papermc.paper:paper-api:26.2.build.129-stable")
     testImplementation("co.surumene:wgl-plugin:1.0.1")
+    testImplementation("co.surumene:wcl-plugin:0.1.0-SNAPSHOT")
     testImplementation("co.surumene:wgl-core:1.0.1")
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
@@ -75,9 +77,15 @@ val verifyPluginJar by tasks.registering {
             "plugin JAR must not bundle Wonderful Genome Lib classes"
         }
 
+        check(contents.matching { include("co/surumene/wcl/**") }.files.isEmpty()) {
+            "consumer JAR must not bundle WonderfulCoreLibrary classes"
+        }
         val pluginYml = contents.matching { include("plugin.yml") }.singleFile.readText()
         check(!pluginYml.contains("\${version}")) {
             "plugin.yml version placeholder was not expanded"
+        }
+        check(pluginYml.contains("WonderfulCoreLibrary")) {
+            "plugin.yml must require WonderfulCoreLibrary"
         }
         check(pluginYml.contains("WonderfulGenomeLib")) {
             "plugin.yml must declare WonderfulGenomeLib as a dependency"

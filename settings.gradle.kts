@@ -6,3 +6,8 @@ check(wglDirectory.isDirectory) {
 }
 
 includeBuild(wglDirectory)
+
+// WCL is a separate runtime plugin; composite build resolves compile-only API.
+val wclDirectory = file("../WonderfulCoreLibrary")
+check(wclDirectory.isDirectory) { "WonderfulCoreLibrary must be checked out alongside the consumer" }
+includeBuild(wclDirectory)
