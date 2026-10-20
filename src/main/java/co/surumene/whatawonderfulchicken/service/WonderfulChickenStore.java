@@ -340,6 +340,14 @@ public final class WonderfulChickenStore {
         return copied;
     }
 
+    public java.util.List<java.nio.file.Path> knownDirectories() {
+        return payloadFiles.knownDirectories();
+    }
+
+    public boolean mirrorRecord(java.nio.file.Path directory, java.util.UUID id, boolean dryRun) {
+        return payloadFiles.mirrorExisting(directory, id, dryRun);
+    }
+
     /** Kept only to migrate old descendant snapshots, never for normal display. */
     public String legacyBloodlineId(Chicken chicken) {
         PersistentDataContainer pdc = chicken.getPersistentDataContainer();

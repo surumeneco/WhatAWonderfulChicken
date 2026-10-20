@@ -66,7 +66,9 @@ public final class CommandService {
         this.messages = messages;
         this.displays = displays;
         this.storageMigration = new WorldStorageMigration<>(plugin, Chicken.class,
-                store::isWonderful, store::migrateWorldRecord);
+                store::isWonderful, store::migrateWorldRecord,
+                store::knownDirectories,
+                (record, dryRun) -> store.mirrorRecord(record.directory(), record.id(), dryRun));
     }
 
     public com.mojang.brigadier.tree.LiteralCommandNode<CommandSourceStack> build() {

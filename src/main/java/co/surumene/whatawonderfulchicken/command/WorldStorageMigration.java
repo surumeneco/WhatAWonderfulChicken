@@ -1,114 +1,208 @@
 package co.surumene.whatawonderfulchicken.command;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
-
-import java.util.ArrayList;
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
-/** Bounded, main-thread migration of only the currently loaded matching Entities.
- * Does not force-load chunks, mutate external source records, or claim offline coverage.
+/**
+ * Bounded migration: at most 16 entity visits and 4 immutable files per tick.
+ * Neither unloaded chunks nor offline inventories are force-loaded.
+ * A file-level sweep protects their Genome references in the persistent world.
  */
 public final class WorldStorageMigration<E extends Entity> {
-    private static final int MAX_PER_TICK = 4;
+    private static final int ENTITY_VISITS_PER_TICK = 16;
+    private static final int FILE_VISITS_PER_TICK = 4;
     private final JavaPlugin plugin;
     private final Class<E> entityType;
     private final Predicate<E> eligible;
-    private final BiFunction<E, Boolean, Boolean> migration;
-    private Job<E> last;
+    private final BiFunction<E, Boolean, Boolean> entityMigration;
+    private final Supplier<List<Path>> directories;
+    private final BiFunction<FileRecord, Boolean, Boolean> mirror;
+    private Job job;
+
+    public record FileRecord(Path directory, UUID id) {}
 
     public WorldStorageMigration(JavaPlugin plugin, Class<E> entityType,
-                                 Predicate<E> eligible,
-                                 BiFunction<E, Boolean, Boolean> migration) {
+            Predicate<E> eligible, BiFunction<E, Boolean, Boolean> entityMigration,
+            Supplier<List<Path>> directories,
+            BiFunction<FileRecord, Boolean, Boolean> mirror) {
         this.plugin = Objects.requireNonNull(plugin);
         this.entityType = Objects.requireNonNull(entityType);
         this.eligible = Objects.requireNonNull(eligible);
-        this.migration = Objects.requireNonNull(migration);
+        this.entityMigration = Objects.requireNonNull(entityMigration);
+        this.directories = Objects.requireNonNull(directories);
+        this.mirror = Objects.requireNonNull(mirror);
     }
 
     public int start(CommandSender sender, boolean dryRun) {
-        if (last != null && last.status.equals("RUNNING")) {
+        if (job != null && job.status.equals("RUNNING")) {
             sender.sendMessage("WCL-MIGRATION job=busy status=FAILED processed=0 copied=0 skipped=0 failed=1");
             return 0;
         }
-        List<E> targets = new ArrayList<>();
-        // Enumerate loaded entities only, once per explicit administrator request.
-        for (World world : Bukkit.getWorlds()) {
-            for (E entity : world.getEntitiesByClass(entityType)) {
-                if (eligible.test(entity)) targets.add(entity);
-            }
-        }
-        Job<E> job = new Job<>(UUID.randomUUID().toString(), targets, dryRun);
-        last = job;
-        sender.sendMessage(job.message());
-        job.task = Bukkit.getScheduler().runTaskTimer(plugin, () -> advance(job), 1L, 1L);
+        Job next = new Job(UUID.randomUUID().toString(),
+                List.copyOf(Bukkit.getWorlds()), List.copyOf(directories.get()), dryRun);
+        job = next;
+        sender.sendMessage(next.message());
+        next.task = Bukkit.getScheduler().runTaskTimer(plugin, () -> advance(next), 1L, 1L);
         return 1;
     }
 
     public int status(CommandSender sender) {
-        if (last == null) {
+        if (job == null) {
             sender.sendMessage("WCL-MIGRATION job=none status=FAILED processed=0 copied=0 skipped=0 failed=1");
             return 0;
         }
-        sender.sendMessage(last.message());
-        return last.status.equals("SUCCESS") ? 1 : 0;
+        sender.sendMessage(job.message());
+        return job.status.equals("SUCCESS") ? 1 : 0;
     }
 
-    private void advance(Job<E> job) {
-        if (job != last || !job.status.equals("RUNNING")) return;
-        for (int count = 0; count < MAX_PER_TICK && job.index < job.targets.size(); count++) {
-            E entity = job.targets.get(job.index++);
-            try {
-                if (!entity.isValid() || !eligible.test(entity)) {
-                    // Unload/removal between snapshot and processing is not a successful migration.
-                    job.failed++;
+    private void advance(Job active) {
+        if (active != job || !active.status.equals("RUNNING")) return;
+        try {
+            if (!active.entitiesDone) visitEntities(active);
+            else visitRecords(active);
+            if (active.entitiesDone && active.recordsDone) complete(active);
+        } catch (RuntimeException | IOException error) {
+            active.failed++;
+            plugin.getLogger().severe("World record migration aborted: " + error.getMessage());
+            complete(active);
+        }
+    }
+
+    private void visitEntities(Job active) {
+        int attempts = 0;
+        while (attempts < ENTITY_VISITS_PER_TICK) {
+            if (active.entities == null || !active.entities.hasNext()) {
+                if (active.chunks == null || active.chunkPosition >= active.chunks.length) {
+                    if (active.worldPosition >= active.worlds.size()) {
+                        active.entitiesDone = true;
+                        return;
+                    }
+                    active.chunks = active.worlds.get(active.worldPosition++).getLoadedChunks();
+                    active.chunkPosition = 0;
+                }
+                if (active.chunkPosition >= active.chunks.length) continue;
+                Chunk chunk = active.chunks[active.chunkPosition++];
+                if (!chunk.isLoaded()) {
+                    active.failed++;
+                    attempts++;
                     continue;
                 }
-                boolean wouldCopy = migration.apply(entity, job.dryRun);
-                if (wouldCopy) job.copied++;
-                else job.skipped++;
-            } catch (RuntimeException error) {
-                job.failed++;
-                plugin.getLogger().warning("World payload migration failed for "
-                        + entity.getUniqueId() + ": " + error.getMessage());
+                active.entities = Arrays.asList(chunk.getEntities()).iterator();
+                continue;
             }
-        }
-        if (job.index == job.targets.size()) {
-            job.status = job.failed == 0 ? "SUCCESS" : "FAILED";
-            job.task.cancel();
-            job.task = null;
-            plugin.getLogger().info("WCL migration finished: " + job.message());
+            attempts++;
+            Entity entity = active.entities.next();
+            if (!entityType.isInstance(entity)) continue;
+            E typed = entityType.cast(entity);
+            if (!eligible.test(typed)) continue;
+            active.processed++;
+            try {
+                if (!typed.isValid()) throw new IllegalStateException("Entity unloaded during migration");
+                if (entityMigration.apply(typed, active.dryRun)) active.copied++;
+                else active.skipped++;
+            } catch (RuntimeException error) {
+                active.failed++;
+                plugin.getLogger().warning("Entity record migration failed "
+                        + typed.getUniqueId() + ": " + error.getMessage());
+            }
         }
     }
 
-    private static final class Job<E extends Entity> {
-        private final String id;
-        private final List<E> targets;
-        private final boolean dryRun;
-        private int index;
-        private int copied;
-        private int skipped;
-        private int failed;
-        private String status = "RUNNING";
-        private BukkitTask task;
+    private void visitRecords(Job active) throws IOException {
+        int visited = 0;
+        while (visited < FILE_VISITS_PER_TICK) {
+            if (active.files == null || !active.files.hasNext()) {
+                active.closeDirectory();
+                if (active.directoryPosition >= active.sourceDirectories.size()) {
+                    active.recordsDone = true;
+                    return;
+                }
+                Path directory = active.sourceDirectories.get(active.directoryPosition++);
+                if (!Files.isDirectory(directory)) continue;
+                active.openDirectory(directory);
+                continue;
+            }
+            Path source = active.files.next();
+            visited++;
+            if (!Files.isRegularFile(source) || Files.isSymbolicLink(source)) continue;
+            String filename = source.getFileName().toString();
+            if (!filename.endsWith(".bin")) continue;
+            UUID id;
+            try { id = UUID.fromString(filename.substring(0, filename.length() - 4)); }
+            catch (IllegalArgumentException ignored) { continue; }
+            active.processed++;
+            try {
+                if (mirror.apply(new FileRecord(active.currentDirectory, id), active.dryRun)) active.copied++;
+                else active.skipped++;
+            } catch (RuntimeException error) {
+                active.failed++;
+                plugin.getLogger().warning("Record mirror failed " + source + ": " + error.getMessage());
+            }
+        }
+    }
 
-        private Job(String id, List<E> targets, boolean dryRun) {
+    private void complete(Job active) {
+        active.closeDirectory();
+        active.status = active.failed == 0 ? "SUCCESS" : "FAILED";
+        active.task.cancel();
+        active.task = null;
+        plugin.getLogger().info("WCL migration finished: " + active.message());
+    }
+
+    private static final class Job {
+        final String id;
+        final List<World> worlds;
+        final List<Path> sourceDirectories;
+        final boolean dryRun;
+        String status = "RUNNING";
+        BukkitTask task;
+        int worldPosition, chunkPosition, directoryPosition;
+        Chunk[] chunks;
+        Iterator<Entity> entities;
+        DirectoryStream<Path> stream;
+        Iterator<Path> files;
+        Path currentDirectory;
+        boolean entitiesDone, recordsDone;
+        int processed, copied, skipped, failed;
+        Job(String id, List<World> worlds, List<Path> sourceDirectories, boolean dryRun) {
             this.id = id;
-            this.targets = targets;
+            this.worlds = worlds;
+            this.sourceDirectories = sourceDirectories;
             this.dryRun = dryRun;
         }
-
-        private String message() {
+        void openDirectory(Path path) throws IOException {
+            currentDirectory = path;
+            stream = Files.newDirectoryStream(path, "*.bin");
+            files = stream.iterator();
+        }
+        void closeDirectory() {
+            if (stream != null) {
+                try { stream.close(); } catch (IOException ignored) { }
+            }
+            stream = null;
+            files = null;
+            currentDirectory = null;
+        }
+        String message() {
             return "WCL-MIGRATION job=" + id + " status=" + status
-                    + " processed=" + index + " copied=" + copied
+                    + " processed=" + processed + " copied=" + copied
                     + " skipped=" + skipped + " failed=" + failed;
         }
     }
