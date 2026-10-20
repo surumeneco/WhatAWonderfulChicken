@@ -27,6 +27,7 @@ class WorldStorageMigrationTest {
         World world = Mockito.mock(World.class);
         Mockito.when(world.getLoadedChunks()).thenReturn(new Chunk[0]);
         JavaPlugin plugin = Mockito.mock(JavaPlugin.class);
+        Mockito.when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("migration-test"));
         CommandSender sender = Mockito.mock(CommandSender.class);
         BukkitScheduler scheduler = Mockito.mock(BukkitScheduler.class);
         BukkitTask scheduled = Mockito.mock(BukkitTask.class);
