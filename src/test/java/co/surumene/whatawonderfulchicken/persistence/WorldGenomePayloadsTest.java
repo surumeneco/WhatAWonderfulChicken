@@ -49,4 +49,19 @@ class WorldGenomePayloadsTest {
             assertFalse(records.mirrorExisting(source, id, false));
         }
     }
+
+    @Test void missingResourceWorldRecordUsesPersistentWorldMirror() throws Exception {
+        World resource = Mockito.mock(World.class);
+        World primary = Mockito.mock(World.class);
+        Mockito.when(resource.getWorldFolder()).thenReturn(root.resolve("resource").toFile());
+        Mockito.when(primary.getWorldFolder()).thenReturn(root.resolve("world").toFile());
+        try (var mocks = Mockito.mockStatic(Bukkit.class)) {
+            mocks.when(() -> Bukkit.getWorld("world")).thenReturn(primary);
+            mocks.when(Bukkit::getWorlds).thenReturn(List.of(primary, resource));
+            var records = new WorldGenomePayloads(new DefaultConsumerContext(), "wwc");
+            UUID id = new WgpfRecordStore(WorldGenomePayloads.worldDirectory(primary, "wwc"))
+                    .writeOrReuse(null, new byte[]{4}, new byte[]{7});
+            assertArrayEquals(new byte[]{4}, records.read(resource, UUID.randomUUID(), id).genome());
+        }
+    }
 }
