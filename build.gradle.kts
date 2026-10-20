@@ -24,6 +24,7 @@ dependencies {
     testImplementation("io.papermc.paper:paper-api:26.2.build.129-stable")
     testImplementation("co.surumene:wgl-plugin:1.0.1")
     testImplementation("co.surumene:wcl-plugin:0.1.0-SNAPSHOT")
+    testImplementation("co.surumene:wcl-core:0.1.0-SNAPSHOT")
     testImplementation("org.mockito:mockito-core:5.20.0")
     testImplementation("co.surumene:wgl-core:1.0.1")
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
