@@ -180,6 +180,19 @@ public final class WorldStorageMigration<E extends Entity> implements AutoClosea
         }
     }
 
+    @Override public void close() {
+        if (closed) return;
+        closed = true;
+        if (job != null && "RUNNING".equals(job.status)) {
+            job.failed++;
+            job.status = "FAILED";
+            if (job.task != null) job.task.cancel();
+            if (job.pendingCopy != null) job.pendingCopy.cancel(true);
+            job.closeDirectory();
+        }
+        fileWorker.shutdownNow();
+    }
+
     private void complete(Job active) {
         active.closeDirectory();
         active.status = active.failed == 0 ? "SUCCESS" : "FAILED";
