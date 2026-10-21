@@ -10,7 +10,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -27,7 +27,7 @@ public final class WorldGenomePayloads {
     private final String species;
     private final World persistentWorld;
     private final Path persistentDirectory;
-    private final Map<Path, ImmutablePayloadStore> stores = new HashMap<>();
+    private final Map<Path, ImmutablePayloadStore> stores = new ConcurrentHashMap<>();
 
     public WorldGenomePayloads(ConsumerContext context, String species) {
         this(context, species, Bukkit.getWorld("world"));
