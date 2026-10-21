@@ -91,7 +91,7 @@ public final class WorldGenomePayloads {
         }
         roots.add(worldDirectory(current, species));
         roots.add(persistentDirectory);
-        roots.addAll(knownDirectories());
+        for (World world : Bukkit.getWorlds()) roots.add(worldDirectory(world, species));
         return new ArrayList<>(roots);
     }
 
@@ -112,8 +112,21 @@ public final class WorldGenomePayloads {
             }
             if (found == null) found = candidate;
         }
+        if (found == null) {
+            // Only a missing record needs an on-disk scan of unloaded worlds.
+            // Normal entity loads must not enumerate the server root repeatedly.
+            for (Path directory : knownDirectories()) {
+                if (!Files.isRegularFile(file(directory, id))) continue;
+                ImmutablePayloadStore.Payload candidate = store(directory).read(id);
+                if (found != null && (!Arrays.equals(found.genome(), candidate.genome())
+                        || !Arrays.equals(found.phenotype(), candidate.phenotype()))) {
+                    throw new IllegalStateException("Conflicting unloaded World Genome record " + id);
+                }
+                found = candidate;
+            }
+        }
         if (found == null) throw new IllegalStateException(
-                "Missing Genome payload " + id + " in current/primary/loaded World directories");
+                "Missing Genome payload " + id + " in current/primary/world storage directories");
         return found;
     }
 
