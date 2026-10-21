@@ -64,4 +64,20 @@ class WorldGenomePayloadsTest {
             assertArrayEquals(new byte[]{4}, records.read(resource, UUID.randomUUID(), id).genome());
         }
     }
+
+    @Test void discoversUnloadedWorldStorageBelowWorldContainer() throws Exception {
+        World primary = Mockito.mock(World.class);
+        Path worldRoot = Files.createDirectories(root.resolve("world"));
+        Mockito.when(primary.getWorldFolder()).thenReturn(worldRoot.toFile());
+        Path archived = Files.createDirectories(root.resolve("unloaded-resource/data/wonderful/wwc/genomes"));
+        UUID id = new WgpfRecordStore(archived).writeOrReuse(null, new byte[]{6}, new byte[]{9});
+        try (var mocks = Mockito.mockStatic(Bukkit.class)) {
+            mocks.when(() -> Bukkit.getWorld("world")).thenReturn(primary);
+            mocks.when(Bukkit::getWorlds).thenReturn(List.of(primary));
+            mocks.when(Bukkit::getWorldContainer).thenReturn(root.toFile());
+            var records = new WorldGenomePayloads(new DefaultConsumerContext(), "wwc");
+            assertTrue(records.knownDirectories().contains(archived));
+            assertArrayEquals(new byte[]{6}, records.read(primary, null, id).genome());
+        }
+    }
 }
