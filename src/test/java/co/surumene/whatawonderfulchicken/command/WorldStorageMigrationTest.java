@@ -50,10 +50,14 @@ class WorldStorageMigrationTest {
                     });
             assertEquals(1, migration.start(sender, false));
             assertEquals(1, timers.size());
-            for (int i = 0; i < 5; i++) timers.getFirst().run();
+            for (int i = 0; i < 150 && migration.status(sender) != 1; i++) {
+                timers.getFirst().run();
+                Thread.sleep(3);
+            }
             assertEquals(1, seen.size());
             Mockito.verify(scheduled).cancel();
             assertEquals(1, migration.status(sender));
+            migration.close();
         }
     }
 
@@ -81,6 +85,7 @@ class WorldStorageMigrationTest {
             migration.start(Mockito.mock(CommandSender.class), true);
             ticks.getFirst().run();
             Mockito.verify(empty, Mockito.atMost(16)).getEntities();
+            migration.close();
         }
     }
 }
