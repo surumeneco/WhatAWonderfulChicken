@@ -5,7 +5,7 @@ api-version: '26.2'
 author: surumeneco
 description: Breedable, rideable wonderful chickens for Paper 26.2.
 website: https://github.com/surumeneco/WhatAWonderfulChicken
-depend: [WonderfulGenomeLib]
+depend: [WonderfulGenomeLib, WonderfulCoreLibrary]
 softdepend: [Geyser-Spigot]
 permissions:
   wwc.command.summon:
@@ -32,4 +32,6 @@ permissions:
   wwc.command.config.reset:
     default: op
   wwc.command.reload:
+    default: op
+  wwc.command.storage:
     default: op

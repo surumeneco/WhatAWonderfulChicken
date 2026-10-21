@@ -47,7 +47,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-public final class CommandService {
+public final class CommandService implements AutoCloseable {
     private static final Pattern DANGEROUS_UUID_NBT = Pattern.compile("(?i)(^|[,\\s{])UUID\\s*:");
     private final WhatAWonderfulChickenPlugin plugin;
     private final WonderfulChickenService chickens;
@@ -55,6 +55,12 @@ public final class CommandService {
     private final ConfigService config;
     private final MessageService messages;
     private final DisplayService displays;
+    private final WorldStorageMigration<Chicken> storageMigration;
+
+    @Override public void close() {
+        if (storageMigration != null) storageMigration.close();
+    }
+
 
     public CommandService(WhatAWonderfulChickenPlugin plugin, WonderfulChickenService chickens, WonderfulChickenStore store,
                           ConfigService config, MessageService messages, DisplayService displays) {
@@ -64,6 +70,10 @@ public final class CommandService {
         this.config = config;
         this.messages = messages;
         this.displays = displays;
+        this.storageMigration = new WorldStorageMigration<>(plugin, Chicken.class,
+                store::isWonderful, store::migrateWorldRecord,
+                store::knownDirectories,
+                (record, dryRun) -> store.mirrorRecord(record.directory(), record.id(), dryRun));
     }
 
     public com.mojang.brigadier.tree.LiteralCommandNode<CommandSourceStack> build() {
@@ -73,10 +83,23 @@ public final class CommandService {
         root.then(infoNode());
         root.then(modifyNode());
         root.then(configNode());
+        root.then(storageNode());
         root.then(Commands.literal("reload")
                 .requires(source -> source.getSender().hasPermission("wwc.command.reload"))
                 .executes(this::reload));
         return root.build();
+    }
+
+
+    private LiteralArgumentBuilder<CommandSourceStack> storageNode() {
+        return Commands.literal("storage")
+                .requires(source -> source.getSender().hasPermission("wwc.command.storage"))
+                .then(Commands.literal("migrate")
+                        .executes(ctx -> storageMigration.start(ctx.getSource().getSender(), false))
+                        .then(Commands.literal("dry-run")
+                                .executes(ctx -> storageMigration.start(ctx.getSource().getSender(), true))))
+                .then(Commands.literal("status")
+                        .executes(ctx -> storageMigration.status(ctx.getSource().getSender())));
     }
 
     private LiteralArgumentBuilder<CommandSourceStack> summonNode() {

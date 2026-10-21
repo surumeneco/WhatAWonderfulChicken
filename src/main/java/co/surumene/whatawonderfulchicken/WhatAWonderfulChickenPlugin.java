@@ -29,6 +29,8 @@ import co.surumene.whatawonderfulchicken.runtime.YamlBiologicalClockStateStore;
 import org.bukkit.World;
 import java.io.File;
 import co.surumene.wgl.plugin.WonderfulGenomeLibService;
+import co.surumene.wcl.api.runtime.ConsumerContext;
+import co.surumene.wcl.plugin.WonderfulCoreLibraryService;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -37,6 +39,7 @@ import java.util.List;
 
 public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
     private WonderfulGenomeLibService genomeLib;
+    private ConsumerContext coreContext;
     private ProfileRegistryGateway profileRegistry;
     private volatile WonderfulChickenGenomeProfile genomeProfile;
     private ConfigService configService;
@@ -52,6 +55,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
     private BiologicalClock biologicalClock;
     private ChickenTrapRuntime chickenTrap;
     private IntegrityController integrity;
+    private CommandService administrativeCommands;
 
     @Override
     public void onEnable() {
@@ -59,6 +63,9 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         if (genomeLib == null) {
             throw new IllegalStateException("WonderfulGenomeLib service is unavailable");
         }
+        WonderfulCoreLibraryService core = Bukkit.getServicesManager().load(WonderfulCoreLibraryService.class);
+        if (core == null) throw new IllegalStateException("WonderfulCoreLibrary service is unavailable");
+        coreContext = core.openContext(this);
 
         saveDefaultConfig();
         configService = new ConfigService(this);
@@ -97,6 +104,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         chickenTrap = new ChickenTrapRuntime(this, configService, chickens, store, displays);
 
         CommandService commands = new CommandService(this, chickens, store, configService, messageService, displays);
+        administrativeCommands = commands;
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
                 event.registrar().register(commands.build(), "What a Wonderful Chicken administration", List.of("whatawonderfulchicken")));
 
@@ -133,6 +141,10 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (administrativeCommands != null) {
+            administrativeCommands.close();
+            administrativeCommands = null;
+        }
         integrity = null;
         if (naturalFounders != null) naturalFounders.shutdown();
         if (chickenTrap != null) chickenTrap.shutdown();
@@ -153,12 +165,21 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         }
         genomeProfile = null;
         profileRegistry = null;
+        if (coreContext != null) {
+            coreContext.close();
+            coreContext = null;
+        }
         genomeLib = null;
     }
 
     public NaturalChickenGenerationCoordinator naturalFounders() {
         if (naturalFounders == null) throw new IllegalStateException("WWC founder worker unavailable");
         return naturalFounders;
+    }
+
+    public ConsumerContext coreContext() {
+        if (coreContext == null || coreContext.isClosed()) throw new IllegalStateException("WCL owner context is unavailable");
+        return coreContext;
     }
 
     public WonderfulGenomeLibService genomeLib() {
