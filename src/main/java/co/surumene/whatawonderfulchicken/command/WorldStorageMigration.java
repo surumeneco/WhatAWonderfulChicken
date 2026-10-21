@@ -135,6 +135,21 @@ public final class WorldStorageMigration<E extends Entity> implements AutoClosea
     }
 
     private void visitRecords(Job active) throws IOException {
+        // CRC verification, disk reads and atomic file publication stay off the main thread.
+        if (active.pendingCopy != null) {
+            if (!active.pendingCopy.isDone()) return;
+            try {
+                if (active.pendingCopy.join()) active.copied++;
+                else active.skipped++;
+            } catch (RuntimeException error) {
+                active.failed++;
+                plugin.getLogger().warning("Record mirror failed "
+                        + active.pendingPath + ": " + error.getMessage());
+            } finally {
+                active.pendingCopy = null;
+                active.pendingPath = null;
+            }
+        }
         int visited = 0;
         while (visited < FILE_VISITS_PER_TICK) {
             if (active.files == null || !active.files.hasNext()) {
