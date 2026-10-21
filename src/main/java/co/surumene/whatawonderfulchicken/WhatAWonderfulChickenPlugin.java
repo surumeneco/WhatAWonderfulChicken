@@ -55,6 +55,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
     private BiologicalClock biologicalClock;
     private ChickenTrapRuntime chickenTrap;
     private IntegrityController integrity;
+    private CommandService administrativeCommands;
 
     @Override
     public void onEnable() {
@@ -103,6 +104,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
         chickenTrap = new ChickenTrapRuntime(this, configService, chickens, store, displays);
 
         CommandService commands = new CommandService(this, chickens, store, configService, messageService, displays);
+        administrativeCommands = commands;
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
                 event.registrar().register(commands.build(), "What a Wonderful Chicken administration", List.of("whatawonderfulchicken")));
 
@@ -139,6 +141,10 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (administrativeCommands != null) {
+            administrativeCommands.close();
+            administrativeCommands = null;
+        }
         integrity = null;
         if (naturalFounders != null) naturalFounders.shutdown();
         if (chickenTrap != null) chickenTrap.shutdown();
