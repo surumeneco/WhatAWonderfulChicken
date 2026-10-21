@@ -47,7 +47,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-public final class CommandService {
+public final class CommandService implements AutoCloseable {
     private static final Pattern DANGEROUS_UUID_NBT = Pattern.compile("(?i)(^|[,\\s{])UUID\\s*:");
     private final WhatAWonderfulChickenPlugin plugin;
     private final WonderfulChickenService chickens;
@@ -56,6 +56,11 @@ public final class CommandService {
     private final MessageService messages;
     private final DisplayService displays;
     private final WorldStorageMigration<Chicken> storageMigration;
+
+    @Override public void close() {
+        if (storageMigration != null) storageMigration.close();
+    }
+
 
     public CommandService(WhatAWonderfulChickenPlugin plugin, WonderfulChickenService chickens, WonderfulChickenStore store,
                           ConfigService config, MessageService messages, DisplayService displays) {
