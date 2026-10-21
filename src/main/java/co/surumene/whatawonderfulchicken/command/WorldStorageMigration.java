@@ -96,12 +96,14 @@ public final class WorldStorageMigration<E extends Entity> {
                     }
                     active.chunks = active.worlds.get(active.worldPosition++).getLoadedChunks();
                     active.chunkPosition = 0;
+                    attempts++; // obtaining the world's loaded-chunk snapshot consumes the budget
+                    continue;
                 }
                 if (active.chunkPosition >= active.chunks.length) continue;
                 Chunk chunk = active.chunks[active.chunkPosition++];
+                attempts++; // empty chunks also consume the per-tick budget
                 if (!chunk.isLoaded()) {
                     active.failed++;
-                    attempts++;
                     continue;
                 }
                 active.entities = Arrays.asList(chunk.getEntities()).iterator();
