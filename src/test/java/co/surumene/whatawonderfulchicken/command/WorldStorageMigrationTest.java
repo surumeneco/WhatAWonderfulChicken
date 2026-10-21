@@ -56,4 +56,31 @@ class WorldStorageMigrationTest {
             assertEquals(1, migration.status(sender));
         }
     }
+
+    @Test void emptyChunksConsumeTickBudget() {
+        World world = Mockito.mock(World.class);
+        Chunk empty = Mockito.mock(Chunk.class);
+        Chunk[] chunks = new Chunk[128];
+        java.util.Arrays.fill(chunks, empty);
+        Mockito.when(world.getLoadedChunks()).thenReturn(chunks);
+        Mockito.when(empty.isLoaded()).thenReturn(true);
+        Mockito.when(empty.getEntities()).thenReturn(new org.bukkit.entity.Entity[0]);
+        JavaPlugin plugin = Mockito.mock(JavaPlugin.class);
+        Mockito.when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+        BukkitScheduler scheduler = Mockito.mock(BukkitScheduler.class);
+        BukkitTask task = Mockito.mock(BukkitTask.class);
+        List<Runnable> ticks = new ArrayList<>();
+        Mockito.when(scheduler.runTaskTimer(eq(plugin), any(Runnable.class), eq(1L), eq(1L)))
+                .thenAnswer(call -> { ticks.add(call.getArgument(1)); return task; });
+        try (var mockBukkit = Mockito.mockStatic(Bukkit.class)) {
+            mockBukkit.when(Bukkit::getWorlds).thenReturn(List.of(world));
+            mockBukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
+            var migration = new WorldStorageMigration<>(plugin, Chicken.class,
+                    animal -> true, (animal, dryRun) -> false,
+                    List::of, (record, dryRun) -> false);
+            migration.start(Mockito.mock(CommandSender.class), true);
+            ticks.getFirst().run();
+            Mockito.verify(empty, Mockito.atMost(16)).getEntities();
+        }
+    }
 }
