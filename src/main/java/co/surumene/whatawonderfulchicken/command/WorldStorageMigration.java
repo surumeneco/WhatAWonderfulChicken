@@ -172,13 +172,11 @@ public final class WorldStorageMigration<E extends Entity> implements AutoClosea
             try { id = UUID.fromString(filename.substring(0, filename.length() - 4)); }
             catch (IllegalArgumentException ignored) { continue; }
             active.processed++;
-            try {
-                if (mirror.apply(new FileRecord(active.currentDirectory, id), active.dryRun)) active.copied++;
-                else active.skipped++;
-            } catch (RuntimeException error) {
-                active.failed++;
-                plugin.getLogger().warning("Record mirror failed " + source + ": " + error.getMessage());
-            }
+            FileRecord record = new FileRecord(active.currentDirectory, id);
+            active.pendingPath = source;
+            active.pendingCopy = CompletableFuture.supplyAsync(
+                    () -> mirror.apply(record, active.dryRun), fileWorker);
+            return; // at most one disk copy in flight, across scheduler ticks
         }
     }
 
