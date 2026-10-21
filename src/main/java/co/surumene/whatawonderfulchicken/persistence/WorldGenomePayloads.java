@@ -6,6 +6,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 
 import java.nio.file.Files;
+import java.nio.file.DirectoryStream;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -60,6 +62,23 @@ public final class WorldGenomePayloads {
         LinkedHashSet<Path> roots = new LinkedHashSet<>();
         roots.add(persistentDirectory);
         for (World world : Bukkit.getWorlds()) roots.add(worldDirectory(world, species));
+        // Multiverse may leave a world directory on disk after unloading the World.
+        // Such files can still be referenced by offline player-owned containers.
+        java.io.File container = Bukkit.getWorldContainer();
+        if (container != null) {
+            try (DirectoryStream<Path> worlds = Files.newDirectoryStream(container.toPath())) {
+                for (Path entry : worlds) {
+                    if (!Files.isDirectory(entry) || Files.isSymbolicLink(entry)) continue;
+                    Path candidate = entry.resolve("data").resolve("wonderful")
+                            .resolve(species).resolve("genomes");
+                    if (Files.isDirectory(candidate) && !Files.isSymbolicLink(candidate)) {
+                        roots.add(candidate);
+                    }
+                }
+            } catch (IOException error) {
+                throw new IllegalStateException("Could not inspect unloaded World payload directories", error);
+            }
+        }
         return List.copyOf(roots);
     }
 
