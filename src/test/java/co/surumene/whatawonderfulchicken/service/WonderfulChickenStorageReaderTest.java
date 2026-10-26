@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 final class WonderfulChickenStorageReaderTest {
     @Test void savedPdcReturnsIndependentStorageWithFollowRelationshipAndCorruptItemsFailClosed(){
         var plugin=Mockito.mock(WhatAWonderfulChickenPlugin.class);
-        var meta=Mockito.mock(org.bukkit.plugin.PluginMeta.class);
+        var meta=Mockito.mock(io.papermc.paper.plugin.configuration.PluginMeta.class);
         Mockito.when(meta.getName()).thenReturn("WhatAWonderfulChicken");
         Mockito.when(plugin.getPluginMeta()).thenReturn(meta);
         Mockito.when(plugin.isEnabled()).thenReturn(true);
@@ -39,7 +39,7 @@ final class WonderfulChickenStorageReaderTest {
     }
     @Test void disabledPluginAndUnrecognizedMobDoNotAppearAsEmptyInventory(){
         var plugin=Mockito.mock(WhatAWonderfulChickenPlugin.class);
-        var meta=Mockito.mock(org.bukkit.plugin.PluginMeta.class);
+        var meta=Mockito.mock(io.papermc.paper.plugin.configuration.PluginMeta.class);
         Mockito.when(meta.getName()).thenReturn("WhatAWonderfulChicken");
         Mockito.when(plugin.getPluginMeta()).thenReturn(meta);
         var reader=new WonderfulChickenStorageReader(plugin);
