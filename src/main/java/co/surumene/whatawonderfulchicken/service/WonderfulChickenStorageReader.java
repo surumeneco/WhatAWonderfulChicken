@@ -65,7 +65,7 @@ public final class WonderfulChickenStorageReader implements WonderfulStorageRead
     private void add(List<StoredItem> out,PersistentDataContainer pdc,String slot,String key){
         byte[] raw=pdc.get(key(key),PersistentDataType.BYTE_ARRAY);
         if(raw==null)return;
-        if(raw.length==0)throw new IllegalArgumentException("Empty serialized item "+key);
+        if(raw.length<8)throw new IllegalArgumentException("Truncated serialized item "+key);
         ItemStack item=ItemStack.deserializeBytes(raw);
         if(item==null || item.isEmpty())throw new IllegalArgumentException("Empty stored ItemStack "+key);
         // Keep the original serialized bytes, including custom PDC and nested Shulker/Bundle data.
