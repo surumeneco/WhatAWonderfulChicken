@@ -27,7 +27,7 @@ public final class WonderfulChickenStorageReader implements WonderfulStorageRead
         Entity entity=Bukkit.getEntity(entityId);
         if(!(entity instanceof Chicken chicken))return new StorageReadResult.NotFound();
         return readSaved(entityId, chicken.getWorld().getUID(),
-                Optional.of(new StorageSnapshot.Position(chicken.getX(),chicken.getY(),chicken.getZ())),
+                Optional.of(new StorageSnapshot.Position(chicken.getLocation().getX(),chicken.getLocation().getY(),chicken.getLocation().getZ())),
                 chicken.getPersistentDataContainer());
     }
     @Override public StorageReadResult readStored(UUID entityId, UUID worldId,
