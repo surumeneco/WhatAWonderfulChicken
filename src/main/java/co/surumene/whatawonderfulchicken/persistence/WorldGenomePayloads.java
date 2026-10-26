@@ -30,6 +30,9 @@ public final class WorldGenomePayloads {
     private final World persistentWorld;
     private final Path persistentDirectory;
     private final Map<Path, ImmutablePayloadStore> stores = new ConcurrentHashMap<>();
+    // Discovered once on first read and refreshed explicitly by migration.
+    // Per-record lookup checks all discovered roots but never enumerates the server root.
+    private volatile List<Path> discoveredDirectories;
 
     public WorldGenomePayloads(ConsumerContext context, String species) {
         this(context, species, Bukkit.getWorld("world"));
@@ -79,7 +82,9 @@ public final class WorldGenomePayloads {
                 throw new IllegalStateException("Could not inspect unloaded World payload directories", error);
             }
         }
-        return List.copyOf(roots);
+        List<Path> snapshot = List.copyOf(roots);
+        discoveredDirectories = snapshot;
+        return snapshot;
     }
 
     private List<Path> candidateDirectories(World current, UUID origin) {
@@ -92,6 +97,9 @@ public final class WorldGenomePayloads {
         roots.add(worldDirectory(current, species));
         roots.add(persistentDirectory);
         for (World world : Bukkit.getWorlds()) roots.add(worldDirectory(world, species));
+        List<Path> discovered = discoveredDirectories;
+        if (discovered == null) discovered = knownDirectories();
+        roots.addAll(discovered);
         return new ArrayList<>(roots);
     }
 
@@ -111,19 +119,6 @@ public final class WorldGenomePayloads {
                         + " across World storage directories");
             }
             if (found == null) found = candidate;
-        }
-        if (found == null) {
-            // Only a missing record needs an on-disk scan of unloaded worlds.
-            // Normal entity loads must not enumerate the server root repeatedly.
-            for (Path directory : knownDirectories()) {
-                if (!Files.isRegularFile(file(directory, id))) continue;
-                ImmutablePayloadStore.Payload candidate = store(directory).read(id);
-                if (found != null && (!Arrays.equals(found.genome(), candidate.genome())
-                        || !Arrays.equals(found.phenotype(), candidate.phenotype()))) {
-                    throw new IllegalStateException("Conflicting unloaded World Genome record " + id);
-                }
-                found = candidate;
-            }
         }
         if (found == null) throw new IllegalStateException(
                 "Missing Genome payload " + id + " in current/primary/world storage directories");
