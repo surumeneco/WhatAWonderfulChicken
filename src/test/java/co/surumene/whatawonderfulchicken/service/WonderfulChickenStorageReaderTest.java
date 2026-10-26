@@ -12,7 +12,9 @@ import static org.junit.jupiter.api.Assertions.*;
 final class WonderfulChickenStorageReaderTest {
     @Test void savedPdcReturnsIndependentStorageWithFollowRelationshipAndCorruptItemsFailClosed(){
         var plugin=Mockito.mock(WhatAWonderfulChickenPlugin.class);
-        Mockito.when(plugin.getName()).thenReturn("WhatAWonderfulChicken");
+        var meta=Mockito.mock(org.bukkit.plugin.PluginMeta.class);
+        Mockito.when(meta.getName()).thenReturn("WhatAWonderfulChicken");
+        Mockito.when(plugin.getPluginMeta()).thenReturn(meta);
         Mockito.when(plugin.isEnabled()).thenReturn(true);
         PersistentDataContainer pdc=Mockito.mock(PersistentDataContainer.class);
         Mockito.when(pdc.get(new NamespacedKey(plugin,"type"),PersistentDataType.STRING))
@@ -37,7 +39,9 @@ final class WonderfulChickenStorageReaderTest {
     }
     @Test void disabledPluginAndUnrecognizedMobDoNotAppearAsEmptyInventory(){
         var plugin=Mockito.mock(WhatAWonderfulChickenPlugin.class);
-        Mockito.when(plugin.getName()).thenReturn("WhatAWonderfulChicken");
+        var meta=Mockito.mock(org.bukkit.plugin.PluginMeta.class);
+        Mockito.when(meta.getName()).thenReturn("WhatAWonderfulChicken");
+        Mockito.when(plugin.getPluginMeta()).thenReturn(meta);
         var reader=new WonderfulChickenStorageReader(plugin);
         var pdc=Mockito.mock(PersistentDataContainer.class);
         assertInstanceOf(StorageReadResult.Failure.class,
