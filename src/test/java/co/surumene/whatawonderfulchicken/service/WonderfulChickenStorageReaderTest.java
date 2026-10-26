@@ -12,17 +12,14 @@ import static org.junit.jupiter.api.Assertions.*;
 final class WonderfulChickenStorageReaderTest {
     @Test void savedPdcReturnsIndependentStorageWithFollowRelationshipAndCorruptItemsFailClosed(){
         var plugin=Mockito.mock(WhatAWonderfulChickenPlugin.class);
-        var meta=Mockito.mock(io.papermc.paper.plugin.configuration.PluginMeta.class);
-        Mockito.when(meta.getName()).thenReturn("WhatAWonderfulChicken");
-        Mockito.when(plugin.getPluginMeta()).thenReturn(meta);
         Mockito.when(plugin.isEnabled()).thenReturn(true);
         PersistentDataContainer pdc=Mockito.mock(PersistentDataContainer.class);
-        Mockito.when(pdc.get(new NamespacedKey(plugin,"type"),PersistentDataType.STRING))
+        Mockito.when(pdc.get(new NamespacedKey("whatawonderfulchicken","type"),PersistentDataType.STRING))
                 .thenReturn("wonderful_chicken");
-        Mockito.when(pdc.get(new NamespacedKey(plugin,"data_version"),PersistentDataType.INTEGER))
+        Mockito.when(pdc.get(new NamespacedKey("whatawonderfulchicken","data_version"),PersistentDataType.INTEGER))
                 .thenReturn(2);
         UUID commander=UUID.randomUUID();
-        Mockito.when(pdc.get(new NamespacedKey(plugin,"follow_target"),PersistentDataType.STRING))
+        Mockito.when(pdc.get(new NamespacedKey("whatawonderfulchicken","follow_target"),PersistentDataType.STRING))
                 .thenReturn(commander.toString());
         var reader=new WonderfulChickenStorageReader(plugin);
         UUID id=UUID.randomUUID(),world=UUID.randomUUID();
@@ -31,7 +28,7 @@ final class WonderfulChickenStorageReaderTest {
         var snapshot=((StorageReadResult.Success)response).snapshot();
         assertEquals(commander,snapshot.relationships().get("follow_target"));
         assertTrue(snapshot.items().isEmpty());
-        Mockito.when(pdc.get(new NamespacedKey(plugin,"equipment_head"),PersistentDataType.BYTE_ARRAY))
+        Mockito.when(pdc.get(new NamespacedKey("whatawonderfulchicken","equipment_head"),PersistentDataType.BYTE_ARRAY))
                 .thenReturn(new byte[]{1,2,3});
         var broken=reader.readStored(id,world,Optional.empty(),pdc);
         assertInstanceOf(StorageReadResult.Failure.class,broken);
@@ -39,9 +36,6 @@ final class WonderfulChickenStorageReaderTest {
     }
     @Test void disabledPluginAndUnrecognizedMobDoNotAppearAsEmptyInventory(){
         var plugin=Mockito.mock(WhatAWonderfulChickenPlugin.class);
-        var meta=Mockito.mock(io.papermc.paper.plugin.configuration.PluginMeta.class);
-        Mockito.when(meta.getName()).thenReturn("WhatAWonderfulChicken");
-        Mockito.when(plugin.getPluginMeta()).thenReturn(meta);
         var reader=new WonderfulChickenStorageReader(plugin);
         var pdc=Mockito.mock(PersistentDataContainer.class);
         assertInstanceOf(StorageReadResult.Failure.class,
