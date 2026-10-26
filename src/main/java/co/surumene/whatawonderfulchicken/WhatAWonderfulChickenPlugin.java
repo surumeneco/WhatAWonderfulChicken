@@ -92,6 +92,10 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
 
         messageService = new MessageService(this);
         store = new WonderfulChickenStore(this, configService);
+        Bukkit.getServicesManager().register(
+                co.surumene.wcl.plugin.inventory.WonderfulStorageReader.class,
+                new co.surumene.whatawonderfulchicken.service.WonderfulChickenStorageReader(this),
+                this, org.bukkit.plugin.ServicePriority.Normal);
         chickens = new WonderfulChickenService(this, configService, store);
         bedrock = createBedrockCompatibility();
         displays = new DisplayService(this, chickens, store);
@@ -141,6 +145,7 @@ public final class WhatAWonderfulChickenPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        Bukkit.getServicesManager().unregisterAll(this);
         if (administrativeCommands != null) {
             administrativeCommands.close();
             administrativeCommands = null;
