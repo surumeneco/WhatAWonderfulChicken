@@ -80,4 +80,43 @@ class WorldGenomePayloadsTest {
             assertArrayEquals(new byte[]{6}, records.read(primary, null, id).genome());
         }
     }
+    private static final String SPECIES = "wwc";
+
+    @Test void findsDuplicateUuidCollisionInUnloadedWorldEvenWhenPrimaryExists() throws Exception {
+        World primary = Mockito.mock(World.class);
+        Path worldRoot = Files.createDirectories(root.resolve("world"));
+        Mockito.when(primary.getWorldFolder()).thenReturn(worldRoot.toFile());
+        Path primaryDir = WorldGenomePayloads.worldDirectory(primary, SPECIES);
+        Path unloadedDir = Files.createDirectories(root.resolve("unloaded/data/wonderful/")
+                .resolve(SPECIES).resolve("genomes"));
+        UUID id = UUID.randomUUID();
+        new WgpfRecordStore(primaryDir).importVerified(id,
+                new co.surumene.wcl.api.persistence.ImmutablePayloadStore.Payload(new byte[]{1}, new byte[]{2}));
+        new WgpfRecordStore(unloadedDir).importVerified(id,
+                new co.surumene.wcl.api.persistence.ImmutablePayloadStore.Payload(new byte[]{7}, new byte[]{8}));
+        try (var mocks = Mockito.mockStatic(Bukkit.class)) {
+            mocks.when(() -> Bukkit.getWorld("world")).thenReturn(primary);
+            mocks.when(Bukkit::getWorlds).thenReturn(List.of(primary));
+            mocks.when(Bukkit::getWorldContainer).thenReturn(root.toFile());
+            var records = new WorldGenomePayloads(new DefaultConsumerContext(), SPECIES);
+            assertThrows(IllegalStateException.class, () -> records.read(primary, null, id));
+        }
+    }
+
+    @Test void normalRecordReadsDoNotRescanWorldContainerOnEveryLookup() throws Exception {
+        World primary = Mockito.mock(World.class);
+        Path worldRoot = Files.createDirectories(root.resolve("world"));
+        Mockito.when(primary.getWorldFolder()).thenReturn(worldRoot.toFile());
+        UUID id = new WgpfRecordStore(WorldGenomePayloads.worldDirectory(primary, SPECIES))
+                .writeOrReuse(null, new byte[]{3}, new byte[]{4});
+        try (var mocks = Mockito.mockStatic(Bukkit.class)) {
+            mocks.when(() -> Bukkit.getWorld("world")).thenReturn(primary);
+            mocks.when(Bukkit::getWorlds).thenReturn(List.of(primary));
+            mocks.when(Bukkit::getWorldContainer).thenReturn(root.toFile());
+            var records = new WorldGenomePayloads(new DefaultConsumerContext(), SPECIES);
+            assertArrayEquals(new byte[]{3}, records.read(primary, null, id).genome());
+            assertArrayEquals(new byte[]{3}, records.read(primary, null, id).genome());
+            mocks.verify(Bukkit::getWorldContainer, Mockito.times(1));
+        }
+    }
 }
