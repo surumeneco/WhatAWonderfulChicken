@@ -71,5 +71,6 @@ public final class WonderfulChickenStorageReader implements WonderfulStorageRead
         // Keep the original serialized bytes, including custom PDC and nested Shulker/Bundle data.
         out.add(new StoredItem(slot,raw));
     }
-    private NamespacedKey key(String name){return new NamespacedKey(plugin,name);}
+    // Match WWC's established PDC namespace even in independent offline-data readers.
+    private NamespacedKey key(String name){return new NamespacedKey("whatawonderfulchicken",name);}
 }
