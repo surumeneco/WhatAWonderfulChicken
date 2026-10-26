@@ -156,24 +156,25 @@ public final class CommandService implements AutoCloseable {
                         || source.getSender().hasPermission("wwc.command.config.reset"));
         root.then(Commands.literal("get")
                 .requires(source -> hasConfigPermission(source.getSender(), "get"))
-                .then(Commands.argument("path", StringArgumentType.word()).executes(this::configGet)));
+                .then(Commands.argument("path", StringArgumentType.word()).suggests((ctx, builder) -> co.surumene.wcl.plugin.config.ConfigPathSuggestions.suggest(builder, config.config(), false, value -> true)).executes(this::configGet)));
         root.then(Commands.literal("set")
                 .requires(source -> hasConfigPermission(source.getSender(), "set"))
                 .then(Commands.argument("path", StringArgumentType.word())
+                        .suggests((ctx, builder) -> co.surumene.wcl.plugin.config.ConfigPathSuggestions.suggest(builder, config.defaults(), false, value -> true))
                         .then(Commands.argument("value", StringArgumentType.greedyString()).executes(this::configSet))));
         root.then(Commands.literal("list")
                 .requires(source -> hasConfigPermission(source.getSender(), "list"))
                 .executes(ctx -> configList(ctx, ""))
-                .then(Commands.argument("path", StringArgumentType.word()).executes(ctx -> configList(ctx, StringArgumentType.getString(ctx, "path")))));
+                .then(Commands.argument("path", StringArgumentType.word()).suggests((ctx, builder) -> co.surumene.wcl.plugin.config.ConfigPathSuggestions.suggest(builder, config.config(), true, value -> true)).executes(ctx -> configList(ctx, StringArgumentType.getString(ctx, "path")))));
         root.then(Commands.literal("reset")
                 .requires(source -> hasConfigPermission(source.getSender(), "reset"))
                 .then(Commands.literal("numeric")
                         .executes(ctx -> configResetCategory(ctx, "numeric", ""))
-                        .then(Commands.argument("path", StringArgumentType.word()).executes(ctx -> configResetCategory(ctx, "numeric", StringArgumentType.getString(ctx, "path")))))
+                        .then(Commands.argument("path", StringArgumentType.word()).suggests((ctx, builder) -> co.surumene.wcl.plugin.config.ConfigPathSuggestions.suggest(builder, config.defaults(), true, value -> value instanceof Number)).executes(ctx -> configResetCategory(ctx, "numeric", StringArgumentType.getString(ctx, "path")))))
                 .then(Commands.literal("other")
                         .executes(ctx -> configResetCategory(ctx, "other", ""))
-                        .then(Commands.argument("path", StringArgumentType.word()).executes(ctx -> configResetCategory(ctx, "other", StringArgumentType.getString(ctx, "path")))))
-                .then(Commands.argument("path", StringArgumentType.word()).executes(this::configReset)));
+                        .then(Commands.argument("path", StringArgumentType.word()).suggests((ctx, builder) -> co.surumene.wcl.plugin.config.ConfigPathSuggestions.suggest(builder, config.defaults(), true, value -> !(value instanceof Number))).executes(ctx -> configResetCategory(ctx, "other", StringArgumentType.getString(ctx, "path")))))
+                .then(Commands.argument("path", StringArgumentType.word()).suggests((ctx, builder) -> co.surumene.wcl.plugin.config.ConfigPathSuggestions.suggest(builder, config.defaults(), false, value -> true)).executes(this::configReset)));
         return root;
     }
 
