@@ -115,8 +115,8 @@ public final class TraitController implements Runnable {
         int duration = type == PotionEffectType.NIGHT_VISION ? 240 : EFFECT_TICKS;
         int threshold = type == PotionEffectType.NIGHT_VISION ? 220 : EFFECT_REFRESH_THRESHOLD;
         // Respect other mechanics' stronger effects; stronger WWC expression may upgrade a weaker one.
-        if (current != null && (current.getAmplifier() > amplifier
-                || (current.getAmplifier() == amplifier && current.getDuration() > threshold))) return;
+        if (current != null && !co.surumene.wcl.api.traits.PotionRefreshDecision.shouldApply(
+                current.getAmplifier(), current.getDuration(), amplifier, threshold)) return;
         entity.addPotionEffect(new PotionEffect(type, duration, amplifier, true, false, false));
     }
 
