@@ -63,7 +63,7 @@ public final class ConfigService {
         for (StatType stat : StatType.values()) {
             double min = numberSetting(config, defaults, "stats." + stat.configName() + ".min");
             double max = numberSetting(config, defaults, "stats." + stat.configName() + ".max");
-            if (!Double.isFinite(min) || !Double.isFinite(max) || min >= max) {
+            if (!co.surumene.wcl.api.config.NumericValidation.finite(min) || !co.surumene.wcl.api.config.NumericValidation.finite(max) || min >= max) {
                 errors.add("stats." + stat.configName() + ": min must be finite and < max");
             }
             String display = config.getString("stats." + stat.configName() + ".display", "");
@@ -82,7 +82,7 @@ public final class ConfigService {
         validateProbability(config, defaults, "traits.egg-gold-chance", errors);
         validateProbability(config, defaults, "traits.egg-netherite-conditional-chance", errors);
         double adjustment = numberSetting(config, defaults, "nature.adjustment");
-        if (!Double.isFinite(adjustment) || adjustment < 0.0 || adjustment >= 2.0 / 3.0)
+        if (!co.surumene.wcl.api.config.NumericValidation.nonNegative(adjustment) || adjustment >= 2.0 / 3.0)
             errors.add("nature.adjustment must be >= 0 and < 2/3 (including Kuse Mashi)");
         positive(config, defaults, "flight.stamina-consumption-per-second", errors);
         nonNegative(config, defaults, "flight.recovery-delay-seconds", errors);
@@ -276,20 +276,20 @@ public final class ConfigService {
     private static void validateProbability(ConfigurationSection config, ConfigurationSection defaults,
                                             String path, List<String> errors) {
         double value = numberSetting(config, defaults, path);
-        if (!Double.isFinite(value) || value < 0.0 || value > 1.0)
+        if (!co.surumene.wcl.api.config.NumericValidation.unit(value))
             errors.add(path + " must be between 0.0 and 1.0");
     }
 
     private static void positive(ConfigurationSection config, ConfigurationSection defaults,
                                  String path, List<String> errors) {
         double value = numberSetting(config, defaults, path);
-        if (!Double.isFinite(value) || value <= 0.0) errors.add(path + " must be > 0");
+        if (!co.surumene.wcl.api.config.NumericValidation.positive(value)) errors.add(path + " must be > 0");
     }
 
     private static void nonNegative(ConfigurationSection config, ConfigurationSection defaults,
                                     String path, List<String> errors) {
         double value = numberSetting(config, defaults, path);
-        if (!Double.isFinite(value) || value < 0.0) errors.add(path + " must be >= 0");
+        if (!co.surumene.wcl.api.config.NumericValidation.nonNegative(value)) errors.add(path + " must be >= 0");
     }
 
     public record ValidationResult(boolean valid, List<String> errors) {
