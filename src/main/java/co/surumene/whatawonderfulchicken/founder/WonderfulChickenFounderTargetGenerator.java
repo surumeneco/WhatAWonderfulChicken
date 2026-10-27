@@ -58,17 +58,12 @@ public final class WonderfulChickenFounderTargetGenerator {
     }
 
     private static List<ExpressedTrait> drawTraits(GenomeRandom random) {
-        int none = Trait.values().length;
-        int first = random.nextInt(TRAIT_CANDIDATE_COUNT);
-        int second = random.nextInt(TRAIT_CANDIDATE_COUNT);
-        if (first == none && second == none) return List.of();
-        if (first == second) return List.of(new ExpressedTrait(Trait.values()[first], TraitStrength.STRONG));
-
-        List<ExpressedTrait> out = new ArrayList<>(2);
-        if (first != none) out.add(new ExpressedTrait(Trait.values()[first], TraitStrength.WEAK));
-        if (second != none) out.add(new ExpressedTrait(Trait.values()[second], TraitStrength.WEAK));
-        out.sort(Comparator.comparingInt(entry -> entry.trait().targetId()));
-        return List.copyOf(out);
+        return co.surumene.wcl.api.genetics.FounderSampling.drawTraits(
+                        List.of(Trait.values()), Trait::targetId, random::nextInt)
+                .stream()
+                .map(choice -> new ExpressedTrait(choice.trait(),
+                        choice.strong() ? TraitStrength.STRONG : TraitStrength.WEAK))
+                .toList();
     }
 
     static double truncatedNormal(
@@ -76,14 +71,8 @@ public final class WonderfulChickenFounderTargetGenerator {
             double min,
             double max,
             GenomeRandom random) {
-        for (;;) {
-            double u1 = random.nextDouble();
-            double u2 = random.nextDouble();
-            if (!(u1 > 0.0)) continue;
-            double z = StrictMath.sqrt(-2.0 * StrictMath.log(u1))
-                    * StrictMath.cos(2.0 * StrictMath.PI * u2);
-            double value = distribution.mean() + distribution.standardDeviation() * z;
-            if (value >= min && value <= max) return value;
-        }
+        return co.surumene.wcl.api.genetics.FounderSampling.truncatedNormal(
+                distribution.mean(), distribution.standardDeviation(),
+                min, max, random::nextDouble);
     }
 }
