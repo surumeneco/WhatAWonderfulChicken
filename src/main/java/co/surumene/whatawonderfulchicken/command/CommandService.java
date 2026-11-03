@@ -47,7 +47,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-public final class CommandService {
+public final class CommandService implements AutoCloseable {
     private static final Pattern DANGEROUS_UUID_NBT = Pattern.compile("(?i)(^|[,\\s{])UUID\\s*:");
     private final WhatAWonderfulChickenPlugin plugin;
     private final WonderfulChickenService chickens;
@@ -55,6 +55,12 @@ public final class CommandService {
     private final ConfigService config;
     private final MessageService messages;
     private final DisplayService displays;
+    private final WorldStorageMigration<Chicken> storageMigration;
+
+    @Override public void close() {
+        if (storageMigration != null) storageMigration.close();
+    }
+
 
     public CommandService(WhatAWonderfulChickenPlugin plugin, WonderfulChickenService chickens, WonderfulChickenStore store,
                           ConfigService config, MessageService messages, DisplayService displays) {
@@ -64,6 +70,10 @@ public final class CommandService {
         this.config = config;
         this.messages = messages;
         this.displays = displays;
+        this.storageMigration = new WorldStorageMigration<>(plugin, Chicken.class,
+                store::isWonderful, store::migrateWorldRecord,
+                store::knownDirectories,
+                (record, dryRun) -> store.mirrorRecord(record.directory(), record.id(), dryRun));
     }
 
     public com.mojang.brigadier.tree.LiteralCommandNode<CommandSourceStack> build() {
@@ -73,10 +83,23 @@ public final class CommandService {
         root.then(infoNode());
         root.then(modifyNode());
         root.then(configNode());
+        root.then(storageNode());
         root.then(Commands.literal("reload")
                 .requires(source -> source.getSender().hasPermission("wwc.command.reload"))
                 .executes(this::reload));
         return root.build();
+    }
+
+
+    private LiteralArgumentBuilder<CommandSourceStack> storageNode() {
+        return Commands.literal("storage")
+                .requires(source -> source.getSender().hasPermission("wwc.command.storage"))
+                .then(Commands.literal("migrate")
+                        .executes(ctx -> storageMigration.start(ctx.getSource().getSender(), false))
+                        .then(Commands.literal("dry-run")
+                                .executes(ctx -> storageMigration.start(ctx.getSource().getSender(), true))))
+                .then(Commands.literal("status")
+                        .executes(ctx -> storageMigration.status(ctx.getSource().getSender())));
     }
 
     private LiteralArgumentBuilder<CommandSourceStack> summonNode() {
@@ -133,24 +156,25 @@ public final class CommandService {
                         || source.getSender().hasPermission("wwc.command.config.reset"));
         root.then(Commands.literal("get")
                 .requires(source -> hasConfigPermission(source.getSender(), "get"))
-                .then(Commands.argument("path", StringArgumentType.word()).executes(this::configGet)));
+                .then(Commands.argument("path", StringArgumentType.word()).suggests((ctx, builder) -> co.surumene.wcl.plugin.config.ConfigPathSuggestions.suggest(builder, config.config(), false, value -> true)).executes(this::configGet)));
         root.then(Commands.literal("set")
                 .requires(source -> hasConfigPermission(source.getSender(), "set"))
                 .then(Commands.argument("path", StringArgumentType.word())
+                        .suggests((ctx, builder) -> co.surumene.wcl.plugin.config.ConfigPathSuggestions.suggest(builder, config.defaults(), false, value -> true))
                         .then(Commands.argument("value", StringArgumentType.greedyString()).executes(this::configSet))));
         root.then(Commands.literal("list")
                 .requires(source -> hasConfigPermission(source.getSender(), "list"))
                 .executes(ctx -> configList(ctx, ""))
-                .then(Commands.argument("path", StringArgumentType.word()).executes(ctx -> configList(ctx, StringArgumentType.getString(ctx, "path")))));
+                .then(Commands.argument("path", StringArgumentType.word()).suggests((ctx, builder) -> co.surumene.wcl.plugin.config.ConfigPathSuggestions.suggest(builder, config.config(), true, value -> true)).executes(ctx -> configList(ctx, StringArgumentType.getString(ctx, "path")))));
         root.then(Commands.literal("reset")
                 .requires(source -> hasConfigPermission(source.getSender(), "reset"))
                 .then(Commands.literal("numeric")
                         .executes(ctx -> configResetCategory(ctx, "numeric", ""))
-                        .then(Commands.argument("path", StringArgumentType.word()).executes(ctx -> configResetCategory(ctx, "numeric", StringArgumentType.getString(ctx, "path")))))
+                        .then(Commands.argument("path", StringArgumentType.word()).suggests((ctx, builder) -> co.surumene.wcl.plugin.config.ConfigPathSuggestions.suggest(builder, config.defaults(), true, value -> value instanceof Number)).executes(ctx -> configResetCategory(ctx, "numeric", StringArgumentType.getString(ctx, "path")))))
                 .then(Commands.literal("other")
                         .executes(ctx -> configResetCategory(ctx, "other", ""))
-                        .then(Commands.argument("path", StringArgumentType.word()).executes(ctx -> configResetCategory(ctx, "other", StringArgumentType.getString(ctx, "path")))))
-                .then(Commands.argument("path", StringArgumentType.word()).executes(this::configReset)));
+                        .then(Commands.argument("path", StringArgumentType.word()).suggests((ctx, builder) -> co.surumene.wcl.plugin.config.ConfigPathSuggestions.suggest(builder, config.defaults(), true, value -> !(value instanceof Number))).executes(ctx -> configResetCategory(ctx, "other", StringArgumentType.getString(ctx, "path")))))
+                .then(Commands.argument("path", StringArgumentType.word()).suggests((ctx, builder) -> co.surumene.wcl.plugin.config.ConfigPathSuggestions.suggest(builder, config.defaults(), false, value -> true)).executes(this::configReset)));
         return root;
     }
 

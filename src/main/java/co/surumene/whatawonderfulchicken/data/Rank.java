@@ -18,10 +18,5 @@ public enum Rank {
     public String key() { return key; }
 
     public static Rank fromNormalized(double normalized) {
-        if (normalized > 1.25) return IMPOSSIBLE;
-        if (normalized > 1.0) return MYTHICAL;
-        double clamped = Math.max(0.0, Math.min(1.0, normalized));
-        int index = Math.min(8, (int) Math.floor(clamped * 9.0));
-        return values()[index];
-    }
-}
+        return values()[co.surumene.wcl.api.ability.NormalizedRankIndex.of(normalized, false)];
+    }}

@@ -9,7 +9,9 @@ final class FollowRepathPolicy {
     private FollowRepathPolicy() {}
 
     static boolean needsRepath(boolean hasPath, Vector previous, Vector destination) {
-        return !hasPath || previous == null
-                || previous.distanceSquared(destination) >= MOVE_THRESHOLD_SQUARED;
+        double movedSquared = hasPath && previous != null
+                ? previous.distanceSquared(destination) : 0.0;
+        return co.surumene.wcl.api.behavior.RepathDecision.needsRepath(
+                hasPath, previous == null, movedSquared, MOVE_THRESHOLD_SQUARED);
     }
 }

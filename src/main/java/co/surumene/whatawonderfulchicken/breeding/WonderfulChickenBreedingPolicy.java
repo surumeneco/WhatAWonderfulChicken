@@ -52,9 +52,8 @@ public final class WonderfulChickenBreedingPolicy {
         Objects.requireNonNull(strength, "strength");
         Objects.requireNonNull(settings, "settings");
         double weak = settings.directInheritance().weakPreferProbability();
-        return strength == TraitStrength.STRONG
-                ? 1.0
-                : weak;
+        return co.surumene.wcl.api.genetics.BreedingMath.directRetention(
+                strength == TraitStrength.STRONG, weak, 1.0);
     }
 
     public static Optional<TraitStrength> expressedTrait(
@@ -85,9 +84,10 @@ public final class WonderfulChickenBreedingPolicy {
             PhenotypeSnapshot snapshot,
             WonderfulChickenBreedingSettings settings) {
         return expressedTrait(snapshot, Trait.HATENKO)
-                .map(strength -> strength == TraitStrength.STRONG
-                        ? settings.hatenkoTrait().strongParentMultiplier()
-                        : settings.hatenkoTrait().weakParentMultiplier())
+                .map(strength -> co.surumene.wcl.api.genetics.BreedingMath.parentTraitMultiplier(
+                        strength == TraitStrength.STRONG,
+                        settings.hatenkoTrait().weakParentMultiplier(),
+                        settings.hatenkoTrait().strongParentMultiplier()))
                 .orElse(1.0);
     }
 
