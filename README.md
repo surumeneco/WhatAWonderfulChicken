@@ -1,5 +1,13 @@
 # What a Wonderful Chicken
 
+## 2.1.0 リリース
+
+- Paper 26.2 / Java 25 向けの次期リリース。`WonderfulGenomeLib 1.0.1` と新たに `WonderfulCoreLibrary 0.1.0` を**別々の必須プラグイン**として導入します。
+- 共通化したポーション更新判断で、既存の無限時間効果（Paperの残時間 `-1`）を正しく処理します。同等以上の無限時間効果を上書きせず、より強い効果の優先と既存の更新閾値は維持します。
+- WCLへ共通化した処理とWWC固有のゲーム処理を分離し、保存形式・Genome処理・特性パラメータを維持します。JE/BEと実サーバーの動作は自動テストと別に確認します。
+
+### 以前のリリース：2.0.1
+
 ## 2.0.1 Config整備
 
 - 新しい `founder-target.*` 設定で自然FounderとチキントラップFounderの能力Target分布を別々に指定できます。
@@ -18,21 +26,23 @@ Paper 26.2 向けの、育成・繁殖可能な騎乗用巨大Chickenプラグ�
 
 - Paper 26.2
 - Java 25
-- WonderfulGenomeLib
+- WonderfulGenomeLib 1.0.1
+- WonderfulCoreLibrary 0.1.0
 
-WonderfulGenomeLibは2.0.0から必須依存です。WWCへWGLクラスをshade / bundleせず、Paper上では別Pluginとして読み込みます。個体データは引き続きChicken EntityのPDCへ保存します。
+WonderfulGenomeLibは2.0.0から、WonderfulCoreLibraryは2.1.0から必須依存です。WWCへWGL/WCLクラスをshade / bundleせず、Paper上ではそれぞれ別Pluginとして読み込みます。個体データは引き続きChicken EntityのPDCへ保存します。
 
 ## ビルド
 
-開発時はWonderfulGenomeLibをWWCの隣へcheckoutします。
+開発時はWonderfulGenomeLibとWonderfulCoreLibraryをWWCの隣へcheckoutします。
 
 ```text
 workspace/
 ├─ WonderfulGenomeLib/
+├─ WonderfulCoreLibrary/
 └─ WhatAWonderfulChicken/
 ```
 
-WWCはGradle Composite Buildで隣接WGLを `co.surumene:wgl-plugin:1.0.1` へ置換します。
+WWCはGradle Composite Buildで隣接WGL (`co.surumene:wgl-plugin:1.0.1`) とWCL (`co.surumene:wcl-plugin:0.1.0`) を参照します。
 
 ```text
 gradle build
@@ -41,7 +51,7 @@ gradle build
 生成物:
 
 ```text
-build/libs/WhatAWonderfulChicken-2.0.1.jar
+build/libs/WhatAWonderfulChicken-2.1.0.jar
 ```
 
 生成されたjarをPaperサーバーの `plugins/` に配置して起動してください。初回起動時に `plugins/WhatAWonderfulChicken/` 以下へconfigと言語ファイルを自動生成します。
@@ -117,4 +127,4 @@ Carpet / Shulker Boxの外観は、Geyser互換性を優先して不可視ArmorS
 
 設定・ワールドのバックアップを取った上で、旧JARを撤去し、WGLとWWCの対応JARを配置して再起動してください。YAMLの追記保存に伴い、空白や引用符等の書式が変わる場合があります。
 
-2.0.1のインストール時は、対応するWonderful Genome Lib 1.0.1を先に配置してください。Paper・Geyser/BE固有の挙動は導入環境で確認してください。
+2.1.0のインストール時は、対応するWonderful Genome Lib 1.0.1とWonderfulCoreLibrary 0.1.0を先に配置してください。Paper・Geyser/BE固有の挙動は導入環境で確認してください。
