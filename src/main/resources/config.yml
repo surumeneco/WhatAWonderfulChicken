@@ -1,4 +1,4 @@
-# WWC 2.0.1 配布設定。確率は0.0～1.0（0.01 = 1%）、距離はblock、tickはゲームtickです。
+# WWC 2.1.0 配布設定。確率は0.0～1.0（0.01 = 1%）、距離はblock、tickはゲームtickです。
 # reload／/wwc config変更は原則として次回評価から適用されます。
 # Genome・出生時Phenotype Snapshotは設定変更で書き換えず、実効値のみを再計算します。
 # WGLのGenome合成・Founder Target分布はgenome-profile/founder-target以下で設定します。
