@@ -10,6 +10,7 @@ import co.surumene.whatawonderfulchicken.migration.MigrationResult;
 import co.surumene.wgl.api.GenomeEngine;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Chicken;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -39,6 +40,8 @@ final class LegacyGenomeMigrationCoordinator {
     /** Only failed or queue-rejected legacy entities need periodic resubmission. */
     private final Set<UUID> retryCandidates = new LinkedHashSet<>();
     private volatile boolean closed;
+    private BukkitTask pendingRetryWake;
+    private long pendingRetryDueTick;
 
     LegacyGenomeMigrationCoordinator(
             WhatAWonderfulChickenPlugin plugin,
@@ -85,6 +88,7 @@ final class LegacyGenomeMigrationCoordinator {
             pending.remove(id, job);
             // Queue capacity is intentionally bounded; retry this individual only.
             retryCandidates.add(id);
+            scheduleRetryWake();
             return false;
         }
     }
@@ -113,6 +117,32 @@ final class LegacyGenomeMigrationCoordinator {
             retryCandidates.remove(id);
             if (request(chicken)) submitted++;
         }
+        scheduleRetryWake();
+    }
+
+    /**
+     * Candidate B: no empty periodic polling. Preserve the 60-second wall-time
+     * backoff while waking only when a retry is pending. Worker completion can
+     * drain eligible retries sooner than this backup timer.
+     */
+    private void scheduleRetryWake() {
+        if (closed || !plugin.isEnabled() || retryCandidates.isEmpty()) return;
+        long nowMillis = System.currentTimeMillis();
+        long earliestMillis = Long.MAX_VALUE;
+        for (UUID id : retryCandidates) {
+            earliestMillis = Math.min(earliestMillis, retryAfter.getOrDefault(id, 0L));
+        }
+        long delay = Math.max(20L, LegacyRetryWakeDelay.ticksUntil(earliestMillis, nowMillis));
+        long dueTick = Bukkit.getCurrentTick() + delay;
+        if (pendingRetryWake != null && !pendingRetryWake.isCancelled()
+                && pendingRetryDueTick <= dueTick) return;
+        if (pendingRetryWake != null) pendingRetryWake.cancel();
+        pendingRetryDueTick = dueTick;
+        pendingRetryWake = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            pendingRetryWake = null;
+            pendingRetryDueTick = 0L;
+            retryLoaded();
+        }, delay);
     }
 
     void invalidate(Chicken chicken) {
@@ -125,6 +155,8 @@ final class LegacyGenomeMigrationCoordinator {
 
     void shutdown() {
         closed = true;
+        if (pendingRetryWake != null) pendingRetryWake.cancel();
+        pendingRetryWake = null;
         pending.clear();
         retryAfter.clear();
         retryCandidates.clear();
@@ -145,7 +177,14 @@ final class LegacyGenomeMigrationCoordinator {
         RuntimeException error = failure;
         if (closed || !plugin.isEnabled()) return;
         try {
-            Bukkit.getScheduler().runTask(plugin, () -> complete(job, completed, error));
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                try {
+                    complete(job, completed, error);
+                } finally {
+                    // Capacity was returned even if the old job was invalidated.
+                    retryLoaded();
+                }
+            });
         } catch (RuntimeException dispatchFailure) {
             if (!closed && plugin.isEnabled()) {
                 plugin.getLogger().warning("Could not dispatch legacy genome result: "

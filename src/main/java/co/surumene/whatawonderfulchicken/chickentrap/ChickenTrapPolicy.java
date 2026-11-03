@@ -13,7 +13,8 @@ public final class ChickenTrapPolicy {
 
     /** A command/bed skip never counts as natural arrival, even when it lands exactly at 18000. */
     public static boolean naturalCheck(long previous, long current) {
-        return current == previous + 1L && Math.floorMod(current, DAY_TICKS) == CHECK_TIME;
+        return co.surumene.wcl.api.runtime.EncounterMath.naturalArrival(
+                previous, current, DAY_TICKS, CHECK_TIME);
     }
 
     public static boolean dawnCrossed(long previous, long current) {
@@ -55,16 +56,16 @@ public final class ChickenTrapPolicy {
             throw new IllegalArgumentException("draw must be [0,1)");
         if (!Double.isFinite(chance) || chance < 0.0 || chance > 1.0)
             throw new IllegalArgumentException("chance must be [0,1]");
-        return draw < chance;
+        return co.surumene.wcl.api.runtime.EncounterMath.roll(draw, chance);
     }
 
     public static Offset offset(double radialDraw, double angleDraw) {
         if (!Double.isFinite(radialDraw) || radialDraw < 0.0 || radialDraw > 1.0
                 || !Double.isFinite(angleDraw) || angleDraw < 0.0 || angleDraw >= 1.0)
             throw new IllegalArgumentException("invalid random draw");
-        double radius = StrictMath.sqrt(radialDraw) * SPAWN_RADIUS;
-        double angle = angleDraw * StrictMath.PI * 2.0;
-        return new Offset(radius * StrictMath.cos(angle), radius * StrictMath.sin(angle));
+        var offset = co.surumene.wcl.api.runtime.EncounterMath.diskOffset(
+                radialDraw, angleDraw, SPAWN_RADIUS);
+        return new Offset(offset.x(), offset.z());
     }
 
     public record Offset(double x, double z) {}

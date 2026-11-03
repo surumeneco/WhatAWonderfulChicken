@@ -48,6 +48,15 @@ public final class WonderfulChickenService {
     private final ConfigService config;
     private final WonderfulChickenStore store;
     private final Map<UUID, Chicken> loaded = new HashMap<>();
+    private java.util.function.Consumer<Chicken> onLoaded = ignored -> {};
+    private java.util.function.Consumer<Chicken> onUnloaded = ignored -> {};
+
+    /** Listeners for incremental audit membership, bound after initial world scan. */
+    public void onLoadedChange(java.util.function.Consumer<Chicken> added,
+                               java.util.function.Consumer<Chicken> removed) {
+        this.onLoaded = java.util.Objects.requireNonNull(added);
+        this.onUnloaded = java.util.Objects.requireNonNull(removed);
+    }
     private final LegacyGenomeMigrationCoordinator migrations;
 
     public WonderfulChickenService(WhatAWonderfulChickenPlugin plugin, ConfigService config, WonderfulChickenStore store) {
@@ -65,7 +74,10 @@ public final class WonderfulChickenService {
         if (!store.isWonderful(chicken)) return false;
         Chicken previous = loaded.put(chicken.getUniqueId(), chicken);
         if (previous == chicken) return false;
-        if (previous != null) store.invalidate(previous);
+        if (previous != null) {
+            onUnloaded.accept(previous);
+            store.invalidate(previous);
+        }
         store.invalidate(chicken);
         WonderfulChickenData data = store.load(chicken);
         if (data.hasGenomeModel()) {
@@ -85,6 +97,7 @@ public final class WonderfulChickenService {
         store.notifyStaminaState(chicken);
         store.notifyTraitState(chicken);
         store.notifyFollowState(chicken);
+        onLoaded.accept(chicken);
         return true;
     }
 
@@ -103,7 +116,7 @@ public final class WonderfulChickenService {
     public void unregisterLoaded(Chicken chicken) {
         store.notifyFollowUnload(chicken);
         migrations.invalidate(chicken);
-        loaded.remove(chicken.getUniqueId(), chicken);
+        if (loaded.remove(chicken.getUniqueId(), chicken)) onUnloaded.accept(chicken);
         store.invalidate(chicken);
     }
 
@@ -119,6 +132,7 @@ public final class WonderfulChickenService {
             Chicken chicken = iterator.next().getValue();
             if (!chicken.isValid() || !store.isWonderful(chicken)) {
                 iterator.remove();
+                onUnloaded.accept(chicken);
                 store.invalidate(chicken);
                 continue;
             }
@@ -128,6 +142,7 @@ public final class WonderfulChickenService {
     }
 
     public void scanLoadedWorlds() {
+        for (Chicken stale : loaded.values()) onUnloaded.accept(stale);
         loaded.clear();
         Bukkit.getWorlds().forEach(world -> world.getEntitiesByClass(Chicken.class).forEach(this::registerLoaded));
     }
