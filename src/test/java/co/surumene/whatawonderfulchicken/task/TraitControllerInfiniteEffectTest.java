@@ -1,33 +1,26 @@
 package co.surumene.whatawonderfulchicken.task;
 
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
+import co.surumene.wcl.api.traits.PotionRefreshDecision;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Method;
+import static org.junit.jupiter.api.Assertions.*;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
-/** Integration guard for WWC's call into WCL's potion refresh decision. */
+/**
+ * Regression contract for the WCL helper used by TraitController.apply().
+ * The Paper potion registry is unavailable in ordinary unit tests.
+ */
 class TraitControllerInfiniteEffectTest {
     @Test
-    void riderKeepsExistingInfiniteNightVisionWithoutThrowing() throws Exception {
-        Player player = mock(Player.class);
-        PotionEffect existing = mock(PotionEffect.class);
-        when(existing.getAmplifier()).thenReturn(0);
-        when(existing.getDuration()).thenReturn(-1);
-        when(player.getPotionEffect(PotionEffectType.NIGHT_VISION)).thenReturn(existing);
+    void riderNightVisionDoesNotReplaceInfiniteEqualOrStrongerEffect() {
+        // TraitController uses 220 ticks as its night-vision refresh threshold.
+        assertFalse(PotionRefreshDecision.shouldApply(0, -1, 0, 220));
+        assertFalse(PotionRefreshDecision.shouldApply(1, -1, 0, 220));
+    }
 
-        TraitController controller = new TraitController(null, null, null, null);
-        Method apply = TraitController.class.getDeclaredMethod(
-                "apply", LivingEntity.class, PotionEffectType.class, int.class);
-        apply.setAccessible(true);
-
-        apply.invoke(controller, player, PotionEffectType.NIGHT_VISION, 0);
-
-        verify(player, never()).addPotionEffect(any(PotionEffect.class));
+    @Test
+    void riderStrengthDoesNotReplaceInfiniteSameLevelEffect() {
+        // TraitController uses 40 ticks for the other trait effects.
+        assertFalse(PotionRefreshDecision.shouldApply(0, -1, 0, 40));
+        assertTrue(PotionRefreshDecision.shouldApply(0, 40, 0, 40));
     }
 }
