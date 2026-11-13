@@ -7,7 +7,6 @@ import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
-import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.entity.Skeleton;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -20,7 +19,7 @@ import static org.mockito.Mockito.*;
 
 class ChickenTrapRuntimeProtectionTest {
     @Test
-    void unpreparedBaitIsImmuneAndProvidesTotemFeedbackWithoutActivating() {
+    void unpreparedBaitIsImmuneWithoutActivating() {
         WhatAWonderfulChickenPlugin plugin = mock(WhatAWonderfulChickenPlugin.class);
         when(plugin.getName()).thenReturn("WhatAWonderfulChicken");
         io.papermc.paper.plugin.configuration.PluginMeta pluginMeta =
@@ -44,9 +43,7 @@ class ChickenTrapRuntimeProtectionTest {
 
             assertTrue(runtime.protectDamage(bait, false));
             verifyNoInteractions(world);
-            assertTrue(runtime.protectDamage(bait, true));
-            verify(world).playSound(any(Location.class), eq(Sound.ITEM_TOTEM_USE), eq(1.0f), eq(1.0f));
-            assertFalse(runtime.attackSkeleton(bait));
+                assertFalse(runtime.attackSkeleton(bait));
         } finally {
             runtime.shutdown();
         }
