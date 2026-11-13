@@ -23,6 +23,10 @@ class ChickenTrapRuntimeProtectionTest {
     void unpreparedBaitIsImmuneAndProvidesTotemFeedbackWithoutActivating() {
         WhatAWonderfulChickenPlugin plugin = mock(WhatAWonderfulChickenPlugin.class);
         when(plugin.getName()).thenReturn("WhatAWonderfulChicken");
+        io.papermc.paper.plugin.configuration.PluginMeta pluginMeta =
+                mock(io.papermc.paper.plugin.configuration.PluginMeta.class);
+        when(pluginMeta.getName()).thenReturn("WhatAWonderfulChicken");
+        when(plugin.getPluginMeta()).thenReturn(pluginMeta);
         ChickenTrapRuntime runtime = new ChickenTrapRuntime(
                 plugin, mock(ConfigService.class), mock(WonderfulChickenService.class),
                 mock(WonderfulChickenStore.class), mock(DisplayService.class));
