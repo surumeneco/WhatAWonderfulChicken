@@ -439,6 +439,8 @@ public final class ChickenTrapRuntime implements Runnable {
         Chicken second = null;
         Skeleton secondRider = null;
         try {
+            // Preserve the original wind burst before spawning the vulnerable mounts.
+            windExplosion(location);
             first = world.spawn(location.clone().add(-1, 0, 0), Chicken.class,
                     CreatureSpawnEvent.SpawnReason.CUSTOM);
             second = world.spawn(location.clone().add(1, 0, 0), Chicken.class,
@@ -482,13 +484,6 @@ public final class ChickenTrapRuntime implements Runnable {
             }
             plugin.getLogger().warning("Chicken Trap activation failed: " + error);
             return;
-        }
-
-        // Play the encounter effect only after the pair is successfully committed.
-        try {
-            windExplosion(location);
-        } catch (RuntimeException error) {
-            plugin.getLogger().warning("Chicken Trap activation effect failed: " + error);
         }
     }
 
