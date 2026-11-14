@@ -257,21 +257,22 @@ public final class ChickenTrapRuntime implements Runnable {
     }
 
 
-    /** Unprepared trap bait cannot be damaged. Entity attacks give totem feedback. */
-    public boolean protectDamage(Entity victim, boolean entityAttack) {
+    /** Pure protection decision: cancellation must be committed before feedback. */
+    public boolean protectDamage(Entity victim) {
+        return victim instanceof Skeleton skeleton
+                && states.hasRole(skeleton, ChickenTrapStateStore.ARMED)
+                && !isPrepared(skeleton);
+    }
+
+    /** Only invoked after the corresponding damage event is already cancelled. */
+    public void playProtectedHitEffect(Entity victim) {
         if (!(victim instanceof Skeleton skeleton)
-                || !states.hasRole(skeleton, ChickenTrapStateStore.ARMED)
-                || isPrepared(skeleton)) {
-            return false;
-        }
-        if (entityAttack) {
-            Location effect = skeleton.getLocation().add(0.0, 1.0, 0.0);
-            World world = skeleton.getWorld();
-            world.spawnParticle(Particle.TOTEM_OF_UNDYING, effect, 30,
-                    0.45, 0.65, 0.45, 0.2);
-            world.playSound(effect, Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
-        }
-        return true;
+                || !states.hasRole(skeleton, ChickenTrapStateStore.ARMED)) return;
+        Location effect = skeleton.getLocation().add(0.0, 1.0, 0.0);
+        World world = skeleton.getWorld();
+        world.spawnParticle(Particle.TOTEM_OF_UNDYING, effect, 30,
+                0.45, 0.65, 0.45, 0.2);
+        world.playSound(effect, Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
     }
 
     public boolean attackSkeleton(Skeleton skeleton) {
