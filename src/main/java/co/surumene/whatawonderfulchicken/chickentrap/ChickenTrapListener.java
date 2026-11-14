@@ -1,6 +1,11 @@
 package co.surumene.whatawonderfulchicken.chickentrap;
 
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
+import org.bukkit.entity.Skeleton;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.entity.WindCharge;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -21,10 +26,29 @@ public final class ChickenTrapListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTimeSkip(TimeSkipEvent event) { runtime.markTimeSkip(event.getWorld()); }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onDirectHit(org.bukkit.event.entity.EntityDamageByEntityEvent e) {
-        if (!(e.getEntity() instanceof org.bukkit.entity.Skeleton skeleton)) return;
-        runtime.attackSkeleton(skeleton);
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onProtect(EntityDamageEvent event) {
+        if (runtime.protectDamage(event.getEntity(),
+                event instanceof EntityDamageByEntityEvent)) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onDirectHit(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof Skeleton skeleton)
+                || !playerAttack(event.getDamager())) return;
+        if (runtime.attackSkeleton(skeleton)) {
+            // Consume the initiating hit so an otherwise lethal blow cannot
+            // remove the bait after the prepared riders have been mounted.
+            event.setCancelled(true);
+        }
+    }
+
+    private static boolean playerAttack(Entity damager) {
+        if (damager instanceof Player) return true;
+        return damager instanceof Projectile projectile
+                && projectile.getShooter() instanceof Player;
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

@@ -6,6 +6,8 @@ import co.surumene.whatawonderfulchicken.display.DisplayService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenService;
 import co.surumene.whatawonderfulchicken.service.WonderfulChickenStore;
 import org.bukkit.Bukkit;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.HeightMap;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -56,6 +58,19 @@ public final class ChickenTrapRuntime implements Runnable {
     private final Set<UUID> skipped = new HashSet<>();
     private final Set<UUID> tracked = new HashSet<>();
     private final Set<UUID> activating = new HashSet<>();
+    // Prepared founders are intentionally in-memory: restored waiters prepare again.
+    private final Map<UUID, PreparedFounders> prepared = new HashMap<>();
+    private final Map<UUID, UUID> preparing = new HashMap<>();
+    private final Map<UUID, Long> preparationStarted = new HashMap<>();
+    private final Map<UUID, Long> retryAfter = new HashMap<>();
+    private static final long PREPARATION_RETRY_MILLIS = 3_000L;
+    private static final long PREPARATION_TIMEOUT_MILLIS = 60_000L;
+
+    private record PreparedFounders(
+            co.surumene.wgl.api.GenomeEngine engine,
+            co.surumene.whatawonderfulchicken.genome.WonderfulChickenGenomeProfile profile,
+            co.surumene.whatawonderfulchicken.data.WonderfulChickenData first,
+            co.surumene.whatawonderfulchicken.data.WonderfulChickenData second) {}
     private final Map<UUID, Location> projectileDestinations = new HashMap<>();
 
     public ChickenTrapRuntime(WhatAWonderfulChickenPlugin plugin, ConfigService config,
@@ -73,6 +88,10 @@ public final class ChickenTrapRuntime implements Runnable {
         shuttingDown = true;
         founderWorker.shutdownNow();
         activating.clear();
+        prepared.clear();
+        preparing.clear();
+        preparationStarted.clear();
+        retryAfter.clear();
     }
 
     public void restoreLoaded() {
@@ -91,6 +110,10 @@ public final class ChickenTrapRuntime implements Runnable {
             return;
         }
         tracked.add(entity.getUniqueId());
+        if (entity instanceof Skeleton skeleton
+                && states.hasRole(skeleton, ChickenTrapStateStore.ARMED)) {
+            requestPreparation(skeleton);
+        }
     }
 
     public boolean isTrapMount(Chicken chicken) {
@@ -123,11 +146,13 @@ public final class ChickenTrapRuntime implements Runnable {
             if (entity == null) {
                 // Unloaded entities keep their PDC and are rediscovered when their chunk loads.
                 tracked.remove(id);
+                forgetPreparation(id);
                 continue;
             }
             String role = states.role(entity);
             if (role == null || !entity.isValid() || entity.isDead()) {
                 tracked.remove(id);
+                forgetPreparation(id);
                 continue;
             }
             if (entity.getWorld().getFullTime() >= states.expiry(entity)) {
@@ -219,6 +244,7 @@ public final class ChickenTrapRuntime implements Runnable {
         states.mark(skeleton, ChickenTrapStateStore.ARMED, expiry);
         states.graceUntil(skeleton, System.currentTimeMillis() + ChickenTrapPolicy.GRACE_MILLIS);
         tracked.add(skeleton.getUniqueId());
+        requestPreparation(skeleton);
     }
 
     private static void configureSkeleton(Skeleton skeleton) {
@@ -230,11 +256,146 @@ public final class ChickenTrapRuntime implements Runnable {
         if (reach != null && reach.getBaseValue() < 20.0) reach.setBaseValue(20.0);
     }
 
-    public void attackSkeleton(Skeleton skeleton) {
-        if (states.hasRole(skeleton, ChickenTrapStateStore.ARMED)) activate(skeleton);
+
+    /** Unprepared trap bait cannot be damaged. Entity attacks give totem feedback. */
+    public boolean protectDamage(Entity victim, boolean entityAttack) {
+        if (!(victim instanceof Skeleton skeleton)
+                || !states.hasRole(skeleton, ChickenTrapStateStore.ARMED)
+                || isPrepared(skeleton)) {
+            return false;
+        }
+        if (entityAttack) {
+            Location effect = skeleton.getLocation().add(0.0, 1.0, 0.0);
+            World world = skeleton.getWorld();
+            world.spawnParticle(Particle.TOTEM_OF_UNDYING, effect, 30,
+                    0.45, 0.65, 0.45, 0.2);
+            world.playSound(effect, Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
+        }
+        return true;
+    }
+
+    public boolean attackSkeleton(Skeleton skeleton) {
+        return skeleton != null && activate(skeleton);
+    }
+
+    private boolean isPrepared(Skeleton skeleton) {
+        UUID id = skeleton.getUniqueId();
+        PreparedFounders ready = prepared.get(id);
+        if (ready == null) return false;
+        // A profile reload invalidates old, computed genomes before any damage is accepted.
+        if (ready.engine() != plugin.genomeLib().engine()
+                || ready.profile() != plugin.genomeProfile()) {
+            prepared.remove(id);
+            requestPreparation(skeleton);
+            return false;
+        }
+        return true;
+    }
+
+    private void requestPreparation(Skeleton initial) {
+        UUID id = initial.getUniqueId();
+        if (shuttingDown || !plugin.isEnabled() || !initial.isValid() || initial.isDead()
+                || !states.hasRole(initial, ChickenTrapStateStore.ARMED)
+                || prepared.containsKey(id) || preparing.containsKey(id)
+                || System.currentTimeMillis() < retryAfter.getOrDefault(id, 0L)) return;
+
+        var engine = plugin.genomeLib().engine();
+        var profile = plugin.genomeProfile();
+        long seedA = ThreadLocalRandom.current().nextLong();
+        long seedB = ThreadLocalRandom.current().nextLong();
+        UUID generation = UUID.randomUUID();
+        preparing.put(id, generation);
+        preparationStarted.put(id, System.currentTimeMillis());
+        try {
+            founderWorker.execute(() -> {
+                co.surumene.whatawonderfulchicken.founder.FounderGenomeSynthesis first = null;
+                co.surumene.whatawonderfulchicken.founder.FounderGenomeSynthesis second = null;
+                RuntimeException failure = null;
+                try {
+                    var synthesizer =
+                            new co.surumene.whatawonderfulchicken.founder.WonderfulChickenFounderSynthesizer(engine, profile);
+                    first = synthesizer.synthesize(
+                            co.surumene.whatawonderfulchicken.founder.FounderOrigin.CHICKEN_TRAP, seedA);
+                    second = synthesizer.synthesize(
+                            co.surumene.whatawonderfulchicken.founder.FounderOrigin.CHICKEN_TRAP, seedB);
+                } catch (RuntimeException error) {
+                    failure = error;
+                }
+                var firstResult = first;
+                var secondResult = second;
+                var error = failure;
+                if (shuttingDown) return;
+                try {
+                    Bukkit.getScheduler().runTask(plugin,
+                            () -> finishPreparation(initial, generation, engine, profile,
+                                    firstResult, secondResult, error));
+                } catch (IllegalStateException ignored) {
+                    // Plugin is being disabled.
+                }
+            });
+        } catch (java.util.concurrent.RejectedExecutionException rejected) {
+            preparing.remove(id, generation);
+            preparationStarted.remove(id);
+            retryAfter.put(id, System.currentTimeMillis() + PREPARATION_RETRY_MILLIS);
+            plugin.getLogger().warning("Chicken Trap founder preparation queue full: " + id);
+        }
+    }
+
+    private void finishPreparation(
+            Skeleton initial, UUID generation,
+            co.surumene.wgl.api.GenomeEngine engine,
+            co.surumene.whatawonderfulchicken.genome.WonderfulChickenGenomeProfile profile,
+            co.surumene.whatawonderfulchicken.founder.FounderGenomeSynthesis first,
+            co.surumene.whatawonderfulchicken.founder.FounderGenomeSynthesis second,
+            RuntimeException failure) {
+        UUID id = initial.getUniqueId();
+        if (!generation.equals(preparing.get(id))) return; // stale or timed-out job
+        preparing.remove(id);
+        preparationStarted.remove(id);
+        if (shuttingDown || !plugin.isEnabled() || !initial.isValid() || initial.isDead()
+                || Bukkit.getEntity(id) != initial
+                || !states.hasRole(initial, ChickenTrapStateStore.ARMED)
+                || initial.getWorld().getFullTime() >= states.expiry(initial)) {
+            forgetPreparation(id);
+            return;
+        }
+        if (engine != plugin.genomeLib().engine() || profile != plugin.genomeProfile()) {
+            retryAfter.put(id, 0L); // new configuration requires fresh synthesis
+            return;
+        }
+        try {
+            if (failure != null) throw failure;
+            var firstData = founders.fromSynthesis(first);
+            var secondData = founders.fromSynthesis(second);
+            prepared.put(id, new PreparedFounders(engine, profile, firstData, secondData));
+            retryAfter.remove(id);
+        } catch (RuntimeException error) {
+            plugin.getLogger().warning("Chicken Trap founder preparation failed for " + id + ": " + error);
+            retryAfter.put(id, System.currentTimeMillis() + PREPARATION_RETRY_MILLIS);
+        }
+    }
+
+    private void forgetPreparation(UUID id) {
+        preparing.remove(id);
+        preparationStarted.remove(id);
+        retryAfter.remove(id);
+        prepared.remove(id);
+        activating.remove(id);
     }
 
     private void tickArmed(Skeleton skeleton) {
+        UUID id = skeleton.getUniqueId();
+        if (!isPrepared(skeleton)) {
+            Long started = preparationStarted.get(id);
+            if (started != null && System.currentTimeMillis() - started > PREPARATION_TIMEOUT_MILLIS) {
+                plugin.getLogger().warning("Chicken Trap founder preparation timed out for " + id);
+                preparing.remove(id);
+                preparationStarted.remove(id);
+                retryAfter.put(id, System.currentTimeMillis() + PREPARATION_RETRY_MILLIS);
+            }
+            requestPreparation(skeleton);
+            return; // no proximity activation until both genomes exist
+        }
         if (System.currentTimeMillis() < states.graceUntil(skeleton)) return;
         double radiusSquared = config.chickenTrapActivationRadius() * config.chickenTrapActivationRadius();
         Location location = skeleton.getLocation();
@@ -247,119 +408,82 @@ public final class ChickenTrapRuntime implements Runnable {
         }
     }
 
-    private void activate(Skeleton initial) {
-        if (!states.hasRole(initial, ChickenTrapStateStore.ARMED)) return;
-        if (!activating.add(initial.getUniqueId())) return;
-        var engine = plugin.genomeLib().engine();
-        var profile = plugin.genomeProfile();
-        long seedA = ThreadLocalRandom.current().nextLong();
-        long seedB = ThreadLocalRandom.current().nextLong();
+    /** The prepared pair is applied synchronously; a triggering hit is consumed. */
+    private boolean activate(Skeleton initial) {
+        if (!initial.isValid() || initial.isDead()
+                || !states.hasRole(initial, ChickenTrapStateStore.ARMED)
+                || !isPrepared(initial)) return false;
+        UUID id = initial.getUniqueId();
+        if (!activating.add(id)) return false;
         try {
-            founderWorker.execute(() -> {
-                co.surumene.whatawonderfulchicken.founder.FounderGenomeSynthesis first = null;
-                co.surumene.whatawonderfulchicken.founder.FounderGenomeSynthesis second = null;
-                RuntimeException failure = null;
-                try {
-                    var synthesizer = new co.surumene.whatawonderfulchicken.founder.WonderfulChickenFounderSynthesizer(engine, profile);
-                    first = synthesizer.synthesize(co.surumene.whatawonderfulchicken.founder.FounderOrigin.CHICKEN_TRAP, seedA);
-                    second = synthesizer.synthesize(co.surumene.whatawonderfulchicken.founder.FounderOrigin.CHICKEN_TRAP, seedB);
-                } catch (RuntimeException error) {
-                    failure = error;
-                }
-                var readyA = first;
-                var readyB = second;
-                var failed = failure;
-                if (shuttingDown) return;
-                try {
-                    Bukkit.getScheduler().runTask(plugin,
-                            () -> finishActivation(initial, engine, profile, readyA, readyB, failed));
-                } catch (IllegalStateException ignored) {
-                    // Server is disabling this plugin.
-                }
-            });
-        } catch (java.util.concurrent.RejectedExecutionException rejected) {
-            activating.remove(initial.getUniqueId());
-            states.graceUntil(initial, System.currentTimeMillis() + 3_000L);
+            finishActivation(initial, prepared.get(id));
+        } finally {
+            activating.remove(id);
         }
+        return true;
     }
 
-    private void finishActivation(
-            Skeleton initial, co.surumene.wgl.api.GenomeEngine engine,
-            co.surumene.whatawonderfulchicken.genome.WonderfulChickenGenomeProfile profile,
-            co.surumene.whatawonderfulchicken.founder.FounderGenomeSynthesis readyA,
-            co.surumene.whatawonderfulchicken.founder.FounderGenomeSynthesis readyB,
-            RuntimeException failure) {
+    private void finishActivation(Skeleton initial, PreparedFounders ready) {
+        if (ready == null || shuttingDown || !plugin.isEnabled()
+                || !initial.isValid() || initial.isDead()
+                || !states.hasRole(initial, ChickenTrapStateStore.ARMED)
+                || ready.engine() != plugin.genomeLib().engine()
+                || ready.profile() != plugin.genomeProfile()) return;
+
+        Location location = initial.getLocation();
+        World world = initial.getWorld();
+        long expiry = states.expiry(initial);
+        if (world.getFullTime() >= expiry) return;
+
+        Chicken first = null;
+        Chicken second = null;
+        Skeleton secondRider = null;
         try {
-            if (shuttingDown || !plugin.isEnabled() || !initial.isValid() || initial.isDead()
-                    || !states.hasRole(initial, ChickenTrapStateStore.ARMED)
-                    || plugin.genomeLib().engine() != engine
-                    || plugin.genomeProfile() != profile) return;
-            if (failure != null) {
-                plugin.getLogger().warning("Chicken Trap founder synthesis failed: " + failure);
-                states.graceUntil(initial, System.currentTimeMillis() + 3_000L);
-                return;
-            }
-
-            co.surumene.whatawonderfulchicken.data.WonderfulChickenData firstData, secondData;
-            try {
-                firstData = founders.fromSynthesis(readyA);
-                secondData = founders.fromSynthesis(readyB);
-            } catch (RuntimeException error) {
-                plugin.getLogger().warning("Chicken Trap founder validation failed: " + error);
-                states.graceUntil(initial, System.currentTimeMillis() + 3_000L);
-                return;
-            }
-
-            Location location = initial.getLocation();
-            World world = initial.getWorld();
-            long expiry = states.expiry(initial);
+            // Preserve the original wind burst before spawning the vulnerable mounts.
             windExplosion(location);
-            initial.setAI(true);
-            Chicken first = null;
-            Chicken second = null;
-            Skeleton secondRider = null;
-            try {
-                first = world.spawn(location.clone().add(-1,0,0), Chicken.class,
-                        CreatureSpawnEvent.SpawnReason.CUSTOM);
-                second = world.spawn(location.clone().add(1,0,0), Chicken.class,
-                        CreatureSpawnEvent.SpawnReason.CUSTOM);
-                first.setAdult();
-                second.setAdult();
-                chickens.initialize(first, firstData);
-                chickens.initialize(second, secondData);
-                displays.rebuild(first);
-                displays.rebuild(second);
-                secondRider = world.spawn(location.clone().add(1,0,0), Skeleton.class,
-                        CreatureSpawnEvent.SpawnReason.CUSTOM);
-                configureSkeleton(secondRider);
-                if (!first.addPassenger(initial) || !second.addPassenger(secondRider))
-                    throw new IllegalStateException("Could not mount trap skeletons");
+            first = world.spawn(location.clone().add(-1, 0, 0), Chicken.class,
+                    CreatureSpawnEvent.SpawnReason.CUSTOM);
+            second = world.spawn(location.clone().add(1, 0, 0), Chicken.class,
+                    CreatureSpawnEvent.SpawnReason.CUSTOM);
+            first.setAdult();
+            second.setAdult();
+            chickens.initialize(first, ready.first());
+            chickens.initialize(second, ready.second());
+            displays.rebuild(first);
+            displays.rebuild(second);
+            secondRider = world.spawn(location.clone().add(1, 0, 0), Skeleton.class,
+                    CreatureSpawnEvent.SpawnReason.CUSTOM);
+            configureSkeleton(secondRider);
+            if (!first.addPassenger(initial) || !second.addPassenger(secondRider))
+                throw new IllegalStateException("Could not mount trap skeletons");
 
-                states.mark(initial, ChickenTrapStateStore.RIDER, expiry);
-                states.mark(secondRider, ChickenTrapStateStore.RIDER, expiry);
-                states.mark(first, ChickenTrapStateStore.MOUNT, expiry);
-                states.mark(second, ChickenTrapStateStore.MOUNT, expiry);
-                states.pair(initial, first.getUniqueId());
-                states.pair(secondRider, second.getUniqueId());
-                states.pair(first, initial.getUniqueId());
-                states.pair(second, secondRider.getUniqueId());
-                tracked.addAll(List.of(initial.getUniqueId(),secondRider.getUniqueId(),
-                        first.getUniqueId(),second.getUniqueId()));
-            } catch (RuntimeException error) {
-                if (secondRider != null) secondRider.remove();
-                if (first != null) first.remove();
-                if (second != null) second.remove();
-                if (initial.isValid()) {
-                    states.clear(initial);
-                    states.mark(initial, ChickenTrapStateStore.ARMED, expiry);
-                    states.graceUntil(initial, System.currentTimeMillis() + ChickenTrapPolicy.GRACE_MILLIS);
-                    initial.setAI(false);
-                    tracked.add(initial.getUniqueId());
-                }
-                plugin.getLogger().warning("Chicken Trap activation failed: " + error);
+            states.mark(initial, ChickenTrapStateStore.RIDER, expiry);
+            states.mark(secondRider, ChickenTrapStateStore.RIDER, expiry);
+            states.mark(first, ChickenTrapStateStore.MOUNT, expiry);
+            states.mark(second, ChickenTrapStateStore.MOUNT, expiry);
+            states.pair(initial, first.getUniqueId());
+            states.pair(secondRider, second.getUniqueId());
+            states.pair(first, initial.getUniqueId());
+            states.pair(second, secondRider.getUniqueId());
+            tracked.addAll(List.of(initial.getUniqueId(), secondRider.getUniqueId(),
+                    first.getUniqueId(), second.getUniqueId()));
+            initial.setAI(true);
+            prepared.remove(initial.getUniqueId());
+        } catch (RuntimeException error) {
+            if (secondRider != null) secondRider.remove();
+            if (first != null) first.remove();
+            if (second != null) second.remove();
+            if (initial.isValid()) {
+                states.clear(initial);
+                states.mark(initial, ChickenTrapStateStore.ARMED, expiry);
+                states.graceUntil(initial, System.currentTimeMillis() + ChickenTrapPolicy.GRACE_MILLIS);
+                initial.setAI(false);
+                tracked.add(initial.getUniqueId());
+            } else {
+                forgetPreparation(initial.getUniqueId());
             }
-        } finally {
-            activating.remove(initial.getUniqueId());
+            plugin.getLogger().warning("Chicken Trap activation failed: " + error);
+            return;
         }
     }
 
@@ -417,6 +541,7 @@ public final class ChickenTrapRuntime implements Runnable {
         // so it is still removed at dawn.
         states.clear(entity);
         tracked.remove(entity.getUniqueId());
+        forgetPreparation(entity.getUniqueId());
     }
 
     private void expireWorld(World world) {
@@ -448,6 +573,7 @@ public final class ChickenTrapRuntime implements Runnable {
 
         states.clear(entity);
         tracked.remove(entity.getUniqueId());
+        forgetPreparation(entity.getUniqueId());
         projectileDestinations.remove(entity.getUniqueId());
         entity.remove();
         if (burst && ChickenTrapPolicy.burstOnExpiry(role)) windExplosion(location);
