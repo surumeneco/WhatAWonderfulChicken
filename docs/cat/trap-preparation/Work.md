@@ -53,15 +53,15 @@ decision_ref: user-chat:2026-11-13T21:18:12Z
 ## Gates
 | Gate | Status | Evidence |
 | --- | --- | --- |
-| process-closure | not-run | — |
-| model-conformance | not-run | — |
-| implementation-conformance | not-run | — |
+| process-closure | passed | CAT 896cae8; deterministic finite closed-world proof |
+| model-conformance | passed | CAT 896cae8; TestModel SHA 4053dec84943027f2bd25cc00acc285a27d750f816cb75da80e3097c4cd58979 |
+| implementation-conformance | inconclusive | CAT lacks Java inspector and verified generated JUnit Green receipts |
 | semantic-review | not-run | — |
 | test-oracle-review | not-run | — |
 | red-review | not-run | — |
 | pr-review | not-run | — |
-| ci | not-run | — |
-| merge | not-run | — |
+| ci | passed | GitHub Actions run 43568281389 |
+| merge | passed | develop PR #102; merge SHA 271785da979509b614b54f3e46c0fadc5d4a8fbe |
 | deployment | not-run | — |
 | real-use | not-run | — |
 
