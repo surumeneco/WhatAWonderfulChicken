@@ -2,7 +2,7 @@
 kind: pi
 id: wwc.trap.pi.event
 cat_version: '0.3'
-status: draft
+status: confirmed
 process: wwc.trap
 source_refs:
   - https://drive.google.com/file/d/1A075R-gDEQW2-SO6DKEbrzNatPpuxVj8/view
@@ -10,6 +10,7 @@ source_refs:
 refs: []
 semantic_contract: markdown-v2
 language: ja
+decision_ref: user-chat:2026-11-13T21:18:12Z
 ---
 
 # PI: wwc.trap.pi.event
