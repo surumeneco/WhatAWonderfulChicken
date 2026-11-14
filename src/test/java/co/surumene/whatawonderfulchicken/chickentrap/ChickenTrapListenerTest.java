@@ -42,19 +42,40 @@ class ChickenTrapListenerTest {
     }
 
     @Test
-    void preparationCancelsDamageAndFeedbackIsSpecificToEntityAttack() {
+    void preparationCancelsDamageBeforeRenderingFeedback() {
         EntityDamageEvent environment = mock(EntityDamageEvent.class);
         when(environment.getEntity()).thenReturn(waiting);
-        when(runtime.protectDamage(waiting, false)).thenReturn(true);
+        when(runtime.protectDamage(waiting)).thenReturn(true);
         listener.onProtect(environment);
-        verify(environment).setCancelled(true);
-        verify(runtime).protectDamage(waiting, false);
+        org.mockito.InOrder environmentOrder = inOrder(runtime, environment);
+        environmentOrder.verify(runtime).protectDamage(waiting);
+        environmentOrder.verify(environment).setCancelled(true);
+        verify(runtime, never()).playProtectedHitEffect(waiting);
 
+        clearInvocations(runtime);
         EntityDamageByEntityEvent attack = mock(EntityDamageByEntityEvent.class);
         when(attack.getEntity()).thenReturn(waiting);
-        when(runtime.protectDamage(waiting, true)).thenReturn(true);
         listener.onProtect(attack);
-        verify(attack).setCancelled(true);
-        verify(runtime).protectDamage(waiting, true);
+        org.mockito.InOrder attackOrder = inOrder(runtime, attack);
+        attackOrder.verify(runtime).protectDamage(waiting);
+        attackOrder.verify(attack).setCancelled(true);
+        attackOrder.verify(runtime).playProtectedHitEffect(waiting);
     }
+
+    @Test
+    void feedbackFailureDoesNotUndoCancellation() {
+        EntityDamageByEntityEvent attack = mock(EntityDamageByEntityEvent.class);
+        when(attack.getEntity()).thenReturn(waiting);
+        when(runtime.protectDamage(waiting)).thenReturn(true);
+        doThrow(new IllegalStateException("particle backend unavailable"))
+                .when(runtime).playProtectedHitEffect(waiting);
+
+        try {
+            listener.onProtect(attack);
+        } catch (IllegalStateException expected) {
+            // The event must have been cancelled even if feedback fails.
+        }
+        verify(attack).setCancelled(true);
+    }
+
 }
