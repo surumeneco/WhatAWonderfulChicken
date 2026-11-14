@@ -36,7 +36,7 @@ class ChickenTrapRuntimeProtectionTest {
                 when(bait.getWorld()).thenReturn(world);
                 when(bait.getLocation()).thenReturn(new Location(world, 2, 65, 3));
 
-                assertTrue(runtime.protectDamage(bait, false));
+                assertTrue(runtime.protectDamage(bait));
                 verifyNoInteractions(world);
                 assertFalse(runtime.attackSkeleton(bait));
             } finally {
