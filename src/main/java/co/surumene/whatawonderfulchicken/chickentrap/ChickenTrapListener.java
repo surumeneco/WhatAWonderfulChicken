@@ -28,9 +28,12 @@ public final class ChickenTrapListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onProtect(EntityDamageEvent event) {
-        if (runtime.protectDamage(event.getEntity(),
-                event instanceof EntityDamageByEntityEvent)) {
+        if (runtime.protectDamage(event.getEntity())) {
+            // The protection invariant must survive a failed particle/sound call.
             event.setCancelled(true);
+            if (event instanceof EntityDamageByEntityEvent) {
+                runtime.playProtectedHitEffect(event.getEntity());
+            }
         }
     }
 
