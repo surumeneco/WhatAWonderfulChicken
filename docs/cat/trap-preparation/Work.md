@@ -55,7 +55,7 @@ decision_ref: user-chat:2026-11-13T21:18:12Z
 | --- | --- | --- |
 | process-closure | passed | CAT 896cae8; deterministic finite closed-world proof |
 | model-conformance | passed | CAT 896cae8; TestModel SHA 4053dec84943027f2bd25cc00acc285a27d750f816cb75da80e3097c4cd58979 |
-| implementation-conformance | inconclusive | CAT lacks Java inspector and verified generated JUnit Green receipts |
+| implementation-conformance | inconclusive | Exploratory result only; stage_in_flow=false for issue-work / verification. Java Inspector/Generated Green not covered; no Gate pass claimed |
 | semantic-review | not-run | — |
 | test-oracle-review | not-run | — |
 | red-review | not-run | — |
