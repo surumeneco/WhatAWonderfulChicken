@@ -43,7 +43,7 @@ spec_status: draft
 ## Repositories
 | Name | Path | Base ref | Branch pattern | Allowed paths | Production paths | Test paths |
 | --- | --- | --- | --- | --- | --- | --- |
-| surumeneco/WhatAWonderfulChicken | /mnt/data/cat-work-20261114/WhatAWonderfulChicken | develop | feature/* | src/main/java/**;src/test/java/**;docs/cat/** | src/main/java/** | src/test/java/** |
+| surumeneco/WhatAWonderfulChicken | ../../.. | develop | feature/* | src/main/java/**;src/test/java/**;docs/cat/** | src/main/java/** | src/test/java/** |
 
 ## Checks
 | ID | Stage | Runner | CWD | Command | Test IDs | Inputs | Outputs | Timeout |
