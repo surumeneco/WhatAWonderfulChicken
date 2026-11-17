@@ -1,5 +1,12 @@
 # What a Wonderful Chicken
 
+## 2.1.1 パッチ（develop・実機検証待ち）
+
+- チキントラップで待機Skeletonの出現時に2羽分のFounder Genomeを非同期で準備し、両方の準備完了まで接近・攻撃による起動を抑制します。
+- 準備中は全ダメージを取り消し、エンティティからの攻撃にはトーテム相当のパーティクルとサウンドを表示します。演出失敗時もダメージ取消を先に適用します。
+- 準備完了後はプレイヤー本人またはプレイヤーが発射した飛翔体による攻撃で起動し、他Mobの攻撃では起動しません。起動失敗時は部分生成物を回収して再試行可能な待機状態へ復帰します。
+- WGL 1.0.1 / WCL 0.1.0 の必須依存は変更しません。Paper JE/BEの実機確認と正式リリースは別工程です。
+
 ## 2.1.0 リリース
 
 - Paper 26.2 / Java 25 向けの次期リリース。`WonderfulGenomeLib 1.0.1` と新たに `WonderfulCoreLibrary 0.1.0` を**別々の必須プラグイン**として導入します。
@@ -51,7 +58,7 @@ gradle build
 生成物:
 
 ```text
-build/libs/WhatAWonderfulChicken-2.1.0.jar
+build/libs/WhatAWonderfulChicken-2.1.1.jar
 ```
 
 生成されたjarをPaperサーバーの `plugins/` に配置して起動してください。初回起動時に `plugins/WhatAWonderfulChicken/` 以下へconfigと言語ファイルを自動生成します。
@@ -127,4 +134,4 @@ Carpet / Shulker Boxの外観は、Geyser互換性を優先して不可視ArmorS
 
 設定・ワールドのバックアップを取った上で、旧JARを撤去し、WGLとWWCの対応JARを配置して再起動してください。YAMLの追記保存に伴い、空白や引用符等の書式が変わる場合があります。
 
-2.1.0のインストール時は、対応するWonderful Genome Lib 1.0.1とWonderfulCoreLibrary 0.1.0を先に配置してください。Paper・Geyser/BE固有の挙動は導入環境で確認してください。
+2.1.1のインストール時は、対応するWonderful Genome Lib 1.0.1とWonderfulCoreLibrary 0.1.0を先に配置してください。Paper・Geyser/BE固有の挙動は導入環境で確認してください。
